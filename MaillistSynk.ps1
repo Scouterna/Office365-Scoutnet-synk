@@ -22,15 +22,38 @@ $emailSubject = "Maillist sync log"
 # Domännam för scoutkårens office 365.
 $DomainName = "landvetterscout.se"
 
-# Hashtable med Office 365 distributions gruppen som nyckel och ID numret på Scoutnets maillista som värde.
+# Hashtable med id på Office 365 distributionsgruppen som nyckel. 
 # Distributions grupper som är med här kommer att synkroniseras.
-#$lists = @{"krypen" = "4900"; "ravarna" = "4904"; "rovdjuren" = "4923"; "upptackare" = "4922"; "utmanarna" = "4924"}
 $mailListSettings = @{
     "utmanarna" = @{ # Namet på distributions gruppen i office 365. Används som grupp ID till Get-DistributionGroupMember.
         "scoutnet_list_id"= "4924"; # Listans Id i Scoutnet.
         "scouter_synk_option" = ""; # Synkoption för scouter. Giltiga värden är m,f,e eller tomt. 
         "ledare_synk_option" = "@"; # Synkoption för ledare. Giltiga väerden är @,- eller &.
-        "email_addresses" = "karl.thoren@landvetterscout.se","anna-marta.lindgren@landvetterscout.se"; # Kommaseparerad lista med extra mailadresser.
+        "email_addresses" = "","";  # Lista med e-postadresser. 
+    };
+    "rovdjuren" = @{
+        "scoutnet_list_id"= "4923";
+        "scouter_synk_option" = ""; # Alla adresser
+        "ledare_synk_option" = "@"; # Bara office 365 adresser
+        "email_addresses" = "";
+    };
+    "upptackare" = @{
+        "scoutnet_list_id"= "4922";
+        "scouter_synk_option" = ""; # Alla adresser
+        "ledare_synk_option" = "@"; # Bara office 365 adresser
+        "email_addresses" = "karl.thoren@landvetterscout.se";
+    };
+    "krypen" = @{
+        "scoutnet_list_id"= "4900";
+        "scouter_synk_option" = ""; # Alla adresser
+        "ledare_synk_option" = "@"; # Bara office 365 adresser
+        "email_addresses" = "karl.thoren@landvetterscout.se";
+    };
+    "ravarna" = @{
+        "scoutnet_list_id"= "4904";
+        "scouter_synk_option" = ""; # Alla adresser
+        "ledare_synk_option" = "@"; # Bara office 365 adresser
+        "email_addresses" = "karl.thoren@landvetterscout.se";
     }
 }
 

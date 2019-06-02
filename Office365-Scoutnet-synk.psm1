@@ -304,7 +304,7 @@ function Get-SNSMaillistInfo
     # For each list fetch the user id of the members.
     foreach ($key in $CustomListInfo.Keys)
     {
-        if ($MaillistsIds.ContainsValue($key))
+        if ($MaillistsIds.ContainsValue($key) | Sort-Object -Unique)
         {
             $ledare = @()
             $scouter = @()
@@ -590,9 +590,11 @@ function SNSUpdateExchangeDistributionGroups
         $otherMailListsMembers, $mailListsToProcessMembers = Get-SNSExchangeMailListMembers -Credential365 $Credential365 -ExchangeSession $ExchangeSession -Maillists $MailListSettings.Keys
 
         # Clean the distribution groups first, so any removed addresses in Scoutnet is removed in o365.
+        Write-SNSLog " "
+        Write-SNSLog "Removing contacts in distribution groups"
         foreach ($distGroupName in $MailListSettings.keys)
         {
-            Write-SNSLog "Remove Contacts in distribution group $($distGroupName)"
+            Write-SNSLog "Remove contacts in distribution group $($distGroupName)"
             $distGroupMembers= Get-DistributionGroupMember -Identity $distGroupName
             foreach ($medlem in $distGroupMembers)
             {
@@ -618,10 +620,12 @@ function SNSUpdateExchangeDistributionGroups
                 }
             }
         }
+        Write-SNSLog "Removed contacts in distribution groups"
 
         foreach ($distGroupName in $MailListSettings.keys)
         {
             $distGroupId = $MailListSettings[$distGroupName].scoutnet_list_id
+            Write-SNSLog " "
             Write-SNSLog "Adding Contacts in distribution group $($distGroupName)"
 
             # Fetch the mail addresses to add for scouter.
@@ -675,7 +679,7 @@ function SNSUpdateExchangeDistributionGroups
 
             $ledare_synk_option = $MailListSettings[$distGroupName].ledare_synk_option
 
-            Write-SNSLog "Ledare synk option is $ledare_synk_option for distribution group $distGroupName"
+            Write-SNSLog "Ledare synk option is '$ledare_synk_option' for distribution group $distGroupName"
             # Get the settings for ledare in this list.
             $AddLedareOffice365Address = $True
             $AddLedareScoutnetAddress = $False
@@ -705,7 +709,6 @@ function SNSUpdateExchangeDistributionGroups
 
                 if ($AddLedareOffice365Address)
                 {
-                    Write-SNSLog "Adding office 365 addresses for ledare in distribution group $distGroupName"
                     $memberSearchStr = "*$member"
                     $recipient = Get-Recipient | Where-Object {$_.CustomAttribute1 -like $memberSearchStr}
 
@@ -743,7 +746,6 @@ function SNSUpdateExchangeDistributionGroups
 
                 if ($AddLedareScoutnetAddress)
                 {
-                    Write-SNSLog "Adding scoutnet addresses for ledare in distribution group $distGroupName"
                     $MemberData = $AllMailAddresses[$member]
 
                     $ExistingMailContact = get-recipient $MemberData.primary_email -ErrorAction "SilentlyContinue"
@@ -776,17 +778,21 @@ function SNSUpdateExchangeDistributionGroups
             }
 
             # Add all mailaddresses listed in email_addresses for the maillist.
-            $email_addresses = $MailListSettings[$distGroupName].email_addresses
-            foreach ($email in $email_addresses)
+            foreach ($email in $MailListSettings[$distGroupName].email_addresses)
             {
+                if ([string]::IsNullOrWhiteSpace($email))
+                {
+                    continue
+                }
+
                 $ExistingMailContact = get-recipient $email -ErrorAction "SilentlyContinue"
                 if ($null -eq $ExistingMailContact)
                 {
-                    Write-SNSLog "Creating Contact $($email)"
                     try
                     {
                         New-MailContact -Name $email -ExternalEmailAddress $email -ErrorAction "stop" > $null
                         Set-MailContact -Identity $email -HiddenFromAddressListsEnabled $true
+                        Write-SNSLog "Creating Contact $($email)"
                     }
                     Catch
                     {
@@ -797,6 +803,7 @@ function SNSUpdateExchangeDistributionGroups
                 try
                 {
                     Add-DistributionGroupMember -Identity $distGroupName -Member $email  -ErrorAction "stop"
+                    Write-SNSLog "Adding contact $email to distribution group $distGroupName"
                 }
                 catch
                 {
