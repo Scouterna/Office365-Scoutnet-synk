@@ -1,4 +1,4 @@
-# Office365-Scoutnet-synk
+﻿# Office365-Scoutnet-synk
 Synkronisering av Scoutnets e-postlistor till Office 365.
 
 Du kan med de här funktionerna synkronisera användarkonton med personer i Scoutnet som

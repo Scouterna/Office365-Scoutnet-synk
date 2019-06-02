@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 #Requires -Modules Office365-Scoutnet-synk
 
 # Lämplig inställning i Axure automation.
@@ -22,9 +22,6 @@ $emailSubject = "Maillist sync log"
 # Domännam för scoutkårens office 365.
 $DomainName = "landvetterscout.se"
 
-# Kommaseparerad lista med e-postadresser som läggs in i alla distributions grupper.
-$AdminMails = "karl.thoren@landvetterscout.se"
-
 # Hashtable med Office 365 distributions gruppen som nyckel och ID numret på Scoutnets maillista som värde.
 # Distributions grupper som är med här kommer att synkroniseras.
 #$lists = @{"krypen" = "4900"; "ravarna" = "4904"; "rovdjuren" = "4923"; "upptackare" = "4922"; "utmanarna" = "4924"}
@@ -36,6 +33,7 @@ $mailListSettings = @{
         "email_addresses" = "karl.thoren@landvetterscout.se","anna-marta.lindgren@landvetterscout.se"; # Kommaseparerad lista med extra mailadresser.
     }
 }
+
 # Här börjar själva skriptet.
 
 $moduleInfo = Get-Module Office365-Scoutnet-synk
