@@ -27,8 +27,15 @@ $AdminMails = "karl.thoren@landvetterscout.se"
 
 # Hashtable med Office 365 distributions gruppen som nyckel och ID numret på Scoutnets maillista som värde.
 # Distributions grupper som är med här kommer att synkroniseras.
-$lists = @{"krypen" = "4900"; "ravarna" = "4904"; "rovdjuren" = "4923"; "upptackare" = "4922"; "utmanarna" = "4924"}
-
+#$lists = @{"krypen" = "4900"; "ravarna" = "4904"; "rovdjuren" = "4923"; "upptackare" = "4922"; "utmanarna" = "4924"}
+$mailListSettings = @{
+    "utmanarna" = @{ # Namet på distributions gruppen i office 365. Används som grupp ID till Get-DistributionGroupMember.
+        "scoutnet_list_id"= "4924"; # Listans Id i Scoutnet.
+        "scouter_synk_option" = ""; # Synkoption för scouter. Giltiga värden är m,f,e eller tomt. 
+        "ledare_synk_option" = "@"; # Synkoption för ledare. Giltiga väerden är @,- eller &.
+        "email_addresses" = "karl.thoren@landvetterscout.se","anna-marta.lindgren@landvetterscout.se"; # Kommaseparerad lista med extra mailadresser.
+    }
+}
 # Här börjar själva skriptet.
 
 $moduleInfo = Get-Module Office365-Scoutnet-synk
@@ -66,8 +73,8 @@ Catch
 
 # Kör updateringsfunktionen.
 $NewValidationHash = SNSUpdateExchangeDistributionGroups -CredentialCustomlists $CredentialCustomLists `
-    -CredentialMemberlist $CredentialMembers -Credential365 $Credential365 -Maillists $lists `
-    -ValidationHash $ValidationHash -AdminMails $AdminMails -DomainName $DomainName
+    -CredentialMemberlist $CredentialMembers -Credential365 $Credential365 -MailListSettings $mailListSettings `
+    -ValidationHash $ValidationHash -DomainName $DomainName
 
 try
 {
