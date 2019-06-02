@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 #Requires -Modules Office365-Scoutnet-synk
 
-# Lämplig inställning i Axure aoutomation.
+# Lämplig inställning i Axure automation.
 $ProgressPreference = "silentlyContinue"
 
 # Server att skicka mail via.
