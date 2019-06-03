@@ -109,5 +109,5 @@ Catch
 }
 
 # Skapa ett mail med loggen och skicka till admin.
-$bodyData = Get-Content -Path 'PowerShellLog.log' -Raw -Encoding UTF8 -ErrorAction "Continue"
+$bodyData = Get-Content -Path 'scoutnetSync.log' -Raw -Encoding UTF8 -ErrorAction "Continue"
 Send-MailMessage -Credential $Credential365 -From $emailFromAddress -To $emailToAddress -Subject $emailSubject -Body $bodyData -SmtpServer $emailSMTPServer -UseSSL -Encoding UTF8 -ErrorAction "Continue"
