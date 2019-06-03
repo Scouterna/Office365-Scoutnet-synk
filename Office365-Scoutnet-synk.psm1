@@ -629,6 +629,9 @@ function SNSUpdateExchangeDistributionGroups
             $distGroupId = $MailListSettings[$distGroupName].scoutnet_list_id
             Write-SNSLog " "
             Write-SNSLog "Adding Contacts in distribution group $($distGroupName)"
+            $scouter_synk_option = $MailListSettings[$distGroupName].scouter_synk_option
+
+            Write-SNSLog "Scouter synk option is '$scouter_synk_option' for distribution group $distGroupName"
 
             # Fetch the mail addresses to add for scouter.
             $listData = $CustomLists[$distGroupId].scouter
@@ -646,7 +649,38 @@ function SNSUpdateExchangeDistributionGroups
                 }
 
                 $MemberData = $AllMailAddresses[$member]
-                $MemberData.mailaddresses | ForEach-Object {
+
+                # Get valid addresses to add based on list setting.
+                if ([string]::IsNullOrWhiteSpace($scouter_synk_option))
+                {
+                    $mailaddresses = $MemberData.mailaddresses
+                }
+                else
+                {
+                    $mailaddresses = [System.Collections.ArrayList]::new()
+                    if ($scouter_synk_option.contains("p"))
+                    {
+                        [void]$mailaddresses.Add($MemberData.primary_email)
+                    }
+                    if ($scouter_synk_option.contains("a"))
+                    {
+                        [void]$mailaddresses.Add($MemberData.alt_email)
+                    }
+                    if ($scouter_synk_option.contains("f"))
+                    {
+                        $MemberData.contacts_addresses | ForEach-Object {[void]$mailaddresses.Add($_)}
+                    }
+                    $mailaddresses = $mailaddresses | Sort-Object -Unique
+                }
+
+
+                if ($mailaddresses.Length -eq 0)
+                {
+                    Write-SNSLog -Level "Warn" "No email addresses found for $($MemberData.first_name) $($MemberData.last_name)."
+                    continue
+                }
+
+                $mailaddresses | ForEach-Object {
                     $displayName = "$($MemberData.first_name) $($MemberData.last_name)"
 
                     $epost = $_
