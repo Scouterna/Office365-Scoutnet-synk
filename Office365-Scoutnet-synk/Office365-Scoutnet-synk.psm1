@@ -2,6 +2,11 @@
 
 [Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
 
+# Default log file name.
+$Script:SNSLogFilePath='scoutnetSync.log'
+
+Export-ModuleMember -Variable SNSLogFilePath
+
 function Write-SNSLog
 {
 <#
@@ -12,7 +17,7 @@ function Write-SNSLog
    The Write-SNSLog function is designed to add logging capability to other scripts.
    In addition to writing output and/or verbose you can write to a log file for
    later debugging.
-   The global variable $Global:LogPath can be used to oweride the default logfile scoutnetSync.log.
+   The exported variable $SNSLogFilePath can be used to oweride the default logfile scoutnetSync.log.
 
 .PARAMETER Message
    Message is the content that you wish to add to the log file.
@@ -36,17 +41,18 @@ function Write-SNSLog
 
     Process
     {
-        $Path='scoutnetSync.log'
-        if (-not [String]::IsNullOrWhiteSpace($Global:LogPath))
+        if (-not [String]::IsNullOrWhiteSpace($script:SNSLogFilePath))
         {
-            $Path=$Global:LogPath
+            # If attempting to write to a log file in a folder/path that doesn't exist create the file including the path.
+            if (!(Test-Path $script:SNSLogFilePath))
+            {
+                Write-Verbose "Creating $script:SNSLogFilePath."
+                New-Item $script:SNSLogFilePath -Force -ItemType File > $null
+            }
         }
-
-        # If attempting to write to a log file in a folder/path that doesn't exist create the file including the path.
-        if (!(Test-Path $Path))
+        else
         {
-            Write-Verbose "Creating $Path."
-            New-Item $Path -Force -ItemType File > $null
+            Write-Warning "Log file path is empty. No log file will be created."
         }
 
         # Format Date for our Log File
@@ -68,8 +74,11 @@ function Write-SNSLog
                 }
             }
 
-        # Write log entry to $Path
-        "$FormattedDate $LevelText $Message" | Out-File -FilePath $Path -Append -Encoding UTF8
+        if (-not [String]::IsNullOrWhiteSpace($script:SNSLogFilePath))
+        {
+            # Write log entry to $script:LogPath
+            "$FormattedDate $LevelText $Message" | Out-File -FilePath $script:SNSLogFilePath -Append -Encoding UTF8
+        }
     }
 }
 
@@ -97,6 +106,7 @@ function ConvertTo-SNSJSONHash
         Invoke-WebRequest -Uri $ApiUrl | ConvertFrom-Json | ConvertTo-SNSJSONHash
     #>
     [CmdletBinding()]
+    [OutputType([System.Collections.Hashtable])]
     param (
         [Parameter(ValueFromPipeline)]
         $root
@@ -157,6 +167,7 @@ function Receive-SNSApiJson
         Receive-SNSApiJson -Credential $CredentialMembers -Uri "https://www.scoutnet.se/api/group/memberlist"
     #>
 
+    [OutputType([System.Collections.Hashtable])]
     param (
         [Parameter(Mandatory=$True, HelpMessage="Url to Scoutnet API for fetching the group memberlist")]
         [ValidateNotNull()]
@@ -219,6 +230,7 @@ function Get-SNSApiGroupCustomlists
         Get-SNSApiGroupCustomlists -Credential $CredentialCustomLists -Uri "https://www.scoutnet.se/api/group/customlists"
     #>
 
+    [OutputType([System.Collections.Hashtable])]
     param (
         [Parameter(Mandatory=$True, HelpMessage="Url to Scoutnet API for fetching the group customlists")]
         [ValidateNotNull()]
@@ -279,6 +291,8 @@ function Get-SNSMaillistInfo
     .EXAMPLE
         Get-SNSMaillistInfo -CredentialCustomlists $CredentialCustomLists -Uri "https://www.scoutnet.se/api/group/customlists"
     #>
+
+    [OutputType([System.Collections.Hashtable], [string])]
     param (
         [Parameter(Mandatory=$True, HelpMessage="Credentials for api/group/customlists")]
         [ValidateNotNull()]
@@ -369,6 +383,8 @@ function Get-SNSUserEmails
     .EXAMPLE
         Get-SNSUserEmails -CredentialMemberlist $CredentialMemberlist -UriApiMemberList "https://www.scoutnet.se/api/group/memberlist"
     #>
+
+    [OutputType([System.Collections.Hashtable], [string])]
     param (
         [Parameter(Mandatory=$True, HelpMessage="Credentials for api/group/memberlist")]
         [ValidateNotNull()]
@@ -451,6 +467,8 @@ function Get-SNSExchangeMailListMembers
     .PARAMETER Maillists
         Distribution groups that will be part of mailListsToProcessMembers.
     #>
+
+    [OutputType([System.Collections.ArrayList], [System.Collections.Hashtable])]
     param (
         [Parameter(Mandatory=$True, HelpMessage="Credentials for office365")]
         [ValidateNotNull()]
@@ -540,11 +558,13 @@ function SNSUpdateExchangeDistributionGroups
     .PARAMETER DomainName
         Domain name for office365 mail addresses.
     #>
+
+    [OutputType([string])]
     param (
         [Parameter(Mandatory=$True, HelpMessage="Credentials for api/group/customlists.")]
         [ValidateNotNull()]
         [pscredential]$CredentialCustomlists,
-    
+
         [Parameter(Mandatory=$True, HelpMessage="Credentials for api/group/memberlist.")]
         [ValidateNotNull()]
         [pscredential]$CredentialMemberlist,
@@ -838,5 +858,3 @@ function SNSUpdateExchangeDistributionGroups
     }
     return $NewValidationHash
 }
-
-Export-ModuleMember Write-SNSLog, ConvertTo-SNSJSONHash, Receive-SNSApiJson, Get-SNSApiGroupCustomlists, Get-SNSUserEmails, Get-SNSMaillistInfo, SNSUpdateExchangeDistributionGroups

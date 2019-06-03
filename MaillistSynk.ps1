@@ -22,14 +22,14 @@ $emailSubject = "Maillist sync log"
 # Domännam för scoutkårens office 365.
 $DomainName = "landvetterscout.se"
 
-# Hashtable med id på Office 365 distributionsgruppen som nyckel. 
+# Hashtable med id på Office 365 distributionsgruppen som nyckel.
 # Distributions grupper som är med här kommer att synkroniseras.
 $mailListSettings = @{
     "utmanarna" = @{ # Namet på distributions gruppen i office 365. Används som grupp ID till Get-DistributionGroupMember.
         "scoutnet_list_id"= "4924"; # Listans Id i Scoutnet.
         "scouter_synk_option" = ""; # Synkoption för scouter. Giltiga värden är p,f,a eller tomt.
         "ledare_synk_option" = "@"; # Synkoption för ledare. Giltiga värden är @,- eller &.
-        "email_addresses" = "","";  # Lista med e-postadresser. 
+        "email_addresses" = "","";  # Lista med e-postadresser.
     };
     "rovdjuren" = @{
         "scoutnet_list_id"= "4923";
@@ -109,5 +109,5 @@ Catch
 }
 
 # Skapa ett mail med loggen och skicka till admin.
-$bodyData = Get-Content -Path 'scoutnetSync.log' -Raw -Encoding UTF8 -ErrorAction "Continue"
+$bodyData = Get-Content -Path $SNSLogFilePath -Raw -Encoding UTF8 -ErrorAction "Continue"
 Send-MailMessage -Credential $Credential365 -From $emailFromAddress -To $emailToAddress -Subject $emailSubject -Body $bodyData -SmtpServer $emailSMTPServer -UseSSL -Encoding UTF8 -ErrorAction "Continue"
