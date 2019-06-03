@@ -585,7 +585,7 @@ function SNSUpdateExchangeDistributionGroups
         Write-SNSLog "Scoutnet is updated. Starting to update the distribution groups."
 
         $ExchangeSession = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri https://outlook.office365.com/powershell-liveid/ -Credential $Credential365 -Authentication Basic -AllowRedirection
-        Import-PSSession $ExchangeSession -AllowClobber -CommandName Set-MailContact,Set-Contact,New-MailContact,Remove-MailContact,Remove-DistributionGroupMember,Get-Recipient,Add-DistributionGroupMember > $null
+        Import-PSSession $ExchangeSession -AllowClobber -CommandName Set-MailContact,Set-Contact,New-MailContact,Remove-MailContact,Remove-DistributionGroupMember,Get-Recipient,Add-DistributionGroupMember,Get-Mailbox > $null
 
         $otherMailListsMembers, $mailListsToProcessMembers = Get-SNSExchangeMailListMembers -Credential365 $Credential365 -ExchangeSession $ExchangeSession -Maillists $MailListSettings.Keys
 
@@ -621,6 +621,8 @@ function SNSUpdateExchangeDistributionGroups
             }
         }
         Write-SNSLog "Removed contacts in distribution groups"
+
+        $allOffice365Users = Get-Mailbox -RecipientTypeDetails "UserMailbox"
 
         foreach ($distGroupName in $MailListSettings.keys)
         {
@@ -710,7 +712,7 @@ function SNSUpdateExchangeDistributionGroups
                 if ($AddLedareOffice365Address)
                 {
                     $memberSearchStr = "*$member"
-                    $recipient = Get-Recipient | Where-Object {$_.CustomAttribute1 -like $memberSearchStr}
+                    $recipient = $allOffice365Users | Where-Object {$_.CustomAttribute1 -like $memberSearchStr}
 
                     if ($recipient)
                     {
@@ -727,20 +729,7 @@ function SNSUpdateExchangeDistributionGroups
                     else
                     {
                         $MemberData = $AllMailAddresses[$member]
-                        $displayName = "$($MemberData.first_name) $($MemberData.last_name)"
-                        Write-SNSLog "Adding $displayName to distribution group $distGroupName"
-                        $email = "$($MemberData.first_name).$($MemberData.last_name)@$($DomainName)".ToLower()
-
-                        # Convert UTF encoded names and create corresponding ASCII version.
-                        $email = [Text.Encoding]::ASCII.GetString([Text.Encoding]::GetEncoding("Cyrillic").GetBytes($email))
-                        try
-                        {
-                            Add-DistributionGroupMember -Identity $distGroupName -Member $email  -ErrorAction "stop"   
-                        }
-                        catch
-                        {
-                            Write-SNSLog -Level "Warn" "Could not add contact $email to $distGroupName. Error $_"
-                        }
+                        Write-SNSLog -Level "Warn" "Member $($MemberData.first_name) $($MemberData.last_name) not found in office 365. Please make sure that CustomAttribute1 contains Scoutnet Id for the user."
                     }
                 }
 
