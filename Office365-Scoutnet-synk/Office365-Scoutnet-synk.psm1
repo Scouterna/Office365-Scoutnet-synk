@@ -14,6 +14,55 @@
 
 #endregion
 
+function AddOffice365User
+{
+    [OutputType([bool])]
+    param (
+        [Parameter(Mandatory=$True, HelpMessage="List with all Office365 users.")]
+        [ValidateNotNull()]
+        $allOffice365Users,
+
+        [Parameter(Mandatory=$True, HelpMessage="Scoutnet Id for member to add.")]
+        [ValidateNotNull()]
+        $member,
+
+        [Parameter(Mandatory=$True, HelpMessage="Data for the member from Scoutnet.")]
+        [ValidateNotNull()]
+        $MemberData,
+
+        [Parameter(Mandatory=$True, HelpMessage="Name of group to add member in.")]
+        [ValidateNotNull()]
+        $distGroupName,
+
+        [Parameter(HelpMessage="Do warn about missing Office 365 user.")]
+        [switch] $doWarn
+        )
+
+    $memberSearchStr = "*$member"
+    $recipient = $allOffice365Users | Where-Object {$_.CustomAttribute1 -like $memberSearchStr}
+
+    $userAdded = $False
+
+    if ($recipient)
+    {
+        try
+        {
+            Write-SNSLog "Adding member $($recipient.DisplayName) with id $($recipient.Id) to distribution group $distGroupName"
+            Add-DistributionGroupMember -Identity $distGroupName -Member $recipient.Id  -ErrorAction "stop"
+            $userAdded = $True
+        }
+        catch
+        {
+            Write-SNSLog -Level "Warn" "Could not add contact $($recipient.DisplayName) to $distGroupName. Error $_"
+        }
+    }
+    elseif ($doWarn)
+    {
+        Write-SNSLog -Level "Warn" "Member $($MemberData.first_name) $($MemberData.last_name) not found in office 365. Please make sure that CustomAttribute1 contains Scoutnet Id for the user."
+    }
+    return $userAdded
+}
+
 function SNSUpdateExchangeDistributionGroups
 {
     [CmdletBinding(HelpURI = 'https://github.com/scouternasetjanster/Office365-Scoutnet-synk')]
@@ -154,7 +203,9 @@ function SNSUpdateExchangeDistributionGroups
             $distGroupId = $MailListSettings[$distGroupName].scoutnet_list_id
             Write-SNSLog " "
             Write-SNSLog "Adding Contacts in distribution group $($distGroupName)"
+
             $scouter_synk_option = $MailListSettings[$distGroupName].scouter_synk_option
+            $scouter_synk_option = $scouter_synk_option.ToLower()
 
             Write-SNSLog "Scouter synk option is '$scouter_synk_option' for distribution group $distGroupName"
 
@@ -176,29 +227,45 @@ function SNSUpdateExchangeDistributionGroups
                 $MemberData = $AllMailAddresses[$member]
 
                 # Get valid addresses to add based on list setting.
-                if ([string]::IsNullOrWhiteSpace($scouter_synk_option))
+                $mailaddresses = [System.Collections.ArrayList]::new()
+                if ($scouter_synk_option.contains("p"))
                 {
-                    $mailaddresses = $MemberData.mailaddresses
+                    [void]$mailaddresses.Add($MemberData.primary_email)
+                }
+                elseif ($scouter_synk_option.contains("a"))
+                {
+                    [void]$mailaddresses.Add($MemberData.alt_email)
+                }
+                elseif ($scouter_synk_option.contains("f"))
+                {
+                    $MemberData.contacts_addresses | ForEach-Object {[void]$mailaddresses.Add($_)}
                 }
                 else
                 {
-                    $scouter_synk_option = $scouter_synk_option.ToLower()
-                    $mailaddresses = [System.Collections.ArrayList]::new()
-                    if ($scouter_synk_option.contains("p"))
-                    {
-                        [void]$mailaddresses.Add($MemberData.primary_email)
-                    }
-                    if ($scouter_synk_option.contains("a"))
-                    {
-                        [void]$mailaddresses.Add($MemberData.alt_email)
-                    }
-                    if ($scouter_synk_option.contains("f"))
-                    {
-                        $MemberData.contacts_addresses | ForEach-Object {[void]$mailaddresses.Add($_)}
-                    }
-                    $mailaddresses = $mailaddresses | Sort-Object -Unique
+                    $MemberData.mailaddresses | ForEach-Object {[void]$mailaddresses.Add($_)}
+                }
+                $mailaddresses = $mailaddresses | Sort-Object -Unique
+
+                $AddMemberOffice365Address = $False
+                $AddMemberScoutnetAddress = $True
+                $AddMemberOffice365AddressTryFirst = $False # First try to add office 365 address. If that fails add the scoutnet version.
+
+                if ($scouter_synk_option.contains("@"))
+                {
+                    $AddMemberScoutnetAddress = $False
+                    $AddMemberOffice365Address = $True
+                }
+                elseif ($scouter_synk_option.contains("&"))
+                {
+                    $AddMemberScoutnetAddress = $True
                 }
 
+                if ($scouter_synk_option.contains("t"))
+                {
+                    $AddMemberScoutnetAddress = $False
+                    $AddMemberOffice365AddressTryFirst = $True
+                    $AddMemberOffice365Address = $True
+                }
 
                 if ($mailaddresses.Length -eq 0)
                 {
@@ -206,48 +273,63 @@ function SNSUpdateExchangeDistributionGroups
                     continue
                 }
 
-                $mailaddresses | ForEach-Object {
-                    $displayName = "$($MemberData.first_name) $($MemberData.last_name)"
-
-                    $epost = $_
-                    $ExistingMailContact = get-recipient $epost -ErrorAction "SilentlyContinue"
-                    if ($null -eq $ExistingMailContact)
+                $AddMemberScoutnetAddress = $AddMemberScoutnetAddress
+                if ($AddMemberOffice365Address)
+                {
+                    $result = AddOffice365user -allOffice365Users $allOffice365Users -Member $member -MemberData $AllMailAddresses[$member] -distGroupName $distGroupName
+                    if (!$result)
                     {
-                        Write-SNSLog "Creating Contact $epost for $displayName"
+                        if ($AddMemberOffice365AddressTryFirst)
+                        {
+                            $AddMemberScoutnetAddress = $True
+                        }
+                    }
+                }
+
+                if ($AddMemberScoutnetAddress)
+                {
+                    $mailaddresses | ForEach-Object {
+                        $displayName = "$($MemberData.first_name) $($MemberData.last_name)"
+
+                        $epost = $_
+                        $ExistingMailContact = get-recipient $epost -ErrorAction "SilentlyContinue"
+                        if ($null -eq $ExistingMailContact)
+                        {
+                            Write-SNSLog "Creating Contact $epost for $displayName"
+                            try
+                            {
+                                New-MailContact -Name $epost -ExternalEmailAddress $epost -ErrorAction "stop" > $null
+
+                                # Set the name of the member in the company field. This is visibel in Office 365 admin console.
+                                Set-Contact -Identity $epost -Company "$displayName"
+                                Set-MailContact -Identity $epost -HiddenFromAddressListsEnabled $true
+                            }
+                            Catch
+                            {
+                                Write-SNSLog -Level "Warn" "Could not create mail contact with address $epost. Error $_"
+                            }
+                        }
+                        Write-SNSLog "Adding contact $epost for $displayName to distribution group $distGroupName"
                         try
                         {
-                            New-MailContact -Name $epost -ExternalEmailAddress $epost -ErrorAction "stop" > $null
-
-                            # Set the name of the member in the company field. This is visibel in Office 365 admin console.
-                            Set-Contact -Identity $epost -Company "$displayName"
-                            Set-MailContact -Identity $epost -HiddenFromAddressListsEnabled $true
+                            Add-DistributionGroupMember -Identity $distGroupName -Member $epost -ErrorAction "stop"
                         }
                         Catch
                         {
-                            Write-SNSLog -Level "Warn" "Could not create mail contact with address $epost. Error $_"
+                            Write-SNSLog -Level "Warn" "Could not add contact $epost to $distGroupName. Error $_"
                         }
-                    }
-                    Write-SNSLog "Adding contact $epost for $displayName to distribution group $distGroupName"
-                    try
-                    {
-                        Add-DistributionGroupMember -Identity $distGroupName -Member $epost -ErrorAction "stop"
-                    }
-                    Catch
-                    {
-                        Write-SNSLog -Level "Warn" "Could not add contact $epost to $distGroupName. Error $_"
                     }
                 }
             }
 
             $ledare_synk_option = $MailListSettings[$distGroupName].ledare_synk_option
+            $ledare_synk_option = $ledare_synk_option.ToLower()
 
             Write-SNSLog "Ledare synk option is '$ledare_synk_option' for distribution group $distGroupName"
             # Get the settings for ledare in this list.
             $AddLedareOffice365Address = $True
             $AddLedareScoutnetAddress = $False
             $AddLedareOffice365AddressTryFirst = $False # First try to add office 365 address. If that fails add the scoutnet version.
-
-            $ledare_synk_option = $ledare_synk_option.ToLower()
 
             if ($ledare_synk_option -like "-")
             {
@@ -261,7 +343,7 @@ function SNSUpdateExchangeDistributionGroups
 
             if ($ledare_synk_option -like "t")
             {
-                $AddLedareOffice365Address = $False
+                $AddLedareScoutnetAddress = $False
                 $AddLedareOffice365AddressTryFirst = $True
                 $AddLedareOffice365Address = $True
             }
@@ -283,29 +365,9 @@ function SNSUpdateExchangeDistributionGroups
                 $DoAddLedareScoutnetAddress = $AddLedareScoutnetAddress
                 if ($AddLedareOffice365Address)
                 {
-                    $memberSearchStr = "*$member"
-                    $recipient = $allOffice365Users | Where-Object {$_.CustomAttribute1 -like $memberSearchStr}
-
-                    if ($recipient)
+                    $result = AddOffice365user -allOffice365Users $allOffice365Users -Member $member -MemberData $AllMailAddresses[$member] -distGroupName $distGroupName -doWarn
+                    if (!$result)
                     {
-                        try
-                        {
-                            Write-SNSLog "Adding member $($recipient.DisplayName) with id $($recipient.Id) to distribution group $distGroupName"
-                            Add-DistributionGroupMember -Identity $distGroupName -Member $recipient.Id  -ErrorAction "stop"
-                        }
-                        catch
-                        {
-                            Write-SNSLog -Level "Warn" "Could not add contact $($recipient.DisplayName) to $distGroupName. Error $_"
-                            if ($AddLedareOffice365AddressTryFirst)
-                            {
-                                $DoAddLedareScoutnetAddress = $True
-                            }
-                        }
-                    }
-                    else
-                    {
-                        $MemberData = $AllMailAddresses[$member]
-                        Write-SNSLog -Level "Warn" "Member $($MemberData.first_name) $($MemberData.last_name) not found in office 365. Please make sure that CustomAttribute1 contains Scoutnet Id for the user."
                         if ($AddLedareOffice365AddressTryFirst)
                         {
                             $DoAddLedareScoutnetAddress = $True
