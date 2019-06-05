@@ -53,7 +53,10 @@ function AddOffice365User
         }
         catch
         {
-            Write-SNSLog -Level "Warn" "Could not add contact $($recipient.DisplayName) to $distGroupName. Error $_"
+            if ($_.CategoryInfo.Reason -ne "MemberAlreadyExistsException")
+            {
+                Write-SNSLog -Level "Warn" "Could not add contact $($recipient.DisplayName) to $distGroupName. Error $_"
+            }
         }
     }
     elseif ($doWarn)
@@ -73,15 +76,6 @@ function SNSUpdateExchangeDistributionGroups
     .DESCRIPTION
         Fetches the distribution groups members and updates corressponding distribution groups based on the info from scoutnet.
         As all members of an distribution group must be present in exchange as user or contact, contacts will be created for external addresses.
-
-        Function behavior.
-        1) Validate that Scoutnet is updated. If Scoutnet is not updated abort.
-        2) Remove all members from the specifed distribution groups
-        3) Remove corresponding contacts if they are not part of any distribution groups that is not connected to Scoutnet.
-        4) For each distribution group add the contacts based on the maillist info from Scoutnet. Contacts is created if needed.
-        5) For leaders add their exchange user.
-        6) Add admin mail addresses to all distribution groups if specified.
-        7) Return the hash values from Scoutnet to be stored an used as reference.
 
     .INPUTS
         None. You cannot pipe objects to SNSUpdateExchangeDistributionGroups.
@@ -316,7 +310,10 @@ function SNSUpdateExchangeDistributionGroups
                         }
                         Catch
                         {
-                            Write-SNSLog -Level "Warn" "Could not add contact $epost to $distGroupName. Error $_"
+                            if ($_.CategoryInfo.Reason -ne "MemberAlreadyExistsException")
+                            {
+                                Write-SNSLog -Level "Warn" "Could not add contact $epost to $distGroupName. Error $_"
+                            }
                         }
                     }
                 }
@@ -403,7 +400,10 @@ function SNSUpdateExchangeDistributionGroups
                     }
                     Catch
                     {
-                        Write-SNSLog -Level "Warn" "Could not add contact $($MemberData.primary_email) to $distGroupName. Error $_"
+                        if ($_.CategoryInfo.Reason -ne "MemberAlreadyExistsException")
+                        {
+                            Write-SNSLog -Level "Warn" "Could not add contact $($MemberData.primary_email) to $distGroupName. Error $_"
+                        }
                     }
                 }
             }
@@ -438,11 +438,16 @@ function SNSUpdateExchangeDistributionGroups
                 }
                 catch
                 {
-                    Write-SNSLog -Level "Warn" "Could not add contact $email to $distGroupName. Error $_"
+                    if ($_.CategoryInfo.Reason -ne "MemberAlreadyExistsException")
+                    {
+                        Write-SNSLog -Level "Warn" "Could not add contact $email to $distGroupName. Error $_"
+                    }
                 }
             }
         }
         Remove-PSSession $ExchangeSession
+        Write-SNSLog " "
+        Write-SNSLog "Update done new hash value is $NewValidationHash"
     }
     return $NewValidationHash
 }
