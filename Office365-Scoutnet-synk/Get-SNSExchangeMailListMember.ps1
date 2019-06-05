@@ -15,7 +15,7 @@
     .OUTPUTS
         Two parts is returned.
         The first part is the otherMailListsMembers ArrayList.
-        The second part is the mailListsToProcessMembers.
+        The second part is the mailListsToProcessMembers ArrayList.
 
     .PARAMETER Credential365
         Credentials for office365 that can execute Get-DistributionGroupMember and Get-DistributionGroup for the selected DistributionGroup.
@@ -27,7 +27,7 @@
         Distribution groups that will be part of mailListsToProcessMembers.
     #>
 
-    [OutputType([System.Collections.ArrayList], [System.Collections.Hashtable])]
+    [OutputType([System.Collections.ArrayList], [System.Collections.ArrayList])]
     param (
         [Parameter(Mandatory=$True, HelpMessage="Credentials for office365")]
         [ValidateNotNull()]
@@ -44,7 +44,7 @@
     Import-PSSession $ExchangeSession -AllowClobber -CommandName Get-DistributionGroupMember,Get-DistributionGroup > $null
 
     $otherMailListsMembers = [System.Collections.ArrayList]::new()
-    $mailListsToProcessMembers = @{}
+    $mailListsToProcessMembers = [System.Collections.ArrayList]::new()
 
     $mailListGroups = @()
     foreach($mailList in $Maillists)
@@ -59,9 +59,7 @@
         $data = Get-DistributionGroupMember -Identity $group.Identity
         if ($mailListGroups.Contains($group.Identity))
         {
-            $mailListsMembers = [System.Collections.ArrayList]::new()
-            $data | ForEach-Object {[void]$mailListsMembers.Add($_)}
-            $mailListsToProcessMembers[$group.Identity] = $mailListsMembers
+            $data | ForEach-Object {[void]$mailListsToProcessMembers.Add($_)}
         }
         else
         {
@@ -70,5 +68,7 @@
     }
     Write-SNSLog "Done"
 
+    $otherMailListsMembers = $otherMailListsMembers | Sort-Object -Unique -Property ExchangeObjectId
+    $mailListsToProcessMembers = $mailListsToProcessMembers | Sort-Object -Unique -Property ExchangeObjectId
     return $otherMailListsMembers, $mailListsToProcessMembers
 }

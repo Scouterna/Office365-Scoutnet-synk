@@ -28,7 +28,7 @@ $mailListSettings = @{
     "utmanarna" = @{ # Namet på distributions gruppen i office 365. Används som grupp ID till Get-DistributionGroupMember.
         "scoutnet_list_id"= "4924"; # Listans Id i Scoutnet.
         "scouter_synk_option" = ""; # Synkoption för scouter. Giltiga värden är p,f,a eller tomt.
-        "ledare_synk_option" = "@"; # Synkoption för ledare. Giltiga värden är @,- eller &.
+        "ledare_synk_option" = "@"; # Synkoption för ledare. Giltiga värden är @,-,t eller &.
         "email_addresses" = "","";  # Lista med e-postadresser.
     };
     "rovdjuren" = @{

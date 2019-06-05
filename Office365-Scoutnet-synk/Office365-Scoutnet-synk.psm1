@@ -112,6 +112,22 @@ function SNSUpdateExchangeDistributionGroups
         # Clean the distribution groups first, so any removed addresses in Scoutnet is removed in o365.
         Write-SNSLog " "
         Write-SNSLog "Removing contacts in distribution groups"
+
+        # First delete the mail contact, as that also deletes the contact from the distribution list.
+        $mailListsToProcessMembers | ForEach-Object {
+            $medlem = $_
+            if ($medlem.RecipientType -eq "MailContact")
+            {
+                # Check this contact is member in any other maillist.
+                $IsInmaillistMembers = $otherMailListsMembers |Where-Object {$_.Identity -eq $medlem.Identity}
+                if ($null -eq $IsInmaillistMembers)
+                {
+                    Write-SNSLog "Removing MailContact $($medlem.Identity)"
+                    Remove-MailContact $medlem.Identity -Confirm:$Y
+                }
+            }
+        }
+
         foreach ($distGroupName in $MailListSettings.keys)
         {
             Write-SNSLog "Remove contacts in distribution group $($distGroupName)"
@@ -127,17 +143,6 @@ function SNSUpdateExchangeDistributionGroups
                     Write-SNSLog "Removing user $($medlem.Name) from distribution group $($distGroupName)"
                 }
                 Remove-DistributionGroupMember -Identity $distGroupName -Member $medlem.Identity -Confirm:$Y
-
-                if ($medlem.RecipientType -eq "MailContact")
-                {
-                    # Check this contact is member in any other maillist.
-                    $IsInmaillistMembers = $otherMailListsMembers |Where-Object {$_.Identity -eq $medlem.Identity}
-                    if ($null -eq $IsInmaillistMembers)
-                    {
-                        Write-SNSLog "Remove-MailContact $($medlem.Identity)"
-                        Remove-MailContact $medlem.Identity -Confirm:$Y
-                    }
-                }
             }
         }
         Write-SNSLog "Removed contacts in distribution groups"
@@ -177,6 +182,7 @@ function SNSUpdateExchangeDistributionGroups
                 }
                 else
                 {
+                    $scouter_synk_option = $scouter_synk_option.ToLower()
                     $mailaddresses = [System.Collections.ArrayList]::new()
                     if ($scouter_synk_option.contains("p"))
                     {
@@ -239,6 +245,10 @@ function SNSUpdateExchangeDistributionGroups
             # Get the settings for ledare in this list.
             $AddLedareOffice365Address = $True
             $AddLedareScoutnetAddress = $False
+            $AddLedareOffice365AddressTryFirst = $False # First try to add office 365 address. If that fails add the scoutnet version.
+
+            $ledare_synk_option = $ledare_synk_option.ToLower()
+
             if ($ledare_synk_option -like "-")
             {
                 $AddLedareScoutnetAddress = $True
@@ -247,6 +257,13 @@ function SNSUpdateExchangeDistributionGroups
             elseif ($ledare_synk_option -like "&")
             {
                 $AddLedareScoutnetAddress = $True
+            }
+
+            if ($ledare_synk_option -like "t")
+            {
+                $AddLedareOffice365Address = $False
+                $AddLedareOffice365AddressTryFirst = $True
+                $AddLedareOffice365Address = $True
             }
 
             $listData = $CustomLists[$distGroupId].ledare
@@ -263,6 +280,7 @@ function SNSUpdateExchangeDistributionGroups
                     continue
                 }
 
+                $DoAddLedareScoutnetAddress = $AddLedareScoutnetAddress
                 if ($AddLedareOffice365Address)
                 {
                     $memberSearchStr = "*$member"
@@ -278,16 +296,24 @@ function SNSUpdateExchangeDistributionGroups
                         catch
                         {
                             Write-SNSLog -Level "Warn" "Could not add contact $($recipient.DisplayName) to $distGroupName. Error $_"
+                            if ($AddLedareOffice365AddressTryFirst)
+                            {
+                                $DoAddLedareScoutnetAddress = $True
+                            }
                         }
                     }
                     else
                     {
                         $MemberData = $AllMailAddresses[$member]
                         Write-SNSLog -Level "Warn" "Member $($MemberData.first_name) $($MemberData.last_name) not found in office 365. Please make sure that CustomAttribute1 contains Scoutnet Id for the user."
+                        if ($AddLedareOffice365AddressTryFirst)
+                        {
+                            $DoAddLedareScoutnetAddress = $True
+                        }
                     }
                 }
 
-                if ($AddLedareScoutnetAddress)
+                if ($DoAddLedareScoutnetAddress)
                 {
                     $MemberData = $AllMailAddresses[$member]
 
