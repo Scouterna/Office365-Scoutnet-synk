@@ -6,7 +6,7 @@ Du kan med de här funktionerna synkronisera användarkonton med personer i Scou
 som har en funktionärsroll samt synkronisera distributions listor med
 e-postlistor i Scoutnet.
 
-Modulen Office365-Scoutnet-synk är tänkt att användas i Azure automation,
+Modulen `Office365-Scoutnet-synk` är tänkt att användas i Azure automation,
 och köras ifrån en runbook. Microsoft Azure Sponsorship ingår när man får
 Microsoft Office 365 non-profit.
 
@@ -25,25 +25,25 @@ Du kan ladda ner den senaste versionen via
 <https://github.com/scouternasetjanster/Office365-Scoutnet-synk/releases/latest>
 och där kan du också ser vilken funktionalitet som är ny i respektive version.
 
-Läs filen README.md för instruktion om installation och funktionalitet.
+Läs filen [README.md](README.md) för instruktion om installation och funktionalitet.
 
 ## Inställningar
 
 ### Generella inställningar
 
-I non-profit portalen aktivera scoutkårens "Microsoft Azure Sponsorship Subscription"
+I non-profit portalen aktivera scoutkårens `Microsoft Azure Sponsorship Subscription`
 <https://nonprofit.microsoft.com/offers/azure> och sen kan du skapa ett
 "Azure Automation Account" som kommer att köra dina skript.
 Hur du gör är beskrivet här <https://blog.kloud.com.au/2016/08/24/schedule-office-365-powershell-tasks-using-azure-automation>
 
-1. Skapa ett "Azure Automation Account" och koppla det till
+1. Skapa ett `Azure Automation Account` och koppla det till
     "Microsoft AzureSponsorship Subscription".
-    1. Bra namn är "Scoutnet-synk" på kontot och resursgruppen.
+    1. Bra namn är `Scoutnet-synk` på kontot och resursgruppen.
     1. Välj "North Europe" som Location.
 
-1. Lägg till MSOnline modulen. Behövs för att kunna skapa användare.
+1. Lägg till `MSOnline` modulen. Behövs för att kunna skapa användare.
 
-1. Lägg till Office365-Scoutnet-synk som en modul.
+1. Lägg till `Office365-Scoutnet-synk` som en modul.
 
 1. I Scoutnet aktivera APIet under Webbkoppling (API-nycklar och endpoints).
     Modulen behöver ha tillgång till:
@@ -54,55 +54,54 @@ Hur du gör är beskrivet här <https://blog.kloud.com.au/2016/08/24/schedule-of
 1. I Azure resursgruppen skapa "Credential Asset" för varje API nyckel.
     Användarnamnet är Kår-ID för webbtjänster som står på sidan Webbkoppling.
     Lösenordet är API-nyckeln.
-    1. Credential Asset: "ScoutnetApiCustomLists", API-nyckel för api/group/customlists
-    1. Credential Asset: "ScoutnetApiGroupMemberList", API-nyckel för api/group/memberlist
+    1. Credential Asset: `ScoutnetApiCustomLists`, API-nyckel för api/group/customlists
+    1. Credential Asset: `ScoutnetApiGroupMemberList`, API-nyckel för api/group/memberlist
 
-1. Skapa även en "Credential Asset" med en användare som har adminrättigheter
+1. Skapa även en `Credential Asset` med en användare som har adminrättigheter
     på scoutkårens office 356.
-    1. Credential Asset: "MSOnline-Credentials", konto som har adminrättigheter
+    1. Credential Asset: `MSOnline-Credentials`, konto som har adminrättigheter
         på scoutkårens office 356.
 
 ### Synkronisera grupper
 
 1. Logga in på office 365 adminkonsollen och skapa de distributions
     listor du vill använda.
-    1. Typen ska vara "Distribution list" för att synkroniseringen ska fungera.
-        <aside class="warning">
-        Office365 grupper stöds ej.
-        </aside>
+    1. Typen ska vara `Distribution list` för att synkroniseringen ska fungera.
+        :warning: **Office365 grupper stöds ej**.
     1. Namnet kan vara beskrivande, men skriv ett alias som är kort och bara har
         **ASCII**  tecken i sig.
 
-1. I Scoutnet skapa "Fördefinierade listor" för distributions listorna.
+1. I Scoutnet skapa `Fördefinierade listor` för distributions listorna.
     T.ex en lista för Spårare som är avsedd för att skicka brev till scouternas föräldrar.
     För att synkroniseringen ska fungera smidig skapa följande regler på varje lista,
-    där regeln *ledare* hanteras av ```ledare_synk_option```.
-    Övriga regler styrs av ```scouter_synk_option```.
+    där regeln *ledare* hanteras av `ledare_synk_option`.
+    Övriga regler styrs av `scouter_synk_option`.
     - **Ledare:** Regel som matchar ledarna på avdelningen. Döp den till *ledare*.
-        Hur adresser synkroniseras styrs av ```ledare_synk_option```.
+        Hur adresser synkroniseras styrs av `ledare_synk_option`.
     - **Assistenter:** Regel som matchar assistenterna på avdelningen.
         Döp den till *assistenter*.
-        Hur adresser synkroniseras styrs av ```scouter_synk_option```.
+        Hur adresser synkroniseras styrs av `scouter_synk_option`.
     - **Scouter:** Regel som matchar scouterna på avdelningen. Döp den till *scouter*.
-        Hur adresser synkroniseras styrs av ```scouter_synk_option```.
+        Hur adresser synkroniseras styrs av `scouter_synk_option`.
 
-    Regelnamnen behöver inte användas om du bara vill styra med ```scouter_synk_option```.
+    Regelnamnen behöver inte användas om du bara vill styra med `scouter_synk_option`.
 
-1. I Azure automation skapa runbooken "MaillistSynk" för synkroniseringen.
-    Typen ska vara "PowerShell Runbook"
+1. I Azure automation skapa runbooken `MaillistSynk` för synkroniseringen.
+    Typen ska vara `PowerShell Runbook`
 
-1. I Azure automation under "Shared Resources", skapa variabeln
-    "ScoutnetMailListsHash" av typen string.
+1. I Azure automation under `Shared Resources`, skapa variabeln
+    `ScoutnetMailListsHash` av typen `string`.
 
-1. Kopiera koden ifrån exemplet [MaillistSync.ps1](MaillistSync.ps1).
+1. Kopiera koden ifrån exemplet [MaillistSynk.ps1](MaillistSynk.ps1).
 
-1. Ändra inställningarna så att de matchar. T.ex vilka listor som ska uppdateras.
+1. Ändra inställningarna så att de matchar scoutkårens Scoutnetprofil och Office 365.
+    T.ex vilka listor som ska uppdateras.
 
-1. Prova att köra MaillistSynk.
+1. Prova att köra `MaillistSynk`.
 
-1. När MaillistSynk fungerar publicera runbooken.
+1. När `MaillistSynk` fungerar publicera runbooken.
 
-1. Azure automation under "Shared Resources", skapa en "schedule" för att
+1. Azure automation under `Shared Resources`, skapa en `schedule` för att
     regelbundet köra MaillistSynk.
     1. Rekommendationen är att köra nattetid (kl 3 eller 4), då det kan ta en
         stund att köra MaillistSynk.
@@ -122,20 +121,25 @@ användarkonton på kårens Office 365 åt dem.
 Om ett användarkonto vid nästkommande synkronisering ej matchar någon person
 som synkroniseras så inaktiveras konto.
 Om personen senare matchas aktiveras kontot igen. Det är bara konton som finns
-i säkerhetsgruppen "Scoutnet" i Office 365 som berörs vid en synkronisering.
+i säkerhetsgruppen `Scoutnet` i Office 365 som berörs vid en synkronisering.
 Användarkonton skapas på formen fornamn.efternamn@domännamn.se
 
 Om det finns personer som har samma namn (för- och efternamn) angivet i Scoutnet
 kommer de som skapas som nr2 osv skapas på formen fornamn.efternamn.x@domännamn.se
 där X motsvarar en siffra från 1-5.
 
+Exchange fältet `CustomAttribute1` innehåller Scoutnet ID.
+Lägger du till användare manuellt och de ska kunna automatisk komma med i
+distributionsgrupper så behöver du fylla i `CustomAttribute1`
+med personens Scoutnet ID.
+
 #### Inställningar
 
 I exempelfilen så är det några inställningar att ändra:
 
-- Ändra kårens domän namn på variabeln ```DomainName```.
-- Ändra avsändaradress i variabeln ```emailFromAddress```.
-- Ändra mottagaradress i variabeln ```emailToAddress```.
+- Ändra kårens domän namn på variabeln `DomainName`.
+- Ändra avsändaradress i variabeln `emailFromAddress`.
+- Ändra mottagaradress i variabeln `emailToAddress`.
 
 ### Office 365 distributionsgrupper - synkronisering med Scoutnet
 
@@ -144,16 +148,16 @@ Där en distributionsgrupp är kopplad till en e-postlista i Scoutnet.
 
 #### Inställningar
 
-I exempelfilen [MaillistSync.ps1](MaillistSync.ps1) så är
+I exempelfilen [MaillistSynk.ps1](MaillistSynk.ps1) så är
 det några inställningar att ändra:
 
-- Ändra kårens domän namn på variabeln ```DomainName```.
-- Ändra avsändaradress i variabeln ```emailFromAddress```.
-- Ändra mottagaradress i variabeln ```emailToAddress```.
+- Ändra kårens domän namn på variabeln `DomainName`.
+- Ändra avsändaradress i variabeln `emailFromAddress`.
+- Ändra mottagaradress i variabeln `emailToAddress`.
 
 ##### mailListSettings
 
-I variabel ```mailListSettings``` ställ in de Office 365 distributionsgrupper
+I variabel `mailListSettings` ställ in de Office 365 distributionsgrupper
 som ska synkroniseras med Scoutnet.
 Namnet måste gå att matcha mot en distributionsgrupp i Office365.
 
@@ -177,7 +181,7 @@ $mailListSettings = @{
 
 ###### scouter_synk_option
 
-I fältet ```scouter_synk_option``` kan du för respektive
+I fältet `scouter_synk_option` kan du för respektive
 distributionsgrupp ange följande:
 
 - "@" Lägg till personens Office365-konto om den har något, annars hoppa över personen.
@@ -186,7 +190,7 @@ distributionsgrupp ange följande:
 - "-" Lägg endast till personens e-postadress som listad i Scoutnet.
 - "&" Lägg till både personens e-postadress som listad i Scoutnet samt
     Office365-konto om den har något.
-- Standard för ```scouter_synk_option``` är "-" Lägg endast till personens
+- Standard för `scouter_synk_option` är "-" Lägg endast till personens
 e-postadress som listad i Scoutnet.
 
 Det går också att ställa in i detta fält vilka e-postadressfält från scoutnet
@@ -201,7 +205,7 @@ som ska läggas till:
 
 ###### ledare_synk_option
 
-I fältet ```ledare_synk_option``` kan du för respektive
+I fältet `ledare_synk_option` kan du för respektive
 distributionsgrupp ange följande:
 
 - "@" Lägg till personens Office365-konto om den har något, annars hoppa över personen.
@@ -210,12 +214,12 @@ distributionsgrupp ange följande:
 - "-" Lägg endast till personens primära e-postadress som listad i Scoutnet.
 - "&" Lägg till både personens primära e-postadress som listad i Scoutnet samt
     Office365-konto om den har något.
-- Standard för ```ledare_synk_option``` är "@" Lägg till personens
+- Standard för `ledare_synk_option` är "@" Lägg till personens
     Office365-konto om den har något, annars hoppa över personen.
 
 ###### email_addresses
 
-Fältet ```email_addresses``` används för att lägga till extra e-postadresser
+Fältet `email_addresses` används för att lägga till extra e-postadresser
 till en distributionsgrupp.
 Lägg adresserna kommaseparerade.
 
@@ -242,7 +246,7 @@ Exempel:
 1. Det kan hända att det finns en bugg i den versionen av programmet som du kör vilket
    givet vissa specifika omständigheter yttrar sig för just dig. Se till att du
    har den senaste versionen av programmet.
-1. Lägg ett ärende under "Issues" eller mejla.
+1. Lägg ett ärende under `Issues` eller mejla.
 
 ## Tekniska förtydliganden
 
@@ -266,7 +270,7 @@ Det här är för att kunna följa GDPR. Kontakter till Scouter som slutat ska t
     innehåller. För e-postadresser som är externa skapas det en kontakt i Exchange.
     1. Om office 365 adress är begärd i inställningarna så letas användaren med
     matchande Scoutnet ID upp.
-    Exchange fältet ```CustomAttribute1``` ska innehålla Scoutnet ID.
+    Exchange fältet `CustomAttribute1` ska innehålla Scoutnet ID.
     1. Lägg in eventuella extra e-postadresser.
 
 ### E-postadresser genereras på följande sätt
