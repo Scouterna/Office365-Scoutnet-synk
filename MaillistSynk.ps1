@@ -59,10 +59,6 @@ $mailListSettings = @{
 
 # Här börjar själva skriptet.
 
-$moduleInfo = Get-Module Office365-Scoutnet-synk
-
-Write-SNSLog "Använder version $($moduleInfo.Version) av Office365-Scoutnet-synk"
-
 # Hämtar credentials för Scoutnet API och för Office 365.
 try
 {
