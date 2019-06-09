@@ -14,7 +14,7 @@
 
 #endregion
 
-function AddOffice365User
+function Add-Office365User
 {
     [OutputType([bool])]
     param (
@@ -65,6 +65,53 @@ function AddOffice365User
     }
     return $userAdded
 }
+
+
+function Add-MailContactToList
+{
+    param (
+        [ValidateNotNull()]
+        $Epost,
+
+        [ValidateNotNull()]
+        $DisplayName,
+
+        [ValidateNotNull()]
+        $DistGroupName
+        )
+
+    $ExistingMailContact = get-recipient $Epost -ErrorAction "SilentlyContinue"
+    if ($null -eq $ExistingMailContact)
+    {
+        Write-SNSLog "Creating Contact $Epost for $DisplayName"
+        try
+        {
+            New-MailContact -Name $Epost -ExternalEmailAddress $Epost -ErrorAction "stop" > $null
+
+            # Set the name of the member in the company field. This is visibel in Office 365 admin console.
+            Set-Contact -Identity $Epost -Company "$DisplayName"
+            Set-MailContact -Identity $Epost -HiddenFromAddressListsEnabled $true
+        }
+        Catch
+        {
+            Write-SNSLog -Level "Warn" "Could not create mail contact with address $Epost. Error $_"
+        }
+    }
+
+    try
+    {
+        Add-DistributionGroupMember -Identity $DistGroupName -Member $Epost -ErrorAction "stop"
+        Write-SNSLog "Adding contact $Epost for $DisplayName to distribution group $DistGroupName"
+    }
+    Catch
+    {
+        if ($_.CategoryInfo.Reason -ne "MemberAlreadyExistsException")
+        {
+            Write-SNSLog -Level "Warn" "Could not add contact $Epost for $DisplayName. Error $_"
+        }
+    }
+}
+
 
 function SNSUpdateExchangeDistributionGroups
 {
@@ -270,7 +317,7 @@ function SNSUpdateExchangeDistributionGroups
                 $AddMemberScoutnetAddress = $AddMemberScoutnetAddress
                 if ($AddMemberOffice365Address)
                 {
-                    $result = AddOffice365user -allOffice365Users $allOffice365Users -Member $member -MemberData $AllMailAddresses[$member] -distGroupName $distGroupName
+                    $result = Add-Office365user -allOffice365Users $allOffice365Users -Member $member -MemberData $AllMailAddresses[$member] -distGroupName $distGroupName
                     if (!$result)
                     {
                         if ($AddMemberOffice365AddressTryFirst)
@@ -284,37 +331,8 @@ function SNSUpdateExchangeDistributionGroups
                 {
                     $mailaddresses | ForEach-Object {
                         $displayName = "$($MemberData.first_name) $($MemberData.last_name)"
-
                         $epost = $_
-                        $ExistingMailContact = get-recipient $epost -ErrorAction "SilentlyContinue"
-                        if ($null -eq $ExistingMailContact)
-                        {
-                            Write-SNSLog "Creating Contact $epost for $displayName"
-                            try
-                            {
-                                New-MailContact -Name $epost -ExternalEmailAddress $epost -ErrorAction "stop" > $null
-
-                                # Set the name of the member in the company field. This is visibel in Office 365 admin console.
-                                Set-Contact -Identity $epost -Company "$displayName"
-                                Set-MailContact -Identity $epost -HiddenFromAddressListsEnabled $true
-                            }
-                            Catch
-                            {
-                                Write-SNSLog -Level "Warn" "Could not create mail contact with address $epost. Error $_"
-                            }
-                        }
-                        Write-SNSLog "Adding contact $epost for $displayName to distribution group $distGroupName"
-                        try
-                        {
-                            Add-DistributionGroupMember -Identity $distGroupName -Member $epost -ErrorAction "stop"
-                        }
-                        Catch
-                        {
-                            if ($_.CategoryInfo.Reason -ne "MemberAlreadyExistsException")
-                            {
-                                Write-SNSLog -Level "Warn" "Could not add contact $epost to $distGroupName. Error $_"
-                            }
-                        }
+                        Add-MailContactToList -Epost $epost -DisplayName $displayName -DistGroupName $distGroupName
                     }
                 }
             }
@@ -362,7 +380,7 @@ function SNSUpdateExchangeDistributionGroups
                 $DoAddLedareScoutnetAddress = $AddLedareScoutnetAddress
                 if ($AddLedareOffice365Address)
                 {
-                    $result = AddOffice365user -allOffice365Users $allOffice365Users -Member $member -MemberData $AllMailAddresses[$member] -distGroupName $distGroupName -doWarn
+                    $result = Add-Office365user -allOffice365Users $allOffice365Users -Member $member -MemberData $AllMailAddresses[$member] -distGroupName $distGroupName -doWarn
                     if (!$result)
                     {
                         if ($AddLedareOffice365AddressTryFirst)
@@ -375,36 +393,8 @@ function SNSUpdateExchangeDistributionGroups
                 if ($DoAddLedareScoutnetAddress)
                 {
                     $MemberData = $AllMailAddresses[$member]
-
-                    $ExistingMailContact = get-recipient $MemberData.primary_email -ErrorAction "SilentlyContinue"
                     $displayName = "$($MemberData.first_name) $($MemberData.last_name)"
-                    if ($null -eq $ExistingMailContact)
-                    {
-                        Write-SNSLog "Creating Contact $($MemberData.primary_email) for $displayName"
-                        try
-                        {
-                            New-MailContact -Name $MemberData.primary_email -ExternalEmailAddress $MemberData.primary_email -ErrorAction "stop" > $null
-                            Set-Contact -Identity $MemberData.primary_email -Company "$displayName"
-                            Set-MailContact -Identity $MemberData.primary_email -HiddenFromAddressListsEnabled $true
-                        }
-                        Catch
-                        {
-                            Write-SNSLog -Level "Warn" "Could not create mail contact with address $($MemberData.primary_email). Error $_"
-                        }
-                    }
-
-                    Write-SNSLog "Adding contact $($MemberData.primary_email) for $displayName to distribution group $distGroupName"
-                    try
-                    {
-                        Add-DistributionGroupMember -Identity $distGroupName -Member $MemberData.primary_email -ErrorAction "stop"
-                    }
-                    Catch
-                    {
-                        if ($_.CategoryInfo.Reason -ne "MemberAlreadyExistsException")
-                        {
-                            Write-SNSLog -Level "Warn" "Could not add contact $($MemberData.primary_email) to $distGroupName. Error $_"
-                        }
-                    }
+                    Add-MailContactToList -Epost $MemberData.primary_email -DisplayName $displayName -DistGroupName $distGroupName
                 }
             }
 
@@ -416,33 +406,7 @@ function SNSUpdateExchangeDistributionGroups
                     continue
                 }
 
-                $ExistingMailContact = get-recipient $email -ErrorAction "SilentlyContinue"
-                if ($null -eq $ExistingMailContact)
-                {
-                    try
-                    {
-                        New-MailContact -Name $email -ExternalEmailAddress $email -ErrorAction "stop" > $null
-                        Set-MailContact -Identity $email -HiddenFromAddressListsEnabled $true
-                        Write-SNSLog "Creating Contact $($email)"
-                    }
-                    Catch
-                    {
-                        Write-SNSLog -Level "Warn" "Could not create mail contact with address $email. Error $_"
-                    }
-                }
-
-                try
-                {
-                    Add-DistributionGroupMember -Identity $distGroupName -Member $email  -ErrorAction "stop"
-                    Write-SNSLog "Adding contact $email to distribution group $distGroupName"
-                }
-                catch
-                {
-                    if ($_.CategoryInfo.Reason -ne "MemberAlreadyExistsException")
-                    {
-                        Write-SNSLog -Level "Warn" "Could not add contact $email to $distGroupName. Error $_"
-                    }
-                }
+                Add-MailContactToList -Epost $email -DisplayName $email -DistGroupName $distGroupName
             }
         }
         Remove-PSSession $ExchangeSession
