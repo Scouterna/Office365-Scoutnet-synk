@@ -182,7 +182,9 @@ function SNSUpdateExchangeDistributionGroups
     # Fetch all members and their mailaddresses.
     $allMailAddresses, $allMailAddressesHash = Get-SNSUserEmail -CredentialMemberlist $CredentialMemberlist
 
-    $NewValidationHash = "0x{0}{1}" -f ($CustomListsHash, $allMailAddressesHash)
+    $MailListSettingsHash = ("{0:X8}" -f (($MailListSettings | ConvertTo-Json).GetHashCode()))
+
+    $NewValidationHash = "0x{0}{1}{2}" -f ($CustomListsHash, $allMailAddressesHash, $MailListSettingsHash)
 
     Write-SNSLog "Saved validation hash: $ValidationHash new value $NewValidationHash"
 
@@ -266,6 +268,16 @@ function SNSUpdateExchangeDistributionGroups
                 }
 
                 $MemberData = $AllMailAddresses[$member]
+                $displayName = "$($MemberData.first_name) $($MemberData.last_name)"
+
+                if ($MailListSettings[$distGroupName].ignore_user)
+                {
+                    if ($MailListSettings[$distGroupName].ignore_user.Contains($member))
+                    {
+                        Write-SNSLog "Ignoring '$($displayName)' with Id '$member' for $distGroupName."
+                        continue
+                    }
+                }
 
                 # Get valid addresses to add based on list setting.
                 $mailaddresses = [System.Collections.ArrayList]::new()
@@ -310,7 +322,7 @@ function SNSUpdateExchangeDistributionGroups
 
                 if ($mailaddresses.Length -eq 0)
                 {
-                    Write-SNSLog -Level "Warn" "No email addresses found for $($MemberData.first_name) $($MemberData.last_name)."
+                    Write-SNSLog -Level "Warn" "No email addresses found for $($displayName)."
                     continue
                 }
 
@@ -330,7 +342,6 @@ function SNSUpdateExchangeDistributionGroups
                 if ($AddMemberScoutnetAddress)
                 {
                     $mailaddresses | ForEach-Object {
-                        $displayName = "$($MemberData.first_name) $($MemberData.last_name)"
                         $epost = $_
                         Add-MailContactToList -Epost $epost -DisplayName $displayName -DistGroupName $distGroupName
                     }
@@ -377,10 +388,22 @@ function SNSUpdateExchangeDistributionGroups
                     continue
                 }
 
+                $MemberData = $AllMailAddresses[$member]
+                $displayName = "$($MemberData.first_name) $($MemberData.last_name)"
+
+                if ($MailListSettings[$distGroupName].ignore_user)
+                {
+                    if ($MailListSettings[$distGroupName].ignore_user.Contains($member))
+                    {
+                        Write-SNSLog "Ignoring '$($displayName)' with Id '$member' for $distGroupName."
+                        continue
+                    }
+                }
+
                 $DoAddLedareScoutnetAddress = $AddLedareScoutnetAddress
                 if ($AddLedareOffice365Address)
                 {
-                    $result = Add-Office365user -allOffice365Users $allOffice365Users -Member $member -MemberData $AllMailAddresses[$member] -distGroupName $distGroupName -doWarn
+                    $result = Add-Office365user -allOffice365Users $allOffice365Users -Member $member -MemberData $MemberData -distGroupName $distGroupName -doWarn
                     if (!$result)
                     {
                         if ($AddLedareOffice365AddressTryFirst)
@@ -392,8 +415,6 @@ function SNSUpdateExchangeDistributionGroups
 
                 if ($DoAddLedareScoutnetAddress)
                 {
-                    $MemberData = $AllMailAddresses[$member]
-                    $displayName = "$($MemberData.first_name) $($MemberData.last_name)"
                     Add-MailContactToList -Epost $MemberData.primary_email -DisplayName $displayName -DistGroupName $distGroupName
                 }
             }

@@ -15,7 +15,7 @@ Azure gratiskonto kan troligtvis också användas, då det ingår 500 minuter Az
 Modulen går även att köra på en dator som har minst Powershell 5.1 installerad.
 
 Vid problem, fel, frågor eller tips på förbättringar eller fler funktioner
-som du saknar; lägg ett ärende under "Issues" eller mejla karl.thoren@landvetterscout.se
+som du saknar; lägg ett ärende under `Issues` eller mejla karl.thoren@landvetterscout.se
 
 I bland kommer det ny funktionalitet, så håll utkik på en ny version genom
 att trycka på knappen **Watch** uppe till höger på sidan
@@ -39,7 +39,7 @@ Hur du gör är beskrivet här <https://blog.kloud.com.au/2016/08/24/schedule-of
 1. Skapa ett `Azure Automation Account` och koppla det till
     "Microsoft AzureSponsorship Subscription".
     1. Bra namn är `Scoutnet-synk` på kontot och resursgruppen.
-    1. Välj "North Europe" som Location.
+    1. Välj `North Europe` som Location.
 
 1. Lägg till `MSOnline` modulen. Behövs för att kunna skapa användare.
 
@@ -51,7 +51,7 @@ Hur du gör är beskrivet här <https://blog.kloud.com.au/2016/08/24/schedule-of
     - *Get a csv/xls/json list of members, based on mailing lists you have set up*.
         (api/group/customlists)
 
-1. I Azure resursgruppen skapa "Credential Asset" för varje API nyckel.
+1. I Azure resursgruppen skapa `Credential Asset` för varje API nyckel.
     Användarnamnet är Kår-ID för webbtjänster som står på sidan Webbkoppling.
     Lösenordet är API-nyckeln.
     1. Credential Asset: `ScoutnetApiCustomLists`, API-nyckel för api/group/customlists
@@ -170,6 +170,7 @@ $mailListSettings = @{
         "scouter_synk_option" = ""; # Alla adresser i scoutnet.
         "ledare_synk_option" = "@"; # Bara office 365 adresser
         "email_addresses" = "test1@domain.se","test2@domain.se";  # Lista med e-postadresser.
+        "ignore_user" = "12345", "54321"; # Lista med ScoutnetId som ignoreras.
     };
     "aventyrare" = @{ Namnet på distributions gruppen i office 365.
         "scoutnet_list_id"= "0002";
@@ -229,6 +230,20 @@ Exempel:
 "email_addresses" = "test1@domain.se","test2@domain.se";
 ```
 
+###### ignore_user
+
+Fältet `ignore_user` används för att inte lägga till specifika användare
+till en distributionsgrupp. Används om en e-postlista i Scoutnet matchar lite
+mer än vad du vill ha med.
+
+Lägg ScoutnetId kommaseparerade.
+
+Exempel:
+
+```powershell
+"ignore_user" = "12345", "54321";
+```
+
 ## Ny version
 
 - Uppdatering av modulen sker genom att ladda ner en ny version och installera modulen.
@@ -260,7 +275,7 @@ eller kontakt så kommer en kontakt för varje extern e-postadress att skapas.
 **Städning:** Funktionen städar och tar bort kontakter till Scouter som slutat.
 Det här är för att kunna följa GDPR. Kontakter till Scouter som slutat ska tas bort.
 
-#### Funktionens beteende
+#### SNSUpdateExchangeDistributionGroups beteende
 
 1. Validera att Scoutnet är uppdaterat. Om Scoutnet inte är uppdaterat avbryts synkroniseringen.
 1. Ta bort alla medlemmar ifrån de grupper som ska synkroniseras.

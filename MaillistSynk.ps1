@@ -29,7 +29,8 @@ $mailListSettings = @{
         "scoutnet_list_id"= "4924"; # Listans Id i Scoutnet.
         "scouter_synk_option" = ""; # Synkoption för scouter. Giltiga värden är p,f,a eller tomt.
         "ledare_synk_option" = "@"; # Synkoption för ledare. Giltiga värden är @,-,t eller &.
-        "email_addresses" = "","";  # Lista med e-postadresser.
+        "email_addresses" = "","";  # Kommaseparerad lista med e-postadresser.
+        "ignore_user" = "";         # Kommaseparerad lista med ScoutnetId som inte ska med i listan.
     };
     "rovdjuren" = @{
         "scoutnet_list_id"= "4923";
