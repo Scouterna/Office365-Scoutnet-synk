@@ -16,7 +16,7 @@
     .OUTPUTS
         The data from ConvertFrom-Json.
 
-    .PARAMETER ApiUrl
+    .PARAMETER Uri
         Url to the scoutnet API for fetching the group memberlist.
 
     .PARAMETER Credential
@@ -37,9 +37,9 @@
 
     [OutputType([System.Collections.Hashtable])]
     param (
-        [Parameter(Mandatory=$True, HelpMessage="Url to Scoutnet API for fetching the group customlists")]
+        [Parameter(Mandatory=$False, HelpMessage="Url to Scoutnet API for fetching the group customlists")]
         [ValidateNotNull()]
-        [string]$Uri,
+        [string]$Uri = "https://www.scoutnet.se/api/group/customlists",
 
         [Parameter(Mandatory=$True, HelpMessage="Credentials for api/group/customlists")]
         [ValidateNotNull()]

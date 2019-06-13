@@ -54,6 +54,6 @@
     $Headers = @{ Authorization = $Authorization }
 
     # Recuest the data and convert the result to a hash table. Basic parsing is mandatory on Azure automation.
-    $JsonHashTable = Invoke-WebRequest -Uri $Uri -Headers $Headers -UseBasicParsing -ErrorAction "Stop" | ConvertFrom-Json | ConvertTo-SNSJSONHash
+    $JsonHashTable = Invoke-WebRequest -Uri $Uri -Headers $Headers -UseBasicParsing -ErrorAction "Stop" | ConvertFrom-Json -ErrorAction "Stop" | ConvertTo-SNSJSONHash
     return $JsonHashTable
 }

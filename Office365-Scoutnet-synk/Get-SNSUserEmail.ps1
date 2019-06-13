@@ -42,7 +42,7 @@
         )
 
     # Fetch all mail addresses from Scoutnet.
-    $allUsers = Receive-SNSApiJson -Uri $UriApiMemberList -Credential $CredentialMemberlist
+    $allUsers = Get-SNSApiGroupMemberlist -Uri $UriApiMemberList -Credential $CredentialMemberlist
 
     $allMailAddresses = @{}
     foreach ($member in $allUsers.data.values)

@@ -11,6 +11,9 @@
 . $PSScriptRoot\Get-SNSMaillistInfo.ps1
 . $PSScriptRoot\Get-SNSUserEmail.ps1
 . $PSScriptRoot\Get-SNSExchangeMailListMember.ps1
+. $PSScriptRoot\Get-SNSApiGroupMemberlist.ps1
+. $PSScriptRoot\Invoke-SNSAddOffice365User.ps1
+. $PSScriptRoot\Invoke-SNSUppdateOffice365User.ps1
 
 #endregion
 
