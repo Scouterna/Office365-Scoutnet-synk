@@ -133,6 +133,8 @@ Lägger du till användare manuellt och de ska kunna automatisk komma med i
 distributionsgrupper så behöver du fylla i `CustomAttribute1`
 med personens Scoutnet ID.
 
+Funktionen för användarsynkronisering heter `Invoke-SNSUppdateOffice365User`.
+
 #### Inställningar
 
 I exempelfilen så är det några inställningar att ändra:
