@@ -40,8 +40,16 @@
         [Parameter(Mandatory=$True, HelpMessage="Distribution groups that will be part of mailListsToProcessMembers.")]
         [string[]]$Maillists
         )
-
-    Import-PSSession $ExchangeSession -AllowClobber -CommandName Get-DistributionGroupMember,Get-DistributionGroup > $null
+        
+    try
+    {
+        Import-PSSession $ExchangeSession -AllowClobber -CommandName Get-DistributionGroupMember,Get-DistributionGroup -ErrorAction Stop > $null
+    }
+    catch
+    {
+        Write-SNSLog -Level "Error" "Could not import needed functions. Error $_"
+        throw
+    }
 
     $otherMailListsMembers = [System.Collections.ArrayList]::new()
     $mailListsToProcessMembers = [System.Collections.ArrayList]::new()
@@ -49,22 +57,47 @@
     $mailListGroups = @()
     foreach($mailList in $Maillists)
     {
-        $mailListGroups += (Get-DistributionGroup $mailList).Identity
+        try
+        {
+            $mailListGroups += (Get-DistributionGroup $mailList -ErrorAction Stop).ExchangeObjectId
+        }
+        catch
+        {
+            Write-SNSLog -Level "Error" "Could not fetch data for distribution group '$mailList'. Error $_"
+            throw
+        }
     }
 
-    $groups = Get-DistributionGroup
-    foreach($group in $groups)
+    try
     {
-        Write-SNSLog "Get distribution list $($group.DisplayName)"
-        $data = Get-DistributionGroupMember -Identity $group.Identity
-        if ($mailListGroups.Contains($group.Identity))
+        $groups = Get-DistributionGroup -ErrorAction Stop
+    }
+    catch
+    {
+        Write-SNSLog -Level "Error" "Could not fetch data for all distribution groups. Error $_"
+        throw
+    }
+
+    try
+    {
+        foreach($group in $groups)
         {
-            $data | ForEach-Object {[void]$mailListsToProcessMembers.Add($_)}
+            Write-SNSLog "Get distribution list $($group.DisplayName)"
+            $data = Get-DistributionGroupMember -Identity "$($group.ExchangeObjectId)" -ErrorAction Stop
+            if ($mailListGroups.Contains($group.ExchangeObjectId))
+            {
+                $data | ForEach-Object {[void]$mailListsToProcessMembers.Add($_)}
+            }
+            else
+            {
+                $data | ForEach-Object {[void]$otherMailListsMembers.Add($_)}
+            }
         }
-        else
-        {
-            $data | ForEach-Object {[void]$otherMailListsMembers.Add($_)}
-        }
+    }
+    catch
+    {
+        Write-SNSLog -Level "Error" "Fetch of distribution group members failed. Error $_"
+        throw
     }
     Write-SNSLog "Done"
 
