@@ -1,9 +1,4 @@
-﻿# Default log file name.
-$Script:SNSLogFilePath='scoutnetSync.log'
-
-Export-ModuleMember -Variable SNSLogFilePath
-
-function Write-SNSLog
+﻿function Write-SNSLog
 {
 <#
 .Synopsis
@@ -13,7 +8,7 @@ function Write-SNSLog
    The Write-SNSLog function is designed to add logging capability to other scripts.
    In addition to writing output and/or verbose you can write to a log file for
    later debugging.
-   The exported variable $SNSLogFilePath can be used to oweride the default logfile scoutnetSync.log.
+   The configuration variable $LogFilePath can be used to oweride the default logfile scoutnetSync.log.
 
 .PARAMETER Message
    Message is the content that you wish to add to the log file.
@@ -37,13 +32,13 @@ function Write-SNSLog
 
     Process
     {
-        if (-not [String]::IsNullOrWhiteSpace($script:SNSLogFilePath))
+        if (-not [String]::IsNullOrWhiteSpace($script:SNSConf.LogFilePath))
         {
             # If attempting to write to a log file in a folder/path that doesn't exist create the file including the path.
-            if (!(Test-Path $script:SNSLogFilePath))
+            if (!(Test-Path $script:SNSConf.LogFilePath))
             {
-                Write-Verbose "Creating $script:SNSLogFilePath."
-                New-Item $script:SNSLogFilePath -Force -ItemType File > $null
+                Write-Verbose "Creating $($script:SNSConf.LogFilePath)."
+                New-Item $script:SNSConf.LogFilePath -Force -ItemType File > $null
             }
         }
         else
@@ -70,10 +65,10 @@ function Write-SNSLog
                 }
             }
 
-        if (-not [String]::IsNullOrWhiteSpace($script:SNSLogFilePath))
+        if (-not [String]::IsNullOrWhiteSpace($script:SNSConf.LogFilePath))
         {
             # Write log entry to $script:LogPath
-            "$FormattedDate $LevelText $Message" | Out-File -FilePath $script:SNSLogFilePath -Append -Encoding UTF8
+            "$FormattedDate $LevelText $Message" | Out-File -FilePath $script:SNSConf.LogFilePath -Append -Encoding UTF8
         }
     }
 }

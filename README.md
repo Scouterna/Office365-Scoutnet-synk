@@ -139,34 +139,32 @@ Funktionen för användarsynkronisering heter `Invoke-SNSUppdateOffice365User`.
 
 I exempelfilen så är det några inställningar att ändra:
 
-- Ändra kårens domän namn på variabeln `DomainName`.
-- Ändra avsändaradress i variabeln `emailFromAddress`.
-- Ändra mottagaradress i variabeln `emailToAddress`.
+- Ändra kårens domän namn på variabeln `$conf.DomainName`.
+- Ändra mottagaradress i variabeln `LogEmailToAddress`.
+- Ändra licensinställningen i variabeln `LicenseAssignment`.
+- Ändra eller ta bort grupp för alla ledare i variabeln `$conf.AllUsersGroupName`.
+- Ändra standardsignatur i `$conf.SignatureText` och `$conf.SignatureHtml`.
+- Ändra rubrik och test på välkomstbrev i `$conf.NewUserEmailSubject` och `$conf.NewUserEmailText`.
+    Välkomstbrevet skickas till medlemmes primära e-postadress i scouten.
+- Ändra rubrik och test på informationsbrev i `$conf.NewUserInfoEmailSubject` och `$conf.NewUserInfoEmailText`.
+    Informationsbrevet skickas till användarens nya e-postadress.
+    Kan t.ex innehålla information om var du kan hitta sharepointsiten 
 
 ### Office 365 distributionsgrupper - synkronisering med Scoutnet
 
 Synkronisering av Office 365 distributionsgrupper med e-postlistor i Scoutnet.
 Där en distributionsgrupp är kopplad till en e-postlista i Scoutnet.
 
-#### Inställningar
+#### mailListSettings
 
-I exempelfilen [MaillistSynk.ps1](MaillistSynk.ps1) så är
-det några inställningar att ändra:
-
-- Ändra kårens domän namn på variabeln `DomainName`.
-- Ändra avsändaradress i variabeln `emailFromAddress`.
-- Ändra mottagaradress i variabeln `emailToAddress`.
-
-##### mailListSettings
-
-I variabel `mailListSettings` ställ in de Office 365 distributionsgrupper
+I variabel `$conf.MailListSettings` ställ in de Office 365 distributionsgrupper
 som ska synkroniseras med Scoutnet.
 Namnet måste gå att matcha mot en distributionsgrupp i Office365.
 
 Exempel:
 
 ```powershell
-$mailListSettings = @{
+$conf.MailListSettings = @{
     "utmanare" = @{ # Namnet på distributions gruppen i office 365.
         "scoutnet_list_id"= "0001"; # Listans Id i Scoutnet.
         "scouter_synk_option" = ""; # Alla adresser i scoutnet.
@@ -182,7 +180,7 @@ $mailListSettings = @{
     };
 ```
 
-###### scouter_synk_option
+##### scouter_synk_option
 
 I fältet `scouter_synk_option` kan du för respektive
 distributionsgrupp ange följande:
@@ -206,7 +204,7 @@ som ska läggas till:
 - Om man inte anger något används fälten primär e-postadress, anhörig 1,
     anhörig 2 och alternativ e-postadress.
 
-###### ledare_synk_option
+##### ledare_synk_option
 
 I fältet `ledare_synk_option` kan du för respektive
 distributionsgrupp ange följande:
@@ -220,7 +218,7 @@ distributionsgrupp ange följande:
 - Standard för `ledare_synk_option` är "@" Lägg till personens
     Office365-konto om den har något, annars hoppa över personen.
 
-###### email_addresses
+##### email_addresses
 
 Fältet `email_addresses` används för att lägga till extra e-postadresser
 till en distributionsgrupp.
@@ -232,7 +230,7 @@ Exempel:
 "email_addresses" = "test1@domain.se","test2@domain.se";
 ```
 
-###### ignore_user
+##### ignore_user
 
 Fältet `ignore_user` används för att inte lägga till specifika användare
 till en distributionsgrupp. Används om en e-postlista i Scoutnet matchar lite

@@ -4,26 +4,30 @@
 # Lämplig inställning i Axure automation.
 $ProgressPreference = "silentlyContinue"
 
-# Gruppnamn för alla ledare. Gruppen måste skapas i office 365 innan den kan användas här.
-$Script:SNSAllUsersGroupName='ledare'
-
 # Licenser för nya användare. Byt ut <office 365 licensnamn> med det namnet du har.
 # Exemplet nedan lägger in STANDARDPACK och FLOW_FREE. På STANDARDPACK applikationerna "YAMMER_ENTERPRISE", "SWAY","Deskless","POWERAPPS_O365_P1" avstängda.
-$Script:SNSLicenseAssignment=@{
+# För att hitta vad dina licenser heter använd Get-MsolAccountSku ifrån MSonline paketet.
+$LicenseAssignment=@{
     "<office 365 licensnamn>:STANDARDPACK" = @(
         "YAMMER_ENTERPRISE", "SWAY","Deskless","POWERAPPS_O365_P1");
         "<office 365 licensnamn>:FLOW_FREE"=""
 }
 
+# Hämta ett objekt av konfigurations klassen.
+$conf = New-SNSConfiguration -LicenseAssignment $LicenseAssignment
+
+# Gruppnamn för alla ledare. Gruppen måste skapas i office 365 innan den kan användas här.
+$conf.AllUsersGroupName='ledare'
+
 # Standardsignatur för nya användare. Textvariant.
-$Script:SNSSignatureText=@"
+$conf.SignatureText=@"
 Med vänliga hälsningar
 
 <DisplayName>
 "@
 
 # Standardsignatur för nya användare. Html variant.
-$Script:SNSSignatureHtml=@"
+$conf.SignatureHtml=@"
 <html>
     <head>
         <style type="text/css" style="display:none">
@@ -55,11 +59,12 @@ p   {margin-top:0; margin-bottom:0}
 </html>
 "@
 
-# Rubrik för mailet till ny användare.
-$Script:SNSNewUserEmailSubject="Ditt office 365 konto är skapat"
+# Rubrik för mailet till ny användare. Skickas till användarens primära e-postadress i Scoutnet.
+$conf.NewUserEmailSubject="Ditt office 365 konto är skapat"
 
-# TExten i mailet till ny användare.
-$Script:SNSNewUserEmailText=@"
+# Texten i mailet till ny användare. Skickas till användarens primära e-postadress i Scoutnet.
+# Delarna <DisplayName>, <UserPrincipalName> och <Password> byts ut innan mailet skickas. 
+$conf.NewUserEmailText=@"
 Hej <DisplayName>!
 
 Som ledare i scoutkåren så får du ett mailkonto i scoutkårens Office 365.
@@ -76,26 +81,21 @@ Mvh
 Scoutkåren
 "@
 
-$ = "outlook.office365.com"
-
 # Aktiverar Verbose logg. Standardvärde är silentlyContinue
 #$VerbosePreference = "Continue"
 
-# Vem ska mailet med loggen skickas ifrån.
-$emailFromAddress = "info@landvetterscout.se"
-
 # Vem ska mailet med loggen skickas till.
-$emailToAddress = "karl.thoren@landvetterscout.se"
+$logEmailToAddress = "karl.thoren@landvetterscout.se"
 
 # Rubrik på mailet.
-$emailSubject = "Maillist sync log"
+$logEmailSubject = "Maillist sync log"
 
 # Domännam för scoutkårens office 365.
-$DomainName = "landvetterscout.se"
+$conf.DomainName = "landvetterscout.se"
 
 # Hashtable med id på Office 365 distributionsgruppen som nyckel.
 # Distributions grupper som är med här kommer att synkroniseras.
-$mailListSettings = @{
+$conf.MailListSettings = @{
     "utmanarna" = @{ # Namet på distributions gruppen i office 365. Används som grupp ID till Get-DistributionGroupMember.
         "scoutnet_list_id"= "4924"; # Listans Id i Scoutnet.
         "scouter_synk_option" = ""; # Synkoption för scouter. Giltiga värden är p,f,a eller tomt.
@@ -135,13 +135,13 @@ $mailListSettings = @{
 try
 {
     # Credentials för access till Office 365 och för att kunna skicka mail.
-    $Credential365 = Get-AutomationPSCredential -Name "MSOnline-Credentials" -ErrorAction "Stop"
+    $conf.Credential365 = Get-AutomationPSCredential -Name "MSOnline-Credentials" -ErrorAction "Stop"
 
     # Credentials för Scoutnets API api/group/customlists
-    $CredentialCustomLists = Get-AutomationPSCredential -Name 'ScoutnetApiCustomLists-Credentials' -ErrorAction "Stop"
+    $conf.CredentialCustomLists = Get-AutomationPSCredential -Name 'ScoutnetApiCustomLists-Credentials' -ErrorAction "Stop"
 
     # Credentials för Scoutnets API api/group/memberlist
-    $CredentialMembers = Get-AutomationPSCredential -Name 'ScoutnetApiGroupMemberList-credentials' -ErrorAction "Stop"
+    $conf.CredentialMemberlist = Get-AutomationPSCredential -Name 'ScoutnetApiGroupMemberList-credentials' -ErrorAction "Stop"
 }
 Catch
 {
@@ -164,13 +164,10 @@ try
 {
     # Kör updateringsfunktionen.
     # Först uppdatera användare.
-    Invoke-SNSUppdateOffice365User -CredentialCustomlists $CredentialCustomLists `
-        -CredentialMemberlist $CredentialMembers -Credential365 $Credential365 -DomainName $DomainName
+    Invoke-SNSUppdateOffice365User -Configuration $conf
 
     # Sen uppdatera maillistor.
-    $NewValidationHash = SNSUpdateExchangeDistributionGroups -CredentialCustomlists $CredentialCustomLists `
-        -CredentialMemberlist $CredentialMembers -Credential365 $Credential365 -MailListSettings $mailListSettings `
-        -ValidationHash $ValidationHash -DomainName $DomainName
+    $NewValidationHash = SNSUpdateExchangeDistributionGroups -Configuration $conf -ValidationHash $ValidationHash
 }
 Catch
 {
@@ -189,5 +186,6 @@ Catch
 }
 
 # Skapa ett mail med loggen och skicka till admin.
-$bodyData = Get-Content -Path $SNSLogFilePath -Raw -Encoding UTF8 -ErrorAction "Continue"
-Send-MailMessage -Credential $Credential365 -From $emailFromAddress -To $emailToAddress -Subject $emailSubject -Body $bodyData -SmtpServer $Script:SNSemailSMTPServer -UseSSL -Encoding UTF8 -ErrorAction "Continue"
+$bodyData = Get-Content -Path $conf.LogFilePath -Raw -Encoding UTF8 -ErrorAction "Continue"
+Send-MailMessage -Credential $conf.Credential365 -From $conf.emailFromAddress -To $logEmailToAddress -Subject $logEmailSubject `
+    -Body $bodyData -SmtpServer $conf.EmailSMTPServer -Port $conf.SmtpPort -UseSSL -Encoding UTF8 -ErrorAction "Continue"

@@ -12,10 +12,13 @@
 . $PSScriptRoot\Get-SNSUserEmail.ps1
 . $PSScriptRoot\Get-SNSExchangeMailListMember.ps1
 . $PSScriptRoot\Get-SNSApiGroupMemberlist.ps1
-. $PSScriptRoot\Invoke-SNSAddOffice365User.ps1
 . $PSScriptRoot\Invoke-SNSUppdateOffice365User.ps1
+. $PSScriptRoot\SNSConfiguration.ps1
 
 #endregion
+
+# Configuration holder.
+$script:SNSConf=[SNSConfiguration]::new()
 
 function Add-Office365User
 {
@@ -118,7 +121,6 @@ function Add-MailContactToList
 
 function SNSUpdateExchangeDistributionGroups
 {
-    [CmdletBinding(HelpURI = 'https://github.com/scouternasetjanster/Office365-Scoutnet-synk')]
     <#
     .SYNOPSIS
         Updates exchange distribution groups based on scoutnet maillists.
@@ -132,58 +134,45 @@ function SNSUpdateExchangeDistributionGroups
 
     .OUTPUTS
         None.
-
-    .PARAMETER CredentialCustomlists
-        Credentials for api/group/customlists
-
-    .PARAMETER CredentialMemberlist
-        Credentials for api/group/memberlist
-
-    .PARAMETER Credential365
-        Credentials for office365 that can execute needed servlets.
-
-    .PARAMETER MailListSettings
-        Maillists to process. A hashtable with maillist info.
+    
+    .LINK
+        https://github.com/scouternasetjanster/Office365-Scoutnet-synk
 
     .PARAMETER ValidationHash
         Hash value used to validate if scoutnet is updated.
 
-    .PARAMETER DomainName
-        Domain name for office365 mail addresses.
+    .PARAMETER Configuration
+        Configuration to use. If not specified the cached configuration will be used.
     #>
-
+    [CmdletBinding(HelpURI = 'https://github.com/scouternasetjanster/Office365-Scoutnet-synk',
+                PositionalBinding = $False)]
     [OutputType([string])]
     param (
-        [Parameter(Mandatory=$True, HelpMessage="Credentials for api/group/customlists.")]
-        [ValidateNotNull()]
-        [pscredential]$CredentialCustomlists,
-
-        [Parameter(Mandatory=$True, HelpMessage="Credentials for api/group/memberlist.")]
-        [ValidateNotNull()]
-        [pscredential]$CredentialMemberlist,
-
-        [Parameter(Mandatory=$True, HelpMessage="Credentials for office365.")]
-        [ValidateNotNull()]
-        [pscredential]$Credential365,
-
-        [Parameter(Mandatory=$True, HelpMessage="Maillists to process.")]
-        [ValidateNotNull()]
-        $MailListSettings,
-
         [Parameter(Mandatory=$True, HelpMessage="Hash value used to validate if Scoutnet is updated.")]
         [ValidateNotNull()]
         [string]$ValidationHash,
 
-        [Parameter(Mandatory=$True, HelpMessage="Domain name for office365 mail addresses.")]
-        [ValidateNotNull()]
-        [string]$DomainName
-        )
+        [Parameter(Mandatory=$False, HelpMessage="Configuratin to use. If not specified the cached configuration will be used.")]
+        [SNSConfiguration]$Configuration
+    )
+
+    if ($Configuration)
+    {
+        $Script:SNSConf = $Configuration
+    }
+
+    if (!$Script:SNSConf)
+    {
+        throw "No configuration specified. Please provide a configuration!"
+    }
+
+    $MailListSettings = $Script:SNSConf.MailListSettings
 
     # Fetch maillist info from scoutnet.
-    $CustomLists, $CustomListsHash = Get-SNSMaillistInfo -CredentialCustomlists $CredentialCustomlists -MaillistsIds $MailListSettings.values
+    $CustomLists, $CustomListsHash = Get-SNSMaillistInfo -CredentialCustomlists $Script:SNSConf.CredentialCustomlists -MaillistsIds $MailListSettings.values
 
     # Fetch all members and their mailaddresses.
-    $allMailAddresses, $allMailAddressesHash = Get-SNSUserEmail -CredentialMemberlist $CredentialMemberlist
+    $allMailAddresses, $allMailAddressesHash = Get-SNSUserEmail -CredentialMemberlist $Script:SNSConf.CredentialMemberlist
 
     $MailListSettingsHash = ("{0:X8}" -f (($MailListSettings | ConvertTo-Json).GetHashCode()))
 
@@ -198,11 +187,12 @@ function SNSUpdateExchangeDistributionGroups
     else
     {
         Write-SNSLog "Scoutnet is updated. Starting to update the distribution groups."
+        return ""
 
-        $ExchangeSession = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri https://outlook.office365.com/powershell-liveid/ -Credential $Credential365 -Authentication Basic -AllowRedirection
+        $ExchangeSession = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri https://outlook.office365.com/powershell-liveid/ -Credential $Script:SNSConf.Credential365 -Authentication Basic -AllowRedirection
         Import-PSSession $ExchangeSession -AllowClobber -CommandName Set-MailContact,Set-Contact,New-MailContact,Remove-MailContact,Remove-DistributionGroupMember,Get-Recipient,Add-DistributionGroupMember,Get-Mailbox > $null
 
-        $otherMailListsMembers, $mailListsToProcessMembers = Get-SNSExchangeMailListMember -Credential365 $Credential365 -ExchangeSession $ExchangeSession -Maillists $MailListSettings.Keys
+        $otherMailListsMembers, $mailListsToProcessMembers = Get-SNSExchangeMailListMember -Credential365 $Script:SNSConf.Credential365 -ExchangeSession $ExchangeSession -Maillists $MailListSettings.Keys
 
         # Clean the distribution groups first, so any removed addresses in Scoutnet is removed in o365.
         Write-SNSLog " "

@@ -1,8 +1,4 @@
-﻿# Cache
-$Script:SNSApiGroupMemberlistCache=$null
-Export-ModuleMember -Variable SNSApiGroupMemberlistCache
-
-function Get-SNSApiGroupMemberlist
+﻿function Get-SNSApiGroupMemberlist
 {
     <#
     .SYNOPSIS
@@ -43,13 +39,13 @@ function Get-SNSApiGroupMemberlist
         [string]$Uri = "https://www.scoutnet.se/api/group/memberlist"
         )
 
-    if ($Script:SNSApiGroupMemberlistCache)
+    if ($Script:SNSConf.ApiGroupMemberlistCache)
     {
-        return $Script:SNSApiGroupMemberlistCache
+        return $Script:SNSConf.ApiGroupMemberlistCache
     }
     else
     {
-        $Script:SNSApiGroupMemberlistCache = Receive-SNSApiJson -Uri $Uri -Credential $Credential
-        return $Script:SNSApiGroupMemberlistCache
+        $Script:SNSConf.ApiGroupMemberlistCache = Receive-SNSApiJson -Uri $Uri -Credential $Credential
+        return $Script:SNSConf.ApiGroupMemberlistCache
     }
 }
