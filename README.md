@@ -60,7 +60,9 @@ Hur du gör är beskrivet här <https://blog.kloud.com.au/2016/08/24/schedule-of
 1. Skapa även en `Credential Asset` med en användare som har adminrättigheter
     på scoutkårens office 356.
     1. Credential Asset: `MSOnline-Credentials`, konto som har adminrättigheter
-        på scoutkårens office 356.
+        på scoutkårens office 356. Rekommendationen är att det är ett separat
+        konto som är kopplat till scoutkårens onmicrosoft.com domän.
+        T.ex administrator@scoutkaren.onmicrosoft.com
 
 ### Synkronisera grupper
 
