@@ -8,6 +8,7 @@
         Fetches the distribution groups members and returns them in a ArrayList and a hashtable.
         The ArrayList is "other" distribution groups members that can be checked if a mailaddress can be reomoved or not.
         The hashtable is "other" distribution groups members
+        Only contacts is returned. Users with mailboxes is not returned.
 
     .INPUTS
         None. You cannot pipe objects to Get-SNSExchangeMailListMember.
@@ -51,8 +52,8 @@
         throw
     }
 
-    $otherMailListsMembers = [System.Collections.ArrayList]::new()
-    $mailListsToProcessMembers = [System.Collections.ArrayList]::new()
+    $otherMailListsMembers = @{}
+    $mailListsToProcessMembers = @{}
 
     $mailListGroups = @()
     foreach($mailList in $Maillists)
@@ -86,11 +87,21 @@
             $data = Get-DistributionGroupMember -Identity "$($group.ExchangeObjectId)" -ErrorAction Stop
             if ($mailListGroups.Contains($group.ExchangeObjectId))
             {
-                $data | ForEach-Object {[void]$mailListsToProcessMembers.Add($_)}
+                $data | ForEach-Object {
+                    if ($_.RecipientType -eq "MailContact")
+                    {
+                        $mailListsToProcessMembers[$_.Identity] = $_
+                    }
+                }
             }
             else
             {
-                $data | ForEach-Object {[void]$otherMailListsMembers.Add($_)}
+                $data | ForEach-Object {
+                    if ($_.RecipientType -eq "MailContact")
+                    {
+                        $otherMailListsMembers[$_.Identity] = $_
+                    }
+                }
             }
         }
     }
@@ -101,7 +112,5 @@
     }
     Write-SNSLog "Done"
 
-    $otherMailListsMembers = $otherMailListsMembers | Sort-Object -Unique -Property ExchangeObjectId
-    $mailListsToProcessMembers = $mailListsToProcessMembers | Sort-Object -Unique -Property ExchangeObjectId
     return $otherMailListsMembers, $mailListsToProcessMembers
 }

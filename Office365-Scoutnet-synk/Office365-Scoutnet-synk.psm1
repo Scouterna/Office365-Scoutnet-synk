@@ -194,39 +194,15 @@ function SNSUpdateExchangeDistributionGroups
 
         $otherMailListsMembers, $mailListsToProcessMembers = Get-SNSExchangeMailListMember -Credential365 $Script:SNSConf.Credential365 -ExchangeSession $ExchangeSession -Maillists $MailListSettings.Keys
 
-        # Clean the distribution groups first, so any removed addresses in Scoutnet is removed in o365.
+        # Clean the distribution groups first.
         Write-SNSLog " "
         Write-SNSLog "Removing contacts in distribution groups"
-
-        # First delete the mail contact, as that also deletes the contact from the distribution list.
-        $mailListsToProcessMembers | ForEach-Object {
-            $medlem = $_
-            if ($medlem.RecipientType -eq "MailContact")
-            {
-                # Check this contact is member in any other maillist.
-                $IsInmaillistMembers = $otherMailListsMembers |Where-Object {$_.Identity -eq $medlem.Identity}
-                if ($null -eq $IsInmaillistMembers)
-                {
-                    Write-SNSLog "Removing MailContact $($medlem.Identity)"
-                    Remove-MailContact $medlem.Identity -Confirm:$Y
-                }
-            }
-        }
-
         foreach ($distGroupName in $MailListSettings.keys)
         {
             Write-SNSLog "Remove contacts in distribution group $($distGroupName)"
             $distGroupMembers= Get-DistributionGroupMember -Identity $distGroupName
             foreach ($medlem in $distGroupMembers)
             {
-                if ($medlem.RecipientType -eq "MailContact")
-                {
-                    Write-SNSLog "Removing mail contact $($medlem.Name) for $($medlem.Company) from distribution group $($distGroupName)"
-                }
-                else
-                {
-                    Write-SNSLog "Removing user $($medlem.Name) from distribution group $($distGroupName)"
-                }
                 Remove-DistributionGroupMember -Identity $distGroupName -Member $medlem.Identity -Confirm:$Y
             }
         }
@@ -337,7 +313,8 @@ function SNSUpdateExchangeDistributionGroups
                     $mailaddresses | ForEach-Object {
                         if (![string]::IsNullOrWhiteSpace($_))
                         {
-                            Add-MailContactToList -Epost $_ -DisplayName $displayName -DistGroupName $distGroupName                                
+                            Add-MailContactToList -Epost $_ -DisplayName $displayName -DistGroupName $distGroupName
+                            $mailListsToProcessMembers.Remove($_)
                         }
                     }
                 }
@@ -417,6 +394,7 @@ function SNSUpdateExchangeDistributionGroups
                     else
                     {
                         Add-MailContactToList -Epost $MemberData.primary_email -DisplayName $displayName -DistGroupName $distGroupName
+                        $mailListsToProcessMembers.Remove($MemberData.primary_email)
                     }
                 }
             }
@@ -430,8 +408,30 @@ function SNSUpdateExchangeDistributionGroups
                 }
 
                 Add-MailContactToList -Epost $email -DisplayName $email -DistGroupName $distGroupName
+                $mailListsToProcessMembers.Remove($email)
             }
         }
+
+        Write-SNSLog " "
+        Write-SNSLog "Removing old contacts"
+        Write-SNSLog "Number of contacts to check for removal $($mailListsToProcessMembers.count)"
+
+        # Delete all contacts that still is in the list of contacts to process.
+        $mailListsToProcessMembers.values | ForEach-Object {
+            $medlem = $_
+            if ($medlem.RecipientType -eq "MailContact")
+            {
+                # Check this contact is member in any other maillist.
+                $IsInmaillistMembers = $otherMailListsMembers[$_.Identity]
+                if ($null -eq $IsInmaillistMembers)
+                {
+                    # Not used in any maillists. Remove the contact.
+                    Write-SNSLog "Removing MailContact $($medlem.Identity)"
+                    Remove-MailContact $medlem.Identity -Confirm:$Y
+                }
+            }
+        }
+        
         Remove-PSSession $ExchangeSession
         Write-SNSLog " "
         Write-SNSLog "Update done new hash value is $NewValidationHash"
