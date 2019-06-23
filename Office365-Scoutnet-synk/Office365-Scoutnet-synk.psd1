@@ -12,7 +12,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.2.0'
+ModuleVersion = '0.2.5'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()

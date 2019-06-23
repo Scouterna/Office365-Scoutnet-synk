@@ -173,7 +173,7 @@ Catch
 {
     Write-SNSLog -Level "Error" "Kunde inte köra uppdateringen. Error $_"
 }
-        
+
 try
 {
     # Spara hashen till nästa körning.

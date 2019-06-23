@@ -4,6 +4,7 @@
 
 #region import everything we need
 
+. $PSScriptRoot\SNSConfiguration.ps1
 . $PSScriptRoot\Write-SNSLog.ps1
 . $PSScriptRoot\ConvertTo-SNSJSONHash.ps1
 . $PSScriptRoot\Receive-SNSApiJson.ps1
@@ -13,12 +14,12 @@
 . $PSScriptRoot\Get-SNSExchangeMailListMember.ps1
 . $PSScriptRoot\Get-SNSApiGroupMemberlist.ps1
 . $PSScriptRoot\Invoke-SNSUppdateOffice365User.ps1
-. $PSScriptRoot\SNSConfiguration.ps1
 
 #endregion
 
 # Configuration holder.
 $script:SNSConf=[SNSConfiguration]::new()
+Export-ModuleMember -Variable SNSConf
 
 function Add-Office365User
 {
@@ -153,7 +154,7 @@ function SNSUpdateExchangeDistributionGroups
         [string]$ValidationHash,
 
         [Parameter(Mandatory=$False, HelpMessage="Configuratin to use. If not specified the cached configuration will be used.")]
-        [SNSConfiguration]$Configuration
+        $Configuration
     )
 
     if ($Configuration)
@@ -187,7 +188,6 @@ function SNSUpdateExchangeDistributionGroups
     else
     {
         Write-SNSLog "Scoutnet is updated. Starting to update the distribution groups."
-        return ""
 
         $ExchangeSession = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri https://outlook.office365.com/powershell-liveid/ -Credential $Script:SNSConf.Credential365 -Authentication Basic -AllowRedirection
         Import-PSSession $ExchangeSession -AllowClobber -CommandName Set-MailContact,Set-Contact,New-MailContact,Remove-MailContact,Remove-DistributionGroupMember,Get-Recipient,Add-DistributionGroupMember,Get-Mailbox > $null
@@ -335,8 +335,10 @@ function SNSUpdateExchangeDistributionGroups
                 if ($AddMemberScoutnetAddress)
                 {
                     $mailaddresses | ForEach-Object {
-                        $epost = $_
-                        Add-MailContactToList -Epost $epost -DisplayName $displayName -DistGroupName $distGroupName
+                        if (![string]::IsNullOrWhiteSpace($_))
+                        {
+                            Add-MailContactToList -Epost $_ -DisplayName $displayName -DistGroupName $distGroupName                                
+                        }
                     }
                 }
             }
@@ -408,7 +410,14 @@ function SNSUpdateExchangeDistributionGroups
 
                 if ($DoAddLedareScoutnetAddress)
                 {
-                    Add-MailContactToList -Epost $MemberData.primary_email -DisplayName $displayName -DistGroupName $distGroupName
+                    if ([string]::IsNullOrWhiteSpace($MemberData.primary_email))
+                    {
+                        Write-SNSLog -Level "Warn" "Primary mailaddres in scoutnet for '$displayName' is empty. Cannot add member to list."
+                    }
+                    else
+                    {
+                        Add-MailContactToList -Epost $MemberData.primary_email -DisplayName $displayName -DistGroupName $distGroupName
+                    }
                 }
             }
 

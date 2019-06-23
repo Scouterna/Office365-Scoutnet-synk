@@ -265,7 +265,7 @@ function Invoke-SNSCreateUserAndUpdateUserData
                     -LicenseOptions $Script:SNSConf.LicenseOptions `
                     -ErrorAction Stop
 
-                Write-SNSLog "User '$($newAccount.UserPrincipalName)' added for member id '$($MemberData.member_no.value)' with temp pdw '$($newAccount.Password)'"
+                Write-SNSLog "User '$($newAccount.UserPrincipalName)' added for member id '$($MemberData.member_no.value)'."
 
                 $newAccounts.Add($MemberData.member_no.value, @($MemberData, $newAccount))
                 $LastAccountUserPrincipalName = $newAccount.UserPrincipalName
@@ -379,7 +379,7 @@ function Invoke-SNSCreateUserAndUpdateUserData
                 }
             }
 
-            if (![string]::IsNullOrWhiteSpace($Script:SNSConf.SNSNewUserInfoEmailText))
+            if (![string]::IsNullOrWhiteSpace($Script:SNSConf.NewUserInfoEmailText) -and ![string]::IsNullOrWhiteSpace($Script:SNSConf.NewUserInfoEmailSubject))
             {
                 try
                 {
@@ -401,7 +401,7 @@ function Invoke-SNSCreateUserAndUpdateUserData
                 {
                     # Add the user to the Distribution Group for all users with office 365 account.
                     Add-DistributionGroupMember -Identity $Script:SNSConf.AllUsersGroupName -Member $newAccount.UserPrincipalName -ErrorAction "Stop"
-                    Write-SNSLog "The account '$($newAccount.DisplayName)' is added to distribution group '$Script:SNSConf.AllUsersGroupName'"
+                    Write-SNSLog "The account '$($newAccount.DisplayName)' is added to distribution group '$($Script:SNSConf.AllUsersGroupName)'"
                 }
                 Catch
                 {
