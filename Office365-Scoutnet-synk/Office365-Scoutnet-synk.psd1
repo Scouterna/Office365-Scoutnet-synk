@@ -120,7 +120,7 @@ PrivateData = @{
         # IconUri = ''
 
         # ReleaseNotes of this module
-        # ReleaseNotes = ''
+        ReleaseNotes = 'Beta 1: Fungerande synkning för maillistor och användarkonton'
 
     } # End of PSData hashtable
 
