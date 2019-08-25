@@ -280,6 +280,7 @@ function SNSUpdateExchangeDistributionGroups
                 elseif ($scouter_synk_option.contains("&"))
                 {
                     $AddMemberScoutnetAddress = $True
+                    $AddMemberOffice365Address = $True
                 }
 
                 if ($scouter_synk_option.contains("t"))
