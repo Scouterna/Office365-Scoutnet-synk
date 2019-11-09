@@ -585,7 +585,8 @@ function Invoke-SNSDisableAccount
         Set-MsolUser -ObjectId $AccountData.ExternalDirectoryObjectId -BlockCredential $true -ErrorAction "Stop"
 
         # Mark the account as hidden so the user is not shown in the global address book.
-        Set-Mailbox -Identity $AccountData.UserPrincipalName -HiddenFromAddressListsEnabled $True -ErrorAction "Stop"
+        # Remove any forwarders enabled by the user.
+        Set-Mailbox -Identity $AccountData.UserPrincipalName -HiddenFromAddressListsEnabled $True -ForwardingAddress $null -ForwardingSmtpAddress $null -DeliverToMailboxAndForward $false -ErrorAction "Stop"
 
         # Remove the user from the group of active users.
         $SecurityGroupScoutnet = Get-SNSSecurityGroupScoutnet
