@@ -27,6 +27,7 @@
     [pscredential]$Credential365
     [System.Collections.Hashtable]$MailListSettings
     [string]$DomainName
+    [string]$DisabledAccountsAutoReplyText
     [System.Collections.Hashtable]$ApiGroupMemberlistCache
 }
 
@@ -90,6 +91,10 @@ function New-SNSConfiguration
     .PARAMETER EmailFromAddress
         From address for all mails. The authenticaion account must be able to send as this address.
         If not set the name for Credential365 is used as from address.
+
+    .PARAMETER DisabledAccountsAutoReplyText
+        Autoreply message for disabled accounts.
+        If set this text is set as autoreply message for disabled accounts. Html is supported.
     #>
     [OutputType([SNSConfiguration])]
     param
@@ -137,7 +142,10 @@ function New-SNSConfiguration
         [string]$NewUserInfoEmailSubject,
 
         [Parameter(HelpMessage="Body for the mail to the users new e-mail address.")]
-        [string]$NewUserInfoEmailText
+        [string]$NewUserInfoEmailText,
+
+        [Parameter(HelpMessage="Autoreply message for disabled accounts.")]
+        [string]$DisabledAccountsAutoReplyText
     )
 
     $conf = [SNSConfiguration]::new()
@@ -205,6 +213,11 @@ function New-SNSConfiguration
     if ($UserSyncMailListId)
     {
         $conf.UserSyncMailListId = $UserSyncMailListId
+    }
+
+    if ($DisabledAccountsAutoReplyText)
+    {
+        $conf.DisabledAccountsAutoReplyText = $DisabledAccountsAutoReplyText
     }
 
     if ($LicenseAssignment)
