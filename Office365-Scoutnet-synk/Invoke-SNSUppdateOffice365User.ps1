@@ -186,7 +186,7 @@ function Invoke-SNSCreateUserAndUpdateUserData
     $LastAccountUserPrincipalName=$null
     foreach($MemberData in $memberData)
     {
-        # Create the new account
+#region Generate the new UserPrincipalName
         $DisplayName = "$($MemberData.first_name.value) $($MemberData.last_name.value)"
         $UserName = "$($MemberData.first_name.value).$($MemberData.last_name.value)".ToLower()
         # Convert UTF encoded names and create corresponding ASCII version.
@@ -210,11 +210,13 @@ function Invoke-SNSCreateUserAndUpdateUserData
                 }
             }
         }
+#endregion
 
         if (!$office365User)
         {
             try
             {
+#region Fetch data for the new user
                 $StreetAddress = $MemberData.address_1.value
                 if ($MemberData.address_2.value)
                 {
@@ -248,8 +250,9 @@ function Invoke-SNSCreateUserAndUpdateUserData
                     # Option -AlternateEmailAddresses expects an array. Create empty array if there is no AlternateEmailAddresses.
                     $AlternateEmailAddresses = @()
                 }
+#endregion
 
-                # Create the user.
+#region Create the new user.
                 $newAccount = New-MsolUser -UserPrincipalName $UserPrincipalName -DisplayName $DisplayName `
                     -FirstName $MemberData.first_name.value  `
                     -LastName $MemberData.last_name.value `
@@ -266,18 +269,20 @@ function Invoke-SNSCreateUserAndUpdateUserData
                     -ErrorAction Stop
 
                 Write-SNSLog "User '$($newAccount.UserPrincipalName)' added for member id '$($MemberData.member_no.value)'."
+#endregion
 
+#region Add the user to the group of active users.
                 $newAccounts.Add($MemberData.member_no.value, @($MemberData, $newAccount))
                 $LastAccountUserPrincipalName = $newAccount.UserPrincipalName
                 try
                 {
-                    # Add the user to the group of active users.
                     Add-MsolGroupMember -GroupObjectId $SecurityGroupScoutnet.ObjectId -GroupMemberObjectId $newAccount.ObjectId -ErrorAction "Stop"
                 }
                 Catch
                 {
                     Write-SNSLog -Level "Warn" "Could not add contact '$($newAccount.DisplayName)' to group $($Script:SNSConf.SyncGroupName). Error $_"
                 }    
+#endregion
             }
             catch
             {
@@ -290,6 +295,7 @@ function Invoke-SNSCreateUserAndUpdateUserData
         }
     }
 
+#region Wait for mailbox creation.
     $maxDateTimeout = (Get-Date).AddSeconds($Script:SNSConf.WaitMailboxCreationMaxTime)
     if (!$LastAccountUserPrincipalName)
     {
@@ -330,9 +336,11 @@ function Invoke-SNSCreateUserAndUpdateUserData
                 throw ($msg)
             }
         }
+#endregion
 
         foreach($newAccountId in $newAccounts.Keys)
         {
+#region Update the mailbox configuration for the new account.
             Write-SNSLog "Updating account '$($newAccount.DisplayName)'."
             $member =  $newAccounts[$newAccountId][0]
             $newAccount =  $newAccounts[$newAccountId][1]
@@ -351,7 +359,9 @@ function Invoke-SNSCreateUserAndUpdateUserData
             {
                 Write-SNSLog -Level "Error" "Could not update mailbox for user '$($newAccount.UserPrincipalName)'. Error $_"                
             }
+#endregion
 
+#region Send e-mail to the user with the new password and account info
             $emailFromAddress = $Script:SNSConf.EmailFromAddress
             if ([string]::IsNullOrWhiteSpace($emailFromAddress))
             {
@@ -378,7 +388,9 @@ function Invoke-SNSCreateUserAndUpdateUserData
                     Write-SNSLog -Level "Warn" "Could not send email to $($member.email.value). Error $_"
                 }
             }
+#endregion
 
+#region Extra info mail requested. Send it to the new account.
             if (![string]::IsNullOrWhiteSpace($Script:SNSConf.NewUserInfoEmailText) -and ![string]::IsNullOrWhiteSpace($Script:SNSConf.NewUserInfoEmailSubject))
             {
                 try
@@ -394,7 +406,9 @@ function Invoke-SNSCreateUserAndUpdateUserData
                     Write-SNSLog -Level "Warn" "Could not send email to $($newAccount.UserPrincipalName). Error $_"
                 }
             }
+#endregion
 
+#region Add the user to the Distribution Group for all users with office 365 account.
             if ($Script:SNSConf.AllUsersGroupName)
             {
                 try
@@ -412,6 +426,7 @@ function Invoke-SNSCreateUserAndUpdateUserData
                 }
             }
             Write-SNSLog "The account for '$($newAccount.DisplayName)' is updated and ready for use."
+#endregion
         }
     }
     catch
