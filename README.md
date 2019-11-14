@@ -15,7 +15,7 @@ Azure gratiskonto kan troligtvis också användas, då det ingår 500 minuter Az
 Modulen går även att köra på en dator som har minst Powershell 5.1 installerad.
 
 Vid problem, fel, frågor eller tips på förbättringar eller fler funktioner
-som du saknar; lägg ett ärende under `Issues` eller mejla karl.thoren@landvetterscout.se
+som du saknar; lägg ett ärende under `Issues` eller mejla karl.thoren@scouterna.se
 
 I bland kommer det ny funktionalitet, så håll utkik på en ny version genom
 att trycka på knappen **Watch** uppe till höger på sidan

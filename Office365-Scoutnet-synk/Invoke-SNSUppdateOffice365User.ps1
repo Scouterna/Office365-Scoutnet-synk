@@ -57,7 +57,7 @@
 
     Write-SNSLog "Start of user account update"
     $ExchangeSession = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri https://outlook.office365.com/powershell-liveid/ -Credential $Script:SNSConf.Credential365 -Authentication Basic -AllowRedirection
-    Import-PSSession $ExchangeSession -AllowClobber -CommandName Set-MailContact,Set-Mailbox,Get-Mailbox,Remove-DistributionGroupMember,Add-DistributionGroupMember,Get-DistributionGroupMember,Get-DistributionGroup,Set-MailboxMessageConfiguration > $null
+    Import-PSSession $ExchangeSession -AllowClobber -CommandName Set-MailContact,Set-Mailbox,Get-Mailbox,Remove-DistributionGroupMember,Add-DistributionGroupMember,Get-DistributionGroupMember,Get-DistributionGroup,Set-MailboxMessageConfiguration,Set-MailboxAutoReplyConfiguration > $null
 
     [System.Collections.ArrayList]$allOffice365Users = Get-Mailbox -RecipientTypeDetails "UserMailbox"
     [System.Collections.ArrayList]$SecurityGroupScoutnet = Get-SNSUsersInSecurityGroupScoutnet -allOffice365Users $allOffice365Users
@@ -565,6 +565,10 @@ function Invoke-SNSDisableAccount
     .DESCRIPTION
         The account is disabled and the user cannot login. The user is also moved
         to SNSSecurityGroupScoutnetDisabledUsers, and removed from SNSAllUsersGroup.
+        Any mail forward is disabled.
+        If the setting DisabledAccountsAutoReplyText contains any message, the message
+        is set as autoreply message.
+
         No data is deleted and the licens is still in use.
     
     .INPUTS
@@ -585,7 +589,8 @@ function Invoke-SNSDisableAccount
         Set-MsolUser -ObjectId $AccountData.ExternalDirectoryObjectId -BlockCredential $true -ErrorAction "Stop"
 
         # Mark the account as hidden so the user is not shown in the global address book.
-        Set-Mailbox -Identity $AccountData.UserPrincipalName -HiddenFromAddressListsEnabled $True -ErrorAction "Stop"
+        # Remove any forwarders enabled by the user.
+        Set-Mailbox -Identity $AccountData.UserPrincipalName -HiddenFromAddressListsEnabled $True -ForwardingAddress $null -ForwardingSmtpAddress $null -DeliverToMailboxAndForward $false -ErrorAction "Stop"
 
         # Remove the user from the group of active users.
         $SecurityGroupScoutnet = Get-SNSSecurityGroupScoutnet
@@ -610,10 +615,23 @@ function Invoke-SNSDisableAccount
                 }
             }
         }
+
+        if (![string]::IsNullOrWhiteSpace($Script:SNSConf.DisabledAccountsAutoReplyText))
+        {
+            $DisabledAccountsAutoReplyText = $Script:SNSConf.DisabledAccountsAutoReplyText -Replace "<DisplayName>", $AccountData.DisplayName
+            try
+            {
+                Set-MailboxAutoReplyConfiguration -Identity $AccountData.UserPrincipalName -AutoReplyState Enabled -ExternalAudience All -InternalMessage $DisabledAccountsAutoReplyText -ExternalMessage $DisabledAccountsAutoReplyText
+            }
+            catch
+            {
+                Write-SNSLog -Level "Error" "Could not set autoreply message for user $($AccountData.name). Error $_"
+            }
+        }
     }
     catch
     {
-        Write-SNSLog -Level "Error" "Could not disable user $($AccountData.name). Error $_"    
+        Write-SNSLog -Level "Error" "Could not disable user $($AccountData.name). Error $_"
     }
 }
 
@@ -626,6 +644,7 @@ function Invoke-SNSEnableAccount
     .DESCRIPTION
         The account is enabled and the user login. The user is also moved
         to SNSSecurityGroupScoutnet, and added to SNSAllUsersGroup.
+        Any autoreply is disabled.
         
         This is only valid for existing accounts.
     
@@ -662,10 +681,19 @@ function Invoke-SNSEnableAccount
             # Add the user to the Distribution Group for all users with office 365 account.
             Add-DistributionGroupMember -Identity $Script:SNSConf.AllUsersGroupName -Member $AccountData.Identity -ErrorAction "Stop"
         }
+
+        try
+        {
+            Set-MailboxAutoReplyConfiguration -Identity $AccountData.UserPrincipalName -AutoReplyState Disabled -InternalMessage $null -ExternalMessage $null
+        }
+        catch
+        {
+            Write-SNSLog -Level "Error" "Could not disable the autoreply message for user $($AccountData.name). Error $_"
+        }    
     }
     catch
     {
-        Write-SNSLog -Level "Error" "Could not enable user $($AccountData.name). Error $_"    
+        Write-SNSLog -Level "Error" "Could not enable user $($AccountData.name). Error $_"
     }
 }
 
