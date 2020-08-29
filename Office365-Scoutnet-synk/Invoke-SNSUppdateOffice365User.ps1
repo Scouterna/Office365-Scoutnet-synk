@@ -169,7 +169,7 @@ function Invoke-SNSCreateUserAndUpdateUserData
         Creates and updates the new account.
     
     .INPUTS
-        None. You cannot pipe objects to Get-SNSUpdateAccount.
+        None. You cannot pipe objects to Invoke-SNSCreateUserAndUpdateUserData.
 
     .OUTPUTS
         None.
