@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.3.0'
+ModuleVersion = '0.3.1'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -104,19 +104,42 @@ PrivateData = @{
     PSData = @{
 
         # Tags applied to this module. These help with module discovery in online galleries.
-        Tags = 'scoutnet', 'scouternasetjanster', 'scouterna'
+        Tags = @('scoutnet',
+                 'scouternasetjanster',
+                 'scouterna')
 
         # A URL to the license for this module.
-        LicenseUri = 'https://github.com/scouternasetjanster/Office365-Scoutnet-synk/blob/master/LICENSE'
+        LicenseUri = 'https://github.com/Scouterna/Office365-Scoutnet-synk/blob/master/LICENSE'
 
         # A URL to the main website for this project.
-        ProjectUri = 'https://github.com/scouternasetjanster/Office365-Scoutnet-synk'
+        ProjectUri = 'https://github.com/Scouterna/Office365-Scoutnet-synk'
 
         # A URL to an icon representing this module.
         # IconUri = ''
 
         # ReleaseNotes of this module
-        ReleaseNotes = 'Beta 3: Updateringar för användarhantering'
+        ReleaseNotes = @'
+## 0.3.1
+
+Fixar
+- Uppdaterade länkar att peka på Scouternas area på github.
+
+## 0.3.0
+
+Beta 3
+- Stöd för autoreply på avstängda konton.
+- Stäng av eventuella mail forwads på avstängda konton.
+
+## 0.3.0
+
+Beta 2
+- Ändrade så att scouter_synk_option "&" också lägger till office365 adresser.
+
+## 0.2.6
+
+Beta 1
+- Fungerande synkning för maillistor och användarkonton
+'@
 
     } # End of PSData hashtable
 
