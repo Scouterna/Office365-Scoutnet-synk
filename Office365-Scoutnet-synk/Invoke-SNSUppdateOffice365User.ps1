@@ -794,7 +794,7 @@ function Get-SNSUsersInSecurityGroup
     if ($securityGroup)
     {
         $GroupMembers = Get-MsolGroupMember -GroupObjectId $securityGroup.ObjectId
-        # Get the mailbox info fore each group member.
+        # Get the mailbox info for each group member.
         foreach ($GroupMember in $GroupMembers)
         {
             $member = $allOffice365Users | Where-Object -FilterScript {$_.ExternalDirectoryObjectId -eq $GroupMember.ObjectId}
