@@ -14,7 +14,7 @@ on:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   lint-with-PSScriptAnalyzer:
-    name: Install and run PSScriptAnalyzer
+    name: Lint module with PSScriptAnalyzer
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -33,7 +33,7 @@ jobs:
             if ($errors) {
                 Write-Error "There were $($errors.Count) errors, $($Informations.Count) informations and $($warnings.Count) warnings total." -ErrorAction Stop
             } else {
-                Write-Output "There were $($errors.Count), $($Informations.Count) informations errors and $($warnings.Count) warnings total."
+                Write-Output "There were $($errors.Count) errors, $($Informations.Count) informations and $($warnings.Count) warnings total."
             }
     - name: Lint MaillistSynk.ps1 with PSScriptAnalyzer
       shell: pwsh
@@ -45,5 +45,5 @@ jobs:
             if ($errors) {
                 Write-Error "There were $($errors.Count) errors, $($Informations.Count) informations and $($warnings.Count) warnings total." -ErrorAction Stop
             } else {
-                Write-Output "There were $($errors.Count), $($Informations.Count) informations errors and $($warnings.Count) warnings total."
+                Write-Output "There were $($errors.Count) errors, $($Informations.Count) informations and $($warnings.Count) warnings total."
             }
