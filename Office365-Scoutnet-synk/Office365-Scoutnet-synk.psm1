@@ -192,7 +192,7 @@ function SNSUpdateExchangeDistributionGroups
         $ExchangeSession = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri https://outlook.office365.com/powershell-liveid/ -Credential $Script:SNSConf.Credential365 -Authentication Basic -AllowRedirection
         Import-PSSession $ExchangeSession -AllowClobber -CommandName Set-MailContact,Set-Contact,New-MailContact,Remove-MailContact,Remove-DistributionGroupMember,Get-Recipient,Add-DistributionGroupMember,Get-Mailbox > $null
 
-        $otherMailListsMembers, $mailListsToProcessMembers = Get-SNSExchangeMailListMember -Credential365 $Script:SNSConf.Credential365 -ExchangeSession $ExchangeSession -Maillists $MailListSettings.Keys
+        $otherMailListsMembers, $mailListsToProcessMembers = Get-SNSExchangeMailListMember -ExchangeSession $ExchangeSession -Maillists $MailListSettings.Keys
 
         # Clean the distribution groups first.
         Write-SNSLog " "

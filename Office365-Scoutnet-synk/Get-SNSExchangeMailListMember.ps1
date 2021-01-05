@@ -18,9 +18,6 @@
         The first part is the otherMailListsMembers ArrayList.
         The second part is the mailListsToProcessMembers ArrayList.
 
-    .PARAMETER Credential365
-        Credentials for office365 that can execute Get-DistributionGroupMember and Get-DistributionGroup for the selected DistributionGroup.
-
     .PARAMETER ExchangeSession
         Exchange session to use for Import-PSSession.
 
@@ -30,11 +27,6 @@
 
     [OutputType([System.Collections.ArrayList], [System.Collections.ArrayList])]
     param (
-        [Parameter(Mandatory=$True, HelpMessage="Credentials for office365")]
-        [ValidateNotNull()]
-        [Alias("Credential")]
-        [pscredential]$Credential365,
-
         [Parameter(Mandatory=$True, HelpMessage="Exchange session to use.")]
         $ExchangeSession,
 
