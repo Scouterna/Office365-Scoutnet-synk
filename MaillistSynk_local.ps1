@@ -190,9 +190,6 @@ Catch
     throw
 }
 
-$ValidationHash = "Tom."
-
-if (![string]::IsNullOrWhiteSpace($ValidationHash))
 {
     # Kör updateringsfunktionen.
     try
@@ -208,27 +205,11 @@ if (![string]::IsNullOrWhiteSpace($ValidationHash))
     try
     {
         # Sen uppdatera maillistor.
-        $NewValidationHash = SNSUpdateExchangeDistributionGroups -Configuration $conf -ValidationHash $ValidationHash
+        $NewValidationHash = SNSUpdateExchangeDistributionGroups -Configuration $conf -ValidationHash "Tom"
     }
     Catch
     {
         Write-SNSLog -Level "Error" "Kunde inte köra uppdateringen av distributionsgrupper. Fel: $_"
-    }
-
-    if ([string]::IsNullOrWhiteSpace($NewValidationHash))
-    {
-        # Får inte vara en tom sträng.
-        $NewValidationHash = "Tom."
-    }
-
-    try
-    {
-        # Spara hashen till nästa körning.
-        Set-AutomationVariable -Name 'ScoutnetMailListsHash' -Value $NewValidationHash -ErrorAction "Continue"
-    }
-    Catch
-    {
-        Write-SNSLog -Level "Error" "Kunde inte spara variabeln ScoutnetMailListsHash. Error $_"
     }
 }
 
