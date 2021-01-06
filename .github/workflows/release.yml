@@ -1,4 +1,4 @@
-name: "tagged-release"
+name: Release handling
 
 on:
   push:
@@ -6,8 +6,8 @@ on:
       - "v*"
 
 jobs:
-  tagged-release:
-    name: "Tagged Release"
+  generate-release:
+    name: "Generate release"
     runs-on: "ubuntu-latest"
 
     steps:
@@ -25,3 +25,12 @@ jobs:
             MaillistSynk.ps1
             MaillistSynk_local.ps1
             Office365-Scoutnet-synk.zip
+
+      - name: "Publish to PowerShell Gallery"
+        env:
+          PS_GALLERY_KEY: ${{ secrets.PS_GALLERY_KEY }}
+        shell: pwsh
+        run: |
+          Write-Host -Object 'Publishing module (Office365-Scoutnet-synk) to PowerShell Gallery'
+          Publish-Module -Path Office365-Scoutnet-synk -NuGetApiKey $env:PS_GALLERY_KEY -Verbose -ErrorAction "Stop"
+          Write-Host -Object 'Finished publishing module to PowerShell Gallery'
