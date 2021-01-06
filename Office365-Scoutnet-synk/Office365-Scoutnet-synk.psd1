@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.3.2'
+ModuleVersion = '0.3.3'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -119,6 +119,10 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
+## 0.3.3
+
+Uppdaterade testning och automatiserade publisering till PowerShell Gallery.
+
 ## 0.3.2
 
 Version för publicering till PowerShell Gallery.
