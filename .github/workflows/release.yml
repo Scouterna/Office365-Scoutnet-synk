@@ -1,0 +1,27 @@
+name: "tagged-release"
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  tagged-release:
+    name: "Tagged Release"
+    runs-on: "ubuntu-latest"
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Build release package"
+        run: |
+          zip -r Office365-Scoutnet-synk.zip Office365-Scoutnet-synk
+
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: false
+          files: |
+            LICENSE
+            MaillistSynk.ps1
+            MaillistSynk_local.ps1
+            Office365-Scoutnet-synk.zip
