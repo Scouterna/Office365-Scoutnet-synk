@@ -18,11 +18,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Install PSScriptAnalyzer module
+    - name: Install needed modules
       shell: pwsh
       run: |
             Set-PSRepository PSGallery -InstallationPolicy Trusted
             Install-Module PSScriptAnalyzer -ErrorAction Stop
+            Install-Module MSOnline -ErrorAction Stop
+
+    - name: Test-ModuleManifest
+      shell: pwsh
+      run: |
+            Test-ModuleManifest Office365-Scoutnet-synk/Office365-Scoutnet-synk.psd1 -ErrorAction Stop
+
     - name: Lint Office365-Scoutnet-synk with PSScriptAnalyzer
       shell: pwsh
       run: |
@@ -35,6 +42,7 @@ jobs:
             } else {
                 Write-Output "There were $($errors.Count) errors, $($Informations.Count) informations and $($warnings.Count) warnings total."
             }
+
     - name: Lint MaillistSynk.ps1 with PSScriptAnalyzer
       shell: pwsh
       run: |
