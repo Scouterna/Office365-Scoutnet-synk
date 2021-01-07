@@ -6,6 +6,8 @@
     [string]$SyncGroupDisabledUsersName='scoutnetDisabledUsers'
     [string]$SyncGroupDisabledUsersDescription="Säkerhetsgrupp som används vid synkronisering med Scoutnet. Användare i gruppen är avaktiverade och finns inte längre med i Scoutnet."
     [string]$AllUsersGroupName=""
+    [string]$AllUsersGroupDisplayName=""
+    [bool]$AllUsersGroupIsSecurityGroup=$False
     hidden [string[]]$LicenseAssignment =@()
     hidden [System.Array]$LicenseOptions =@()
     [string]$PreferredLanguage="sv-SE"
@@ -68,7 +70,13 @@ function New-SNSConfiguration
         Logfile name and path. Used to override the default value.
 
     .PARAMETER AllUsersGroupName
-        Name of distribution group to add all new accounts to. The distribution group must exist.
+        Name of distribution group to add all new accounts to. Group will be created if it does not exist.
+
+    .PARAMETER AllUsersGroupDisplayName
+        DisplayName of distribution group to add all new accounts to.
+
+    .PARAMETER AllUsersGroupIsSecurityGroup
+        The all accounts group is a security group.
 
     .PARAMETER SignatureText
         Outlook online signature for new users. Text version.
@@ -125,6 +133,12 @@ function New-SNSConfiguration
 
         [Parameter(HelpMessage="Name of distribution group to add all new accounts to.")]
         [string]$AllUsersGroupName,
+
+        [Parameter(HelpMessage="DisplayName of distribution group to add all new accounts to.")]
+        [string]$AllUsersGroupDisplayName,
+
+        [Parameter(HelpMessage="The all accounts group is a security group.")]
+        [string]$AllUsersGroupIsSecurityGroup,
 
         [Parameter(HelpMessage="Outlook online signature for new users. Text version.")]
         [string]$SignatureText,
@@ -183,6 +197,16 @@ function New-SNSConfiguration
     if ($AllUsersGroupName)
     {
         $conf.AllUsersGroupName = $AllUsersGroupName
+    }
+
+    if ($AllUsersGroupDisplayName)
+    {
+        $conf.AllUsersGroupDisplayName = $AllUsersGroupDisplayName
+    }
+
+    if ($AllUsersGroupDisplayName)
+    {
+        $conf.AllUsersGroupDisplayName = $AllUsersGroupDisplayName
     }
 
     if ($LogFilePath)
