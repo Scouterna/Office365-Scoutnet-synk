@@ -135,7 +135,7 @@ function SNSUpdateExchangeDistributionGroups
 
     .OUTPUTS
         None.
-    
+
     .LINK
         https://github.com/scouternasetjanster/Office365-Scoutnet-synk
 
@@ -432,7 +432,7 @@ function SNSUpdateExchangeDistributionGroups
                 }
             }
         }
-        
+
         Remove-PSSession $ExchangeSession
         Write-SNSLog " "
         Write-SNSLog "Update done new hash value is $NewValidationHash"
