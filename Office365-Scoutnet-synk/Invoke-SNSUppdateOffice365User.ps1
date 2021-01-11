@@ -59,7 +59,19 @@
     $ExchangeSession = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri https://outlook.office365.com/powershell-liveid/ -Credential $Script:SNSConf.Credential365 -Authentication Basic -AllowRedirection
     Import-PSSession $ExchangeSession -AllowClobber -CommandName Set-MailContact,Set-Mailbox,Get-Mailbox,Remove-DistributionGroupMember,Add-DistributionGroupMember,Get-DistributionGroupMember,Get-DistributionGroup,Set-MailboxMessageConfiguration,Set-MailboxAutoReplyConfiguration > $null
 
-    [System.Collections.ArrayList]$allOffice365Users = Get-Mailbox -RecipientTypeDetails "UserMailbox"
+    # If there is only one account that mailbox is returned. Not a list.
+    $allMailboxes = Get-Mailbox -RecipientTypeDetails "UserMailbox"
+    if ($allMailboxes -is [System.Array])
+    {
+        [System.Collections.ArrayList]$allOffice365Users = $allMailboxes
+    }
+    else
+    {
+        # Only one mailbox. Create empty arraylist and add the mailbox.
+        [System.Collections.ArrayList]$allOffice365Users = @()
+        $allOffice365Users.Add($allMailboxes)
+    }
+
     [System.Collections.ArrayList]$SecurityGroupScoutnet = Get-SNSUsersInSecurityGroupScoutnet -allOffice365Users $allOffice365Users
     [System.Collections.ArrayList]$UsersInSecurityGroupScoutnetDisabledUsers = Get-SNSUsersInSecurityGroupScoutnetDisabledUsers -allOffice365Users $allOffice365Users
     [System.Collections.ArrayList]$MemberListScoutnet = Get-SNSSoutnetLeaders -CredentialCustomlists $Script:SNSConf.CredentialCustomlists -CredentialMemberlist $Script:SNSConf.CredentialMemberlist -MailListId $Script:SNSConf.UserSyncMailListId
