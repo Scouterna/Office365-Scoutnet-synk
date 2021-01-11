@@ -75,7 +75,7 @@ $conf.AllUsersGroupName='ledare'
 $conf.NewUserEmailSubject="Ditt office 365 konto är skapat"
 
 # Texten i mailet till ny användare. Skickas till användarens primära e-postadress i Scoutnet.
-# Delarna <DisplayName>, <UserPrincipalName> och <Password> byts ut innan mailet skickas. 
+# Delarna <DisplayName>, <UserPrincipalName> och <Password> byts ut innan mailet skickas.
 $conf.NewUserEmailText=@"
 Hej <DisplayName>!
 

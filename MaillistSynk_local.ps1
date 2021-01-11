@@ -167,22 +167,18 @@ p   {margin-top:0; margin-bottom:0}
 try
 {
     # Credentials för access till Office 365 och för att kunna skicka mail.
-    $conf.Credential365 = Get-Credential <administrator mail> -ErrorAction "Stop"
+    $conf.Credential365 = Get-Credential "administrator mail" -ErrorAction "Stop"
 
     # Användarnamn för Scoutnets API. Användarnamnet är Kår-ID för webbtjänster som står på sidan Webbkoppling.
     $UserName = "000000"
 
-    {
-        # Credentials för Scoutnets API api/group/customlists
-        $apiNyckel = ConvertTo-SecureString -String "ApiNyckel" -AsPlainText -Force
-        $conf.CredentialCustomlists = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ($UserName, $apiNyckel)  -ErrorAction "Stop"    
-    }
+    # Credentials för Scoutnets API api/group/customlists
+    $apiNyckel = ConvertTo-SecureString -String "ApiNyckel" -AsPlainText -Force
+    $conf.CredentialCustomlists = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ($UserName, $apiNyckel)  -ErrorAction "Stop"
 
-    {
-        # Credentials för Scoutnets API api/group/memberlist
-        $apiNyckel = ConvertTo-SecureString -String "ApiNyckel" -AsPlainText -Force
-        $conf.CredentialMemberlist = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ($UserName, $apiNyckel)  -ErrorAction "Stop"    
-    }
+    # Credentials för Scoutnets API api/group/memberlist
+    $apiNyckel = ConvertTo-SecureString -String "ApiNyckel" -AsPlainText -Force
+    $conf.CredentialMemberlist = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ($UserName, $apiNyckel)  -ErrorAction "Stop"
 }
 Catch
 {
@@ -190,27 +186,25 @@ Catch
     throw
 }
 
+# Kör updateringsfunktionen.
+try
 {
-    # Kör updateringsfunktionen.
-    try
-    {
-        # Först uppdatera användare.
-        Invoke-SNSUppdateOffice365User -Configuration $conf
-    }
-    Catch
-    {
-        Write-SNSLog -Level "Error" "Kunde inte köra uppdateringen av användare. Fel: $_"
-    }
+    # Först uppdatera användare.
+    Invoke-SNSUppdateOffice365User -Configuration $conf
+}
+Catch
+{
+    Write-SNSLog -Level "Error" "Kunde inte köra uppdateringen av användare. Fel: $_"
+}
 
-    try
-    {
-        # Sen uppdatera maillistor.
-        $NewValidationHash = SNSUpdateExchangeDistributionGroups -Configuration $conf -ValidationHash "Tom"
-    }
-    Catch
-    {
-        Write-SNSLog -Level "Error" "Kunde inte köra uppdateringen av distributionsgrupper. Fel: $_"
-    }
+try
+{
+    # Sen uppdatera maillistor.
+    $NewValidationHash = SNSUpdateExchangeDistributionGroups -Configuration $conf -ValidationHash "Tom"
+}
+Catch
+{
+    Write-SNSLog -Level "Error" "Kunde inte köra uppdateringen av distributionsgrupper. Fel: $_"
 }
 
 # Skapa ett mail med loggen och skicka till admin.

@@ -194,7 +194,7 @@ function New-SNSConfiguration
     {
         $conf.CredentialMemberlist = $CredentialMemberlist
     }
-    
+
     if ($CredentialCustomlists)
     {
         $conf.CredentialCustomlists = $CredentialCustomlists
@@ -244,13 +244,13 @@ function New-SNSConfiguration
                 throw "Could not create MsolLicenseOptions. Error: $_"
             }
         }
-    
+
         if ($conf.LicenseOptions.Count -eq 0)
         {
             $msg = "The parameter 'SNSLicenseAssignment' did not contain any valid licenses."
             $msg += "Creation of account cannot be executed!"
             throw ($msg)
-        }    
+        }
     }
     return $conf
 }

@@ -65,5 +65,6 @@
         "synk",
         "update",
         "workbooken"
-    ]
+    ],
+    "powershell.scriptAnalysis.settingsPath": "PSScriptAnalyzerSettings.psd1"
 }

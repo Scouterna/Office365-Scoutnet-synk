@@ -13,7 +13,7 @@
 
     .OUTPUTS
         None.
-    
+
     .LINK
         https://github.com/scouternasetjanster/Office365-Scoutnet-synk
 
@@ -179,7 +179,7 @@ function Invoke-SNSCreateUserAndUpdateUserData
     <#
     .SYNOPSIS
         Creates and updates the new account.
-    
+
     .INPUTS
         None. You cannot pipe objects to Invoke-SNSCreateUserAndUpdateUserData.
 
@@ -203,11 +203,11 @@ function Invoke-SNSCreateUserAndUpdateUserData
         $UserName = "$($MemberData.first_name.value).$($MemberData.last_name.value)".ToLower()
         # Convert UTF encoded names and create corresponding ASCII version.
         $UserName = [Text.Encoding]::ASCII.GetString([Text.Encoding]::GetEncoding("Cyrillic").GetBytes($UserName))
-    
+
         $UserPrincipalName = "$($UserName)@$($Script:SNSConf.DomainName)"
-    
+
         $office365User  = Get-MsolUser -UserPrincipalName $UserPrincipalName -ErrorAction SilentlyContinue
-    
+
         if ($office365User)
         {
             # Mailaddress alredy exists. Try with an extra number.
@@ -238,12 +238,12 @@ function Invoke-SNSCreateUserAndUpdateUserData
                 {
                     $StreetAddress += " " + $MemberData.address_3.value
                 }
-    
+
                 if ([string]::IsNullOrEmpty($StreetAddress))
                 {
                     $StreetAddress = ""
                 }
-    
+
                 $AlternateEmailAddresses = $MemberData.email.value
                 if ($UserPrincipalName -like $AlternateEmailAddresses)
                 {
@@ -256,7 +256,7 @@ function Invoke-SNSCreateUserAndUpdateUserData
                         $AlternateEmailAddresses = ""
                     }
                 }
-    
+
                 if ([string]::IsNullOrEmpty($AlternateEmailAddresses))
                 {
                     # Option -AlternateEmailAddresses expects an array. Create empty array if there is no AlternateEmailAddresses.
@@ -293,7 +293,7 @@ function Invoke-SNSCreateUserAndUpdateUserData
                 Catch
                 {
                     Write-SNSLog -Level "Warn" "Could not add contact '$($newAccount.DisplayName)' to group $($Script:SNSConf.SyncGroupName). Error $_"
-                }    
+                }
 #endregion
             }
             catch
@@ -365,11 +365,11 @@ function Invoke-SNSCreateUserAndUpdateUserData
                 Set-Mailbox -Identity $newAccount.UserPrincipalName -CustomAttribute1 $newAccountId -ErrorAction "Stop"
                 Set-MailboxMessageConfiguration $newAccount.UserPrincipalName -IsReplyAllTheDefaultResponse $false `
                     -SignatureHtml $SignatureHtml -SignatureText $SignatureText -AutoAddSignature $true -AutoAddSignatureOnMobile $true `
-                    -AutoAddSignatureOnReply $true -SignatureTextOnMobile $SignatureText -ErrorAction "Stop"                    
+                    -AutoAddSignatureOnReply $true -SignatureTextOnMobile $SignatureText -ErrorAction "Stop"
             }
             catch
             {
-                Write-SNSLog -Level "Error" "Could not update mailbox for user '$($newAccount.UserPrincipalName)'. Error $_"                
+                Write-SNSLog -Level "Error" "Could not update mailbox for user '$($newAccount.UserPrincipalName)'. Error $_"
             }
 #endregion
 
@@ -452,7 +452,7 @@ function Invoke-SNSUpdateAccount
     <#
     .SYNOPSIS
         Updates the account with information from Scoutnet, if the data is changed.
-    
+
     .INPUTS
         None. You cannot pipe objects to Get-SNSUpdateAccount.
 
@@ -511,7 +511,7 @@ function Invoke-SNSUpdateAccount
                 $AlternateEmailAddresses = ""
             }
 
-            if (($MemberData.first_name.value -notlike $O365MemberData.FirstName) -or 
+            if (($MemberData.first_name.value -notlike $O365MemberData.FirstName) -or
                 ($MemberData.last_name.value -notlike $O365MemberData.LastName) -or
                 ($StreetAddress -notlike $O365MemberData.StreetAddress) -or
                 ($MemberData.postcode.value -notlike $O365MemberData.PostalCode) -or
@@ -564,7 +564,7 @@ function Invoke-SNSUpdateAccount
     }
     catch
     {
-        Write-SNSLog -Level "Warn" "Could not update user $($AccountData.name). Error $_"    
+        Write-SNSLog -Level "Warn" "Could not update user $($AccountData.name). Error $_"
     }
 }
 
@@ -582,7 +582,7 @@ function Invoke-SNSDisableAccount
         is set as autoreply message.
 
         No data is deleted and the licens is still in use.
-    
+
     .INPUTS
         None. You cannot pipe objects to Get-SNSDisableAccount.
 
@@ -597,7 +597,7 @@ function Invoke-SNSDisableAccount
 
     try
     {
-        Write-SNSLog "Disabling user '$($AccountData.name)' with Id '$($AccountData.ExternalDirectoryObjectId)'" 
+        Write-SNSLog "Disabling user '$($AccountData.name)' with Id '$($AccountData.ExternalDirectoryObjectId)'"
         Set-MsolUser -ObjectId $AccountData.ExternalDirectoryObjectId -BlockCredential $true -ErrorAction "Stop"
 
         # Mark the account as hidden so the user is not shown in the global address book.
@@ -657,9 +657,9 @@ function Invoke-SNSEnableAccount
         The account is enabled and the user login. The user is also moved
         to SNSSecurityGroupScoutnet, and added to SNSAllUsersGroup.
         Any autoreply is disabled.
-        
+
         This is only valid for existing accounts.
-    
+
     .INPUTS
         None. You cannot pipe objects to Get-SNSEnableAccount.
 
@@ -674,7 +674,7 @@ function Invoke-SNSEnableAccount
 
     try
     {
-        Write-SNSLog "Enabling user '$($AccountData.name)' with Id '$($AccountData.ExternalDirectoryObjectId)'" 
+        Write-SNSLog "Enabling user '$($AccountData.name)' with Id '$($AccountData.ExternalDirectoryObjectId)'"
         Set-MsolUser -ObjectId $AccountData.ExternalDirectoryObjectId -BlockCredential $false -ErrorAction "Stop"
 
         # Add the user to the global address book.
@@ -701,7 +701,7 @@ function Invoke-SNSEnableAccount
         catch
         {
             Write-SNSLog -Level "Error" "Could not disable the autoreply message for user $($AccountData.name). Error $_"
-        }    
+        }
     }
     catch
     {
