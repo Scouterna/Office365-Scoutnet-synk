@@ -119,6 +119,10 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
+## 1.0.0
+Version 1.0.0. Stabil version som använder ExchangePowerShell och MSOnline för
+kopplingen till Exchange online och Azure AD.
+
 ## 0.3.3
 
 Uppdaterade testning och automatiserade publisering till PowerShell Gallery.
