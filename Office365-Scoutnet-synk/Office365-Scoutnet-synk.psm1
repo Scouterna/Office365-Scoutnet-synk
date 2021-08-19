@@ -177,6 +177,7 @@ function SNSUpdateExchangeDistributionGroups
 
     $MailListSettingsHash = ("{0:X8}" -f (($MailListSettings | ConvertTo-Json).GetHashCode()))
 
+    $OutValidationHash = $ValidationHash
     $NewValidationHash = "0x{0}{1}{2}" -f ($CustomListsHash, $allMailAddressesHash, $MailListSettingsHash)
 
     Write-SNSLog "Saved validation hash: $ValidationHash new value $NewValidationHash"
@@ -436,6 +437,7 @@ function SNSUpdateExchangeDistributionGroups
         Remove-PSSession $ExchangeSession
         Write-SNSLog " "
         Write-SNSLog "Update done new hash value is $NewValidationHash"
+        $OutValidationHash = $NewValidationHash
     }
-    return $NewValidationHash
+    return $OutValidationHash
 }
