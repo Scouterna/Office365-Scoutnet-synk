@@ -205,6 +205,8 @@ function Invoke-SNSCreateUserAndUpdateUserData
         $UserName = [Text.Encoding]::ASCII.GetString([Text.Encoding]::GetEncoding("Cyrillic").GetBytes($UserName))
 
         $UserPrincipalName = "$($UserName)@$($Script:SNSConf.DomainName)"
+        # Remove any blanks, space, tab...
+        $UserPrincipalName = $UserPrincipalName -replace '\s+'
 
         $office365User  = Get-MsolUser -UserPrincipalName $UserPrincipalName -ErrorAction SilentlyContinue
 
