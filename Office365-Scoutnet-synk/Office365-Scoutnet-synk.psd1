@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.0.1'
+ModuleVersion = '1.0.2'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -23,7 +23,7 @@ Author = 'Karl Thorén <karl.thoren@scouterna.se>'
 CompanyName = 'Scouterna'
 
 # Copyright statement for this module
-Copyright = 'c 2019 All rights reserved.'
+Copyright = 'c 2019, 2020, 2021 All rights reserved.'
 
 # Description of the functionality provided by this module
 Description = 'Funktioner för att synkronisera Scoutnet med Office 365.'
@@ -119,6 +119,10 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
+## 1.0.2
+Rensar 'white-space' ifrån UPN (UserPrincipalName).
+Satt minimumversion 1.0 i exemplen.
+
 ## 1.0.1
 Bugfix för problemet med att listor synkades halvägs.
 
