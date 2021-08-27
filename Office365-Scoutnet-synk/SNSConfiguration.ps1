@@ -12,6 +12,8 @@
     [string]$UsageLocation="SE"
     [string]$WaitMailboxCreationMaxTime="1200"
     [string]$WaitMailboxCreationPollTime="30"
+    [string]$WaitAddToDistListMaxTime="30"
+    [string]$WaitAddToDistListPollTime="1"
     [string]$SignatureText=""
     [string]$SignatureHtml=""
     [string]$NewUserEmailSubject=""

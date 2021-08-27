@@ -54,9 +54,35 @@ function Add-Office365User
     {
         try
         {
-            Write-SNSLog "Adding member $($recipient.DisplayName) with id $($recipient.Id) to distribution group $distGroupName"
-            Add-DistributionGroupMember -Identity $distGroupName -Member $recipient.Id  -ErrorAction "stop"
-            $userAdded = $True
+            $maxDateTimeout = (Get-Date).AddSeconds($Script:SNSConf.WaitAddToDistListMaxTime)
+            $doLoop = $true
+            while ($doLoop)
+            {
+                Add-DistributionGroupMember -Identity $distGroupName -Member $recipient.Id  -ErrorAction "stop"
+                $newListMembers = Get-DistributionGroupMember -Identity $distGroupName
+                Start-Sleep -s 0.2 # Wait so the new member is populated in the list.
+                $newListMember = $newListMembers | Where-Object {$_.Id -like $recipient.Id}
+                if ($newListMember)
+                {
+                    Write-SNSLog "Added member $($recipient.DisplayName) with id $($recipient.Id) to distribution group $distGroupName"
+                    $userAdded = $True
+                    break
+                }
+                else
+                {
+                    Write-SNSLog "Adding of member $($recipient.DisplayName) with id $($recipient.Id) to distribution group $distGroupName failed. Trying again"
+                    Start-Sleep -s $Script:SNSConf.WaitAddToDistListPollTime
+                }
+
+                if ($maxDateTimeout -lt (Get-Date))
+                {
+                    # timeout limit reached so exception
+                    $msg = "Could not add user to mailbox"
+                    $msg += "within the timeout limit of "
+                    $msg += "$($Script:SNSConf.WaitAddToDistListMaxTime) seconds."
+                    throw ($msg)
+                }
+            }
         }
         catch
         {
@@ -107,8 +133,34 @@ function Add-MailContactToList
 
     try
     {
-        Add-DistributionGroupMember -Identity $DistGroupName -Member $Epost -ErrorAction "stop"
-        Write-SNSLog "Adding contact $Epost for $DisplayName to distribution group $DistGroupName"
+        $maxDateTimeout = (Get-Date).AddSeconds($Script:SNSConf.WaitAddToDistListMaxTime)
+        $doLoop = $true
+        while ($doLoop)
+        {
+            Add-DistributionGroupMember -Identity $DistGroupName -Member $Epost -ErrorAction "stop"
+            Start-Sleep -s 0.2 # Wait so the new member is populated in the list.
+            $newListMembers = Get-DistributionGroupMember -Identity $distGroupName
+            $newListMember = $newListMembers | Where-Object {$_.Id -like $Epost}
+            if ($newListMember)
+            {
+                Write-SNSLog "Added contact $Epost for $DisplayName to distribution group $DistGroupName"
+                break
+            }
+            else
+            {
+                Write-SNSLog "Add contact $Epost for $DisplayName to distribution group $DistGroupName failed. Trying again"
+                Start-Sleep -s $Script:SNSConf.WaitAddToDistListPollTime
+            }
+
+            if ($maxDateTimeout -lt (Get-Date))
+            {
+                # timeout limit reached so exception
+                $msg = "Could not add user to mailbox"
+                $msg += "within the timeout limit of "
+                $msg += "$($Script:SNSConf.WaitAddToDistListMaxTime) seconds."
+                throw ($msg)
+            }
+        }
     }
     Catch
     {
@@ -207,6 +259,7 @@ function SNSUpdateExchangeDistributionGroups
                 Remove-DistributionGroupMember -Identity $distGroupName -Member $medlem.Identity -Confirm:$Y
             }
         }
+        Start-Sleep -s 10 # Sleep some time so the lists is propely cleared.
         Write-SNSLog "Removed contacts in distribution groups"
 
         $allOffice365Users = Get-Mailbox -RecipientTypeDetails "UserMailbox"
