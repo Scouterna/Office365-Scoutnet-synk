@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.0.2'
+ModuleVersion = '1.0.3'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -119,6 +119,9 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
+## 1.0.3
+Bugfix för problemet med att listor synkades halvägs.
+
 ## 1.0.2
 Rensar 'white-space' ifrån UPN (UserPrincipalName).
 Satt minimumversion 1.0 i exemplen.
