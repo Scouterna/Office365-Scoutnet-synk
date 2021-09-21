@@ -76,17 +76,17 @@ Hur du gör är beskrivet här <https://blog.kloud.com.au/2016/08/24/schedule-of
 1. I Scoutnet skapa `Fördefinierade listor` för distributions listorna.
     T.ex en lista för Spårare som är avsedd för att skicka brev till scouternas föräldrar.
     För att synkroniseringen ska fungera smidig skapa följande regler på varje lista,
-    där regeln *ledare* hanteras av `ledare_synk_option`.
-    Övriga regler styrs av `scouter_synk_option`.
+    där regeln *ledare* hanteras av [ledare_synk_option](#ledare_synk_option).
+    Övriga regler styrs av [scouter_synk_option](#scouter_synk_option).
     - **Ledare:** Regel som matchar ledarna på avdelningen. Döp den till *ledare*.
-        Hur adresser synkroniseras styrs av `ledare_synk_option`.
+        Hur adresser synkroniseras styrs av [ledare_synk_option](#ledare_synk_option).
     - **Assistenter:** Regel som matchar assistenterna på avdelningen.
         Döp den till *assistenter*.
-        Hur adresser synkroniseras styrs av `scouter_synk_option`.
+        Hur adresser synkroniseras styrs av [scouter_synk_option](#scouter_synk_option).
     - **Scouter:** Regel som matchar scouterna på avdelningen. Döp den till *scouter*.
-        Hur adresser synkroniseras styrs av `scouter_synk_option`.
+        Hur adresser synkroniseras styrs av [scouter_synk_option](#scouter_synk_option).
 
-    Regelnamnen behöver inte användas om du bara vill styra med `scouter_synk_option`.
+    Regelnamnen behöver inte användas om du bara vill styra med [scouter_synk_option](#scouter_synk_option).
 
 1. I Azure automation skapa runbooken `MaillistSynk` för synkroniseringen.
     Typen ska vara `PowerShell Runbook`
@@ -180,6 +180,13 @@ $conf.MailListSettings = @{
         "ledare_synk_option" = "@"; # Bara office 365 adresser
         "email_addresses" = "";
     };
+    "lager" = @{ Namnet på distributions gruppen i office 365.
+        "statisk_lista" = "Ja"; # Listat är en statisk Scoutnetlista.
+        "scoutnet_list_id"= "0003";
+        "ledare_synk_option" = "t"; # Office 365 adresser eller scoutnet adress.
+        "scouter_synk_option" = ""; # Används inte för statiska listor
+        "email_addresses" = "";
+    };
 ```
 
 ##### scouter_synk_option
@@ -244,6 +251,17 @@ Exempel:
 
 ```powershell
 "ignore_user" = "12345", "54321";
+```
+
+##### statisk_lista
+
+Fältet `statisk_lista` används för att markera att listan är en statiskt konfigurerad lista i Scoutnet.
+Statiska listor i Scoutnet hanteras bara med regelerna ifrån [ledare_synk_option](#ledare_synk_option).
+
+Exempel:
+
+```powershell
+"statisk_lista" = "Ja";
 ```
 
 ## Ny version

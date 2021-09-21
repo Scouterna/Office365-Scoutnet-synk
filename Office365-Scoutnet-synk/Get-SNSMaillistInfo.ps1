@@ -65,20 +65,31 @@
             $scouter = @()
 
             Write-SNSLog ("Fetching data for maillist {0}" -f ($CustomListInfo[$key].title))
-            # Fetch rule information.
-            foreach ($rule in $CustomListInfo[$key].rules.Keys)
+            $enum = $MaillistsIds.GetEnumerator().Where({$_.ContainsValue($key)})
+
+            if ($enum[0].statisk_lista)
             {
-                if ($CustomListInfo[$key].rules[$rule].title -like "*ledare*")
+                # Static list. Fetch users from the list not the rules.
+                $ledareData = Get-SNSApiGroupCustomlist -Credential $CredentialCustomlists -Uri $UriApiCustomList -listid $key
+                $ledare += $ledareData.data.keys
+            }
+            else
+            {
+                # Fetch rule information.
+                foreach ($rule in $CustomListInfo[$key].rules.Keys)
                 {
-                    # Fetch the list marked "ledare"
-                    $ledareData = Get-SNSApiGroupCustomlist -Credential $CredentialCustomlists -Uri $UriApiCustomList -listid $key -ruleid $CustomListInfo[$key].rules[$rule].id
-                    $ledare += $ledareData.data.keys
-                }
-                else
-                {
-                    # Fetch the other lists
-                    $scouterData = Get-SNSApiGroupCustomlist -Credential $CredentialCustomlists -Uri $UriApiCustomList -listid $key -ruleid $CustomListInfo[$key].rules[$rule].id
-                    $scouter += $scouterData.data.keys
+                    if ($CustomListInfo[$key].rules[$rule].title -like "*ledare*")
+                    {
+                        # Fetch the list marked "ledare"
+                        $ledareData = Get-SNSApiGroupCustomlist -Credential $CredentialCustomlists -Uri $UriApiCustomList -listid $key -ruleid $CustomListInfo[$key].rules[$rule].id
+                        $ledare += $ledareData.data.keys
+                    }
+                    else
+                    {
+                        # Fetch the other lists
+                        $scouterData = Get-SNSApiGroupCustomlist -Credential $CredentialCustomlists -Uri $UriApiCustomList -listid $key -ruleid $CustomListInfo[$key].rules[$rule].id
+                        $scouter += $scouterData.data.keys
+                    }
                 }
             }
             # Create hashtable with all lists and all users.
