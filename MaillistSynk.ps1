@@ -212,7 +212,7 @@ if (![string]::IsNullOrWhiteSpace($ValidationHash))
     try
     {
         # Sen uppdatera maillistor.
-        $NewValidationHash = SNSUpdateExchangeDistributionGroups -Configuration $conf -ValidationHash $ValidationHash
+        $NewValidationHash, $mailListData = SNSUpdateExchangeDistributionGroups -Configuration $conf -ValidationHash $ValidationHash
     }
     Catch
     {

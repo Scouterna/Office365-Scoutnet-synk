@@ -200,7 +200,7 @@ Catch
 try
 {
     # Sen uppdatera maillistor.
-    $NewValidationHash = SNSUpdateExchangeDistributionGroups -Configuration $conf -ValidationHash "Tom"
+    $NewValidationHash, $mailListData = SNSUpdateExchangeDistributionGroups -Configuration $conf -ValidationHash "Tom"
 }
 Catch
 {
