@@ -23,4 +23,7 @@ Kopiera exemplet [MaillistSynk_local.ps1](MaillistSynk_local.ps1) till din dator
 
 I delen "Skapa credentials för Scoutnet API och för Office 365." lägg in dina API nycklar.
 
-I powershell kör MaillistSynk_local.ps1 för att köra synkningen.
+## Köra synkningen
+1. Starta en powershell instans. (Som din användare)
+1. Kör `$VerbosePreference = "Continue"` för att få utskrifter på consollen.
+1. Kör `MaillistSynk_local.ps1` för att köra synkningen.

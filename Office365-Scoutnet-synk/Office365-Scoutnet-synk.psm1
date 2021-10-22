@@ -21,9 +21,9 @@
 $script:SNSConf=[SNSConfiguration]::new()
 Export-ModuleMember -Variable SNSConf
 
-function Add-Office365User
+function Add-Office365UserToList
 {
-    [OutputType([bool])]
+    [OutputType([bool], [string])]
     param (
         [Parameter(Mandatory=$True, HelpMessage="List with all Office365 users.")]
         [ValidateNotNull()]
@@ -49,70 +49,33 @@ function Add-Office365User
     $recipient = $allOffice365Users | Where-Object {$_.CustomAttribute1 -like $memberSearchStr}
 
     $userAdded = $False
+    $PrimarySmtpAddress = ""
 
     if ($recipient)
     {
-        try
-        {
-            $maxDateTimeout = (Get-Date).AddSeconds($Script:SNSConf.WaitAddToDistListMaxTime)
-            $doLoop = $true
-            while ($doLoop)
-            {
-                Add-DistributionGroupMember -Identity $distGroupName -Member $recipient.Id  -ErrorAction "stop"
-                $newListMembers = Get-DistributionGroupMember -Identity $distGroupName
-                Start-Sleep -s 0.2 # Wait so the new member is populated in the list.
-                $newListMember = $newListMembers | Where-Object {$_.Id -like $recipient.Id}
-                if ($newListMember)
-                {
-                    Write-SNSLog "Added member $($recipient.DisplayName) with id $($recipient.Id) to distribution group $distGroupName"
-                    $userAdded = $True
-                    break
-                }
-                else
-                {
-                    Write-SNSLog "Adding of member $($recipient.DisplayName) with id $($recipient.Id) to distribution group $distGroupName failed. Trying again"
-                    Start-Sleep -s $Script:SNSConf.WaitAddToDistListPollTime
-                }
-
-                if ($maxDateTimeout -lt (Get-Date))
-                {
-                    # timeout limit reached so exception
-                    $msg = "Could not add user to mailbox"
-                    $msg += "within the timeout limit of "
-                    $msg += "$($Script:SNSConf.WaitAddToDistListMaxTime) seconds."
-                    throw ($msg)
-                }
-            }
-        }
-        catch
-        {
-            if ($_.CategoryInfo.Reason -ne "MemberAlreadyExistsException")
-            {
-                Write-SNSLog -Level "Warn" "Could not add contact $($recipient.DisplayName) to $distGroupName. Error $_"
-            }
-        }
+        $PrimarySmtpAddress = $recipient.PrimarySmtpAddress
+        $userAdded = $True
+        Write-SNSLog "Added member $($recipient.DisplayName) with smtp address $($recipient.PrimarySmtpAddress) to distribution group $distGroupName"
     }
     elseif ($doWarn)
     {
         Write-SNSLog -Level "Warn" "Member $($MemberData.first_name) $($MemberData.last_name) not found in office 365. Please make sure that CustomAttribute1 contains Scoutnet Id for the user."
     }
-    return $userAdded
+    return $userAdded, $PrimarySmtpAddress
 }
 
 
-function Add-MailContactToList
+function Create-MailContact
 {
     param (
         [ValidateNotNull()]
         $Epost,
 
         [ValidateNotNull()]
-        $DisplayName,
-
-        [ValidateNotNull()]
-        $DistGroupName
+        $DisplayName
         )
 
+    $contactCreated = $True
     $ExistingMailContact = get-recipient $Epost -ErrorAction "SilentlyContinue"
     if ($null -eq $ExistingMailContact)
     {
@@ -128,47 +91,11 @@ function Add-MailContactToList
         Catch
         {
             Write-SNSLog -Level "Warn" "Could not create mail contact with address $Epost. Error $_"
+            $contactCreated = $False
         }
     }
 
-    try
-    {
-        $maxDateTimeout = (Get-Date).AddSeconds($Script:SNSConf.WaitAddToDistListMaxTime)
-        $doLoop = $true
-        while ($doLoop)
-        {
-            Add-DistributionGroupMember -Identity $DistGroupName -Member $Epost -ErrorAction "stop"
-            Start-Sleep -s 0.2 # Wait so the new member is populated in the list.
-            $newListMembers = Get-DistributionGroupMember -Identity $distGroupName
-            $newListMember = $newListMembers | Where-Object {$_.Id -like $Epost}
-            if ($newListMember)
-            {
-                Write-SNSLog "Added contact $Epost for $DisplayName to distribution group $DistGroupName"
-                break
-            }
-            else
-            {
-                Write-SNSLog "Add contact $Epost for $DisplayName to distribution group $DistGroupName failed. Trying again"
-                Start-Sleep -s $Script:SNSConf.WaitAddToDistListPollTime
-            }
-
-            if ($maxDateTimeout -lt (Get-Date))
-            {
-                # timeout limit reached so exception
-                $msg = "Could not add user to mailbox"
-                $msg += "within the timeout limit of "
-                $msg += "$($Script:SNSConf.WaitAddToDistListMaxTime) seconds."
-                throw ($msg)
-            }
-        }
-    }
-    Catch
-    {
-        if ($_.CategoryInfo.Reason -ne "MemberAlreadyExistsException")
-        {
-            Write-SNSLog -Level "Warn" "Could not add contact $Epost for $DisplayName. Error $_"
-        }
-    }
+    return $contactCreated
 }
 
 
@@ -196,17 +123,28 @@ function SNSUpdateExchangeDistributionGroups
 
     .PARAMETER Configuration
         Configuration to use. If not specified the cached configuration will be used.
+
+    .PARAMETER ReturnMaildata
+        Enables return of a Hashtable with mailaddresses for the list. Can be used together with -WhatIf to check settings.
+
+    .PARAMETER WhatIf
+        The WhatIf switch simulates the actions of the command.
+        You can use this switch to view the changes that would occur without actually applying those changes.
+        You don't need to specify a value with this switch.
     #>
     [CmdletBinding(HelpURI = 'https://github.com/scouternasetjanster/Office365-Scoutnet-synk',
-                PositionalBinding = $False)]
-    [OutputType([string])]
+                PositionalBinding = $False,
+                SupportsShouldProcess = $True)]
     param (
         [Parameter(Mandatory=$True, HelpMessage="Hash value used to validate if Scoutnet is updated.")]
         [ValidateNotNull()]
         [string]$ValidationHash,
 
         [Parameter(Mandatory=$False, HelpMessage="Configuratin to use. If not specified the cached configuration will be used.")]
-        $Configuration
+        $Configuration,
+
+        [Parameter(HelpMessage="Enables return of a Hashtable with mailaddresses for the list. Can be used together with -WhatIf to check settings.")]
+        [switch] $ReturnMaildata
     )
 
     if ($Configuration)
@@ -218,6 +156,8 @@ function SNSUpdateExchangeDistributionGroups
     {
         throw "No configuration specified. Please provide a configuration!"
     }
+
+    $AddressesInMailLists = @{}
 
     $MailListSettings = $Script:SNSConf.MailListSettings
 
@@ -243,29 +183,16 @@ function SNSUpdateExchangeDistributionGroups
         Write-SNSLog "Scoutnet is updated. Starting to update the distribution groups."
 
         $ExchangeSession = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri https://outlook.office365.com/powershell-liveid/ -Credential $Script:SNSConf.Credential365 -Authentication Basic -AllowRedirection
-        Import-PSSession $ExchangeSession -AllowClobber -CommandName Set-MailContact,Set-Contact,New-MailContact,Remove-MailContact,Remove-DistributionGroupMember,Get-Recipient,Add-DistributionGroupMember,Get-Mailbox > $null
+        Import-PSSession $ExchangeSession -AllowClobber -CommandName Set-MailContact,Set-Contact,New-MailContact,Remove-MailContact,Update-DistributionGroupMember,Get-Recipient,Get-Mailbox > $null
 
         $otherMailListsMembers, $mailListsToProcessMembers = Get-SNSExchangeMailListMember -ExchangeSession $ExchangeSession -Maillists $MailListSettings.Keys
-
-        # Clean the distribution groups first.
-        Write-SNSLog " "
-        Write-SNSLog "Removing contacts in distribution groups"
-        foreach ($distGroupName in $MailListSettings.keys)
-        {
-            Write-SNSLog "Remove contacts in distribution group $($distGroupName)"
-            $distGroupMembers= Get-DistributionGroupMember -Identity $distGroupName
-            foreach ($medlem in $distGroupMembers)
-            {
-                Remove-DistributionGroupMember -Identity $distGroupName -Member $medlem.Identity -Confirm:$Y
-            }
-        }
-        Start-Sleep -s 10 # Sleep some time so the lists is propely cleared.
-        Write-SNSLog "Removed contacts in distribution groups"
 
         $allOffice365Users = Get-Mailbox -RecipientTypeDetails "UserMailbox"
 
         foreach ($distGroupName in $MailListSettings.keys)
         {
+            $AddressesToAdd = @{}
+#region Synch e-mail addresses from rule list 'scouter' using scouter_synk_option.
             $distGroupId = $MailListSettings[$distGroupName].scoutnet_list_id
             Write-SNSLog " "
             Write-SNSLog "Adding Contacts in distribution group $($distGroupName)"
@@ -281,7 +208,7 @@ function SNSUpdateExchangeDistributionGroups
             {
                 if ($null -eq $member)
                 {
-                    Write-SNSLog -Level "Warn" "Mail list $distGroupName contained a null value."
+                    Write-SNSLog -Level "Warn" "Mail list $distGroupName type 'scouter' contained a null value."
                     continue
                 }
                 if (-not $AllMailAddresses.ContainsKey($member))
@@ -353,8 +280,19 @@ function SNSUpdateExchangeDistributionGroups
                 $AddMemberScoutnetAddress = $AddMemberScoutnetAddress
                 if ($AddMemberOffice365Address)
                 {
-                    $result = Add-Office365user -allOffice365Users $allOffice365Users -Member $member -MemberData $AllMailAddresses[$member] -distGroupName $distGroupName
-                    if (!$result)
+                    $result, $PrimarySmtpAddress = Add-Office365userToList -allOffice365Users $allOffice365Users -Member $member -MemberData $AllMailAddresses[$member] -distGroupName $distGroupName
+                    if ($result)
+                    {
+                        if ([string]::IsNullOrWhiteSpace($PrimarySmtpAddress))
+                        {
+                            Write-SNSLog -Level "Warn" "Primary mailaddres for '$member' is empty. Cannot add member to list."
+                        }
+                        else
+                        {
+                            $AddressesToAdd[$PrimarySmtpAddress] = $PrimarySmtpAddress
+                        }
+                    }
+                    else
                     {
                         if ($AddMemberOffice365AddressTryFirst)
                         {
@@ -368,13 +306,20 @@ function SNSUpdateExchangeDistributionGroups
                     $mailaddresses | ForEach-Object {
                         if (![string]::IsNullOrWhiteSpace($_))
                         {
-                            Add-MailContactToList -Epost $_ -DisplayName $displayName -DistGroupName $distGroupName
+                            if ($PSCmdlet.ShouldProcess($_, "Create-MailContact"))
+                            {
+                                Create-MailContact -Epost $_ -DisplayName $displayName
+                            }
+                            $AddressesToAdd[$_] = $_
+                            Write-SNSLog "Adding Contact '$_' to '$distGroupName'"
                             $mailListsToProcessMembers.Remove($_)
                         }
                     }
                 }
             }
+#endregion
 
+#region Synch e-mail addresses from rule list 'ledare' using ledare_synk_option.
             $ledare_synk_option = $MailListSettings[$distGroupName].ledare_synk_option
             $ledare_synk_option = $ledare_synk_option.ToLower()
 
@@ -430,8 +375,19 @@ function SNSUpdateExchangeDistributionGroups
                 $DoAddLedareScoutnetAddress = $AddLedareScoutnetAddress
                 if ($AddLedareOffice365Address)
                 {
-                    $result = Add-Office365user -allOffice365Users $allOffice365Users -Member $member -MemberData $MemberData -distGroupName $distGroupName -doWarn
-                    if (!$result)
+                    $result, $PrimarySmtpAddress = Add-Office365userToList -allOffice365Users $allOffice365Users -Member $member -MemberData $MemberData -distGroupName $distGroupName
+                    if ($result)
+                    {
+                        if ([string]::IsNullOrWhiteSpace($PrimarySmtpAddress))
+                        {
+                            Write-SNSLog -Level "Warn" "Primary mailaddres for '$member' is empty. Cannot add member to list."
+                        }
+                        else
+                        {
+                            $AddressesToAdd[$PrimarySmtpAddress] = $PrimarySmtpAddress
+                        }
+                    }
+                    else
                     {
                         if ($AddLedareOffice365AddressTryFirst)
                         {
@@ -448,13 +404,22 @@ function SNSUpdateExchangeDistributionGroups
                     }
                     else
                     {
-                        Add-MailContactToList -Epost $MemberData.primary_email -DisplayName $displayName -DistGroupName $distGroupName
+                        if ($PSCmdlet.ShouldProcess($MemberData.primary_email, "Create-MailContact"))
+                        {
+                            Create-MailContact -Epost $MemberData.primary_email -DisplayName $displayName
+                        }
+
+                        Write-SNSLog "Adding Contact '$($MemberData.primary_email)' to '$distGroupName'"
+                        $AddressesToAdd[$MemberData.primary_email] = $MemberData.primary_email
                         $mailListsToProcessMembers.Remove($MemberData.primary_email)
                     }
                 }
             }
 
-            # Add all mailaddresses listed in email_addresses for the maillist.
+#endregion
+
+
+#region Add all mailaddresses listed in email_addresses for the maillist.
             foreach ($email in $MailListSettings[$distGroupName].email_addresses)
             {
                 if ([string]::IsNullOrWhiteSpace($email))
@@ -462,9 +427,37 @@ function SNSUpdateExchangeDistributionGroups
                     continue
                 }
 
-                Add-MailContactToList -Epost $email -DisplayName $email -DistGroupName $distGroupName
+                if ($PSCmdlet.ShouldProcess($_, "Create-MailContact"))
+                {
+                    Create-MailContact -Epost $_ -DisplayName $displayName
+                }
+
+                Write-SNSLog "Adding Contact '$email' to '$distGroupName'"
+                $AddressesToAdd[$email] = $email
                 $mailListsToProcessMembers.Remove($email)
             }
+#endregion
+
+#region Update maillist
+            $UpdateDistGroup = @{
+                Identity = $distGroupName
+                Confirm = $Y
+                Members =  $AddressesToAdd.Values
+                ErrorAction = "stop"
+            }
+            try
+            {
+                if ($PSCmdlet.ShouldProcess($distGroupName, "Update-DistributionGroupMember"))
+                {
+                    Update-DistributionGroupMember @UpdateDistGroup
+                }
+            }
+            catch
+            {
+                Write-SNSLog -Level "Error" "Update of distribution group members in $distGroupName failed! Error $_"
+            }
+            $AddressesInMailLists[$distGroupName] = $AddressesToAdd.Values
+#endregion
         }
 
         Write-SNSLog " "
@@ -492,5 +485,13 @@ function SNSUpdateExchangeDistributionGroups
         Write-SNSLog "Update done new hash value is $NewValidationHash"
         $OutValidationHash = $NewValidationHash
     }
-    return $OutValidationHash
+
+    if ($ReturnMaildata)
+    {
+        return $OutValidationHash, $AddressesInMailLists
+    }
+    else
+    {
+        return $OutValidationHash
+    }
 }
