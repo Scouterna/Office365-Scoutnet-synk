@@ -131,7 +131,7 @@ function SNSUpdateExchangeDistributionGroups
     #>
     [CmdletBinding(HelpURI = 'https://github.com/scouternasetjanster/Office365-Scoutnet-synk',
                 PositionalBinding = $False,
-                SupportsShouldProcess)]
+                SupportsShouldProcess = $True)]
     [OutputType([string], [System.Collections.Hashtable])]
     param (
         [Parameter(Mandatory=$True, HelpMessage="Hash value used to validate if Scoutnet is updated.")]
@@ -180,7 +180,7 @@ function SNSUpdateExchangeDistributionGroups
         $ExchangeSession = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri https://outlook.office365.com/powershell-liveid/ -Credential $Script:SNSConf.Credential365 -Authentication Basic -AllowRedirection
         Import-PSSession $ExchangeSession -AllowClobber -CommandName Set-MailContact,Set-Contact,New-MailContact,Remove-MailContact,Update-DistributionGroupMember,Get-Recipient,Get-Mailbox > $null
 
-        $otherMailListsMembers, $mailListsToProcessMembers = Get-SNeSExchangeMailListMember -ExchangeSession $ExchangeSession -Maillists $MailListSettings.Keys
+        $otherMailListsMembers, $mailListsToProcessMembers = Get-SNSExchangeMailListMember -ExchangeSession $ExchangeSession -Maillists $MailListSettings.Keys
 
         $allOffice365Users = Get-Mailbox -RecipientTypeDetails "UserMailbox"
 
@@ -276,8 +276,18 @@ function SNSUpdateExchangeDistributionGroups
                 if ($AddMemberOffice365Address)
                 {
                     $result, $PrimarySmtpAddress = Add-Office365userToList -allOffice365Users $allOffice365Users -Member $member -MemberData $AllMailAddresses[$member] -distGroupName $distGroupName
-                    $AddressesToAdd[$PrimarySmtpAddress] = $PrimarySmtpAddress
-                    if (!$result)
+                    if ($result)
+                    {
+                        if ([string]::IsNullOrWhiteSpace($PrimarySmtpAddress))
+                        {
+                            Write-SNSLog -Level "Warn" "Primary mailaddres for '$member' is empty. Cannot add member to list."
+                        }
+                        else
+                        {
+                            $AddressesToAdd[$PrimarySmtpAddress] = $PrimarySmtpAddress
+                        }
+                    }
+                    else
                     {
                         if ($AddMemberOffice365AddressTryFirst)
                         {
@@ -296,6 +306,7 @@ function SNSUpdateExchangeDistributionGroups
                                 Create-MailContact -Epost $_ -DisplayName $displayName
                             }
                             $AddressesToAdd[$_] = $_
+                            Write-SNSLog "Adding Contact '$_' to '$distGroupName'"
                             $mailListsToProcessMembers.Remove($_)
                         }
                     }
@@ -359,9 +370,19 @@ function SNSUpdateExchangeDistributionGroups
                 $DoAddLedareScoutnetAddress = $AddLedareScoutnetAddress
                 if ($AddLedareOffice365Address)
                 {
-                    $result, $PrimarySmtpAddress = Add-Office365userToList -allOffice365Users $allOffice365Users -Member $member -MemberData $MemberData -distGroupName $distGroupName -doWarn
-                    $AddressesToAdd[$PrimarySmtpAddress] = $PrimarySmtpAddress
-                    if (!$result)
+                    $result, $PrimarySmtpAddress = Add-Office365userToList -allOffice365Users $allOffice365Users -Member $member -MemberData $MemberData -distGroupName $distGroupName
+                    if ($result)
+                    {
+                        if ([string]::IsNullOrWhiteSpace($PrimarySmtpAddress))
+                        {
+                            Write-SNSLog -Level "Warn" "Primary mailaddres for '$member' is empty. Cannot add member to list."
+                        }
+                        else
+                        {
+                            $AddressesToAdd[$PrimarySmtpAddress] = $PrimarySmtpAddress
+                        }
+                    }
+                    else
                     {
                         if ($AddLedareOffice365AddressTryFirst)
                         {
@@ -383,6 +404,7 @@ function SNSUpdateExchangeDistributionGroups
                             Create-MailContact -Epost $MemberData.primary_email -DisplayName $displayName
                         }
 
+                        Write-SNSLog "Adding Contact '$($MemberData.primary_email)' to '$distGroupName'"
                         $AddressesToAdd[$MemberData.primary_email] = $MemberData.primary_email
                         $mailListsToProcessMembers.Remove($MemberData.primary_email)
                     }
@@ -405,26 +427,17 @@ function SNSUpdateExchangeDistributionGroups
                     Create-MailContact -Epost $_ -DisplayName $displayName
                 }
 
+                Write-SNSLog "Adding Contact '$email' to '$distGroupName'"
                 $AddressesToAdd[$email] = $email
                 $mailListsToProcessMembers.Remove($email)
             }
 #endregion
 
 #region Update maillist
-            $sb = [System.Text.StringBuilder]::new()
-            foreach ($email in $AddressesToAdd)
-            {
-                if ($sb.Length > 0)
-                {
-                    [void]$sb.Append(',')
-                }
-                [void]$sb.Append($email)
-            }
-
             $UpdateDistGroup = @{
                 Identity = $distGroupName
                 Confirm = $Y
-                Members =  $sb.ToString()
+                Members =  $AddressesToAdd.Values
                 ErrorAction = "stop"
             }
             try
@@ -438,7 +451,7 @@ function SNSUpdateExchangeDistributionGroups
             {
                 Write-SNSLog -Level "Error" "Update of distribution group members in $distGroupName failed! Error $_"
             }
-            $AddressesInMailLists[$distGroupName] = $AddressesToAdd
+            $AddressesInMailLists[$distGroupName] = $AddressesToAdd.Values
 #endregion
         }
 
@@ -457,10 +470,7 @@ function SNSUpdateExchangeDistributionGroups
                 {
                     # Not used in any maillists. Remove the contact.
                     Write-SNSLog "Removing MailContact $($medlem.Identity)"
-                    if ($PSCmdlet.ShouldProcess($medlem.Identity, "Remove-MailContact"))
-                    {
-                        Remove-MailContact $medlem.Identity -Confirm:$Y
-                    }
+                    Remove-MailContact $medlem.Identity -Confirm:$Y
                 }
             }
         }
