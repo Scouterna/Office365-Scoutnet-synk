@@ -25,6 +25,9 @@ Du kan ladda ner den senaste versionen via
 <https://github.com/scouternasetjanster/Office365-Scoutnet-synk/releases/latest>
 och där kan du också ser vilken funktionalitet som är ny i respektive version.
 
+Eller via https://www.powershellgallery.com/packages/Office365-Scoutnet-synk där senaste
+versionen alltid är publicerad.
+
 Läs filen [README.md](README.md) för instruktion om installation och funktionalitet.
 
 ## Inställningar
@@ -44,6 +47,9 @@ Hur du gör är beskrivet här <https://blog.kloud.com.au/2016/08/24/schedule-of
 1. Lägg till `MSOnline` modulen. Behövs för att kunna skapa användare.
 
 1. Lägg till `Office365-Scoutnet-synk` som en modul.
+   1. Gå in på https://www.powershellgallery.com/packages/Office365-Scoutnet-synk
+   1. Välj Azure Automation och tryck på "Deploy to Azure Automation"
+      Modulen kommer nu installeras på Azure Automation.
 
 1. I Scoutnet aktivera APIet under Webbkoppling (API-nycklar och endpoints).
     Modulen behöver ha tillgång till:
@@ -268,6 +274,7 @@ Exempel:
 
 - Uppdatering av modulen sker genom att ladda ner en ny version och installera modulen.
 - Du hittar senaste versionen av modulen på
+    https://www.powershellgallery.com/packages/Office365-Scoutnet-synk eller
     <https://github.com/scouternasetjanster/Office365-Scoutnet-synk/releases/latest>
     och där kan du också ser vilken funktionalitet som är ny i respektive version
     och om du behöver göra något för att uppdatera förutom att uppdatera modulen.

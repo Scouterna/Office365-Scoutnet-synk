@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.0.3'
+ModuleVersion = '1.0.4'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -119,6 +119,13 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
+## 1.0.4
+Ändrade synkronizeringen av listor till att använda Update-DistributionGroupMember
+Det gör att synkroniseringen är stabilare och snabbare.
+
+La till stöd för statiska listor.
+Uppdaterade dokumentationen
+
 ## 1.0.3
 Bugfix för problemet med att listor synkades halvägs.
 
