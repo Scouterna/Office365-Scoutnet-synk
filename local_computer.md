@@ -27,3 +27,9 @@ I delen "Skapa credentials för Scoutnet API och för Office 365." lägg in dina
 1. Starta en powershell instans. (Som din användare)
 1. Kör `$VerbosePreference = "Continue"` för att få utskrifter på consollen.
 1. Kör `MaillistSynk_local.ps1` för att köra synkningen.
+
+## Uppdateringar
+För att installera senaste versionen av Office365-Scoutnet-synk kör
+```powershell
+Update-Module -Name Office365-Scoutnet-synk -Scope CurrentUser
+```
