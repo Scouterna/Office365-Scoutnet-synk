@@ -290,6 +290,21 @@ Exempel:
    har den senaste versionen av programmet.
 1. Lägg ett ärende under `Issues` eller mejla.
 
+## Testkörning
+
+`SNSUpdateExchangeDistributionGroups` går att köra med flaggan -WhatIf.
+Med den flaggan aktiverad så kommer `SNSUpdateExchangeDistributionGroups` bara skriva ut
+vad den hade gjort, men inte göra några ändringar.
+
+Tillsammans med flaggan -ReturnMaildata så kan man få ut vilka adresser en maillista kommer att innehålla.
+
+### Exempel
+
+Körning utan ändringar och maillistdatan returneras i variabeln `$mailListData`.
+```powershell
+$NewValidationHash, $mailListData = SNSUpdateExchangeDistributionGroups -Configuration $conf -ValidationHash "Tom" -ReturnMaildata -WhatIf
+```
+
 ## Tekniska förtydliganden
 
 ### Uppdatering av distributions listor med hjälp av SNSUpdateExchangeDistributionGroups
