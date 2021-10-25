@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.0.4'
+ModuleVersion = '1.0.5'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -119,6 +119,10 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
+## 1.0.5
+Fixade missad hantering av returvärde ifrån Create-MailContact.
+Dokumentationsuppdateringar.
+
 ## 1.0.4
 Ändrade synkronizeringen av listor till att använda Update-DistributionGroupMember
 Det gör att synkroniseringen är stabilare och snabbare.

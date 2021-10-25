@@ -306,12 +306,17 @@ function SNSUpdateExchangeDistributionGroups
                     $mailaddresses | ForEach-Object {
                         if (![string]::IsNullOrWhiteSpace($_))
                         {
+                            $ContactCreated = $True
                             if ($PSCmdlet.ShouldProcess($_, "Create-MailContact"))
                             {
-                                Create-MailContact -Epost $_ -DisplayName $displayName
+                                $ContactCreated = Create-MailContact -Epost $_ -DisplayName $displayName
                             }
-                            $AddressesToAdd[$_] = $_
-                            Write-SNSLog "Adding Contact '$_' to '$distGroupName'"
+
+                            if ($ContactCreated)
+                            {
+                                $AddressesToAdd[$_] = $_
+                                Write-SNSLog "Adding Contact '$_' to '$distGroupName'"
+                            }
                             $mailListsToProcessMembers.Remove($_)
                         }
                     }
@@ -404,13 +409,17 @@ function SNSUpdateExchangeDistributionGroups
                     }
                     else
                     {
+                        $ContactCreated = $True
                         if ($PSCmdlet.ShouldProcess($MemberData.primary_email, "Create-MailContact"))
                         {
-                            Create-MailContact -Epost $MemberData.primary_email -DisplayName $displayName
+                            $ContactCreated = Create-MailContact -Epost $MemberData.primary_email -DisplayName $displayName
                         }
 
-                        Write-SNSLog "Adding Contact '$($MemberData.primary_email)' to '$distGroupName'"
-                        $AddressesToAdd[$MemberData.primary_email] = $MemberData.primary_email
+                        if ($ContactCreated)
+                        {
+                            Write-SNSLog "Adding Contact '$($MemberData.primary_email)' to '$distGroupName'"
+                            $AddressesToAdd[$MemberData.primary_email] = $MemberData.primary_email
+                        }
                         $mailListsToProcessMembers.Remove($MemberData.primary_email)
                     }
                 }
@@ -427,13 +436,17 @@ function SNSUpdateExchangeDistributionGroups
                     continue
                 }
 
+                $ContactCreated = $True
                 if ($PSCmdlet.ShouldProcess($_, "Create-MailContact"))
                 {
-                    Create-MailContact -Epost $_ -DisplayName $displayName
+                    $ContactCreated = Create-MailContact -Epost $_ -DisplayName $displayName
                 }
 
-                Write-SNSLog "Adding Contact '$email' to '$distGroupName'"
-                $AddressesToAdd[$email] = $email
+                if ($ContactCreated)
+                {
+                    Write-SNSLog "Adding Contact '$email' to '$distGroupName'"
+                    $AddressesToAdd[$email] = $email
+                }
                 $mailListsToProcessMembers.Remove($email)
             }
 #endregion
