@@ -123,7 +123,14 @@
         {
             # New member. Add account.
             $MemberData = $GroupMemberlist.data[$Member]
-            [void]$NewMembers.Add($MemberData)
+            if ($null -ne $MemberData)
+            {
+                [void]$NewMembers.Add($MemberData)
+            }
+            else
+            {
+                Write-SNSLog -Level "Warn" "Scoutnet maillist contained an entry that is not an member. Member number '$Member'"
+            }
         }
     }
 
