@@ -1,5 +1,5 @@
-﻿#Requires -Version 5.1
-#Requires -Modules @{ ModuleName="Office365-Scoutnet-synk"; ModuleVersion="1.0" }
+﻿#Requires -Version 7.1
+#Requires -Modules @{ ModuleName="Office365-Scoutnet-synk"; ModuleVersion="2.0" }
 
 # Lämplig inställning i Azure automation.
 $ProgressPreference = "silentlyContinue"
