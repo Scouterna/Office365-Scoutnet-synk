@@ -47,7 +47,7 @@ PowerShellVersion = '7.1'
 # ProcessorArchitecture = ''
 
 # Modules that must be imported into the global environment prior to importing this module
-RequiredModules = @('MSOnline', 'ExchangeOnlineManagement')
+RequiredModules = @('Microsoft.Graph.Authentication', 'Microsoft.Graph.Users', 'Microsoft.Graph.Groups', 'ExchangeOnlineManagement')
 
 # Assemblies that must be loaded prior to importing this module
 # RequiredAssemblies = @()
@@ -77,7 +77,9 @@ FunctionsToExport = @(
     'Invoke-SNSUppdateOffice365User',
     'New-SNSConfiguration',
     'Get-SNSConfiguration',
-    'Set-SNSConfiguration'
+    'Set-SNSConfiguration',
+    'Connect-SnSOffice365',
+    'Disconnect-SnSOffice365'
 )
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.

@@ -37,30 +37,10 @@
         throw "No configuration specified. Please provide a configuration!"
     }
 
-    try
-    {
-        Get-MsolDomain -ErrorAction Stop > $null
-    }
-    catch
-    {
-        Write-SNSLog "Connecting to Office 365..."
-        try
-        {
-            Connect-MsolService -Credential $Script:SNSConf.Credential365 -ErrorAction Stop
-        }
-        catch
-        {
-            Write-SNSLog -Level "Error" "Could not connect to Office 365. Error $_"
-            throw
-        }
-    }
-
     Write-SNSLog "Start of user account update"
-    $ExchangeSession = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri https://outlook.office365.com/powershell-liveid/ -Credential $Script:SNSConf.Credential365 -Authentication Basic -AllowRedirection
-    Import-PSSession $ExchangeSession -AllowClobber -CommandName Set-MailContact,Set-Mailbox,Get-Mailbox,Remove-DistributionGroupMember,Add-DistributionGroupMember,Get-DistributionGroupMember,Get-DistributionGroup,Set-MailboxMessageConfiguration,Set-MailboxAutoReplyConfiguration > $null
 
     # If there is only one account that mailbox is returned. Not a list.
-    $allMailboxes = Get-Mailbox -RecipientTypeDetails "UserMailbox"
+    $allMailboxes = Get-EXOMailbox -RecipientTypeDetails "UserMailbox" -Properties CustomAttribute1 -Verbose:$false
     if ($allMailboxes -is [System.Array])
     {
         [System.Collections.ArrayList]$allOffice365Users = $allMailboxes
@@ -169,10 +149,43 @@
 
     Write-SNSLog "Number of accounts not connected to Scoutnet: $($allOffice365Users.Count)"
     $allOffice365Users | ForEach-Object {Write-SNSLog "Account not connected to Scoutnet '$($_.Name)'"}
-
-    Remove-PSSession $ExchangeSession
 }
 
+function Get-RandomPassword
+{
+    <#
+    .SYNOPSIS
+        Generates a random password of given length.
+
+    .INPUTS
+        None. You cannot pipe objects to Get-RandomPassword.
+
+    .OUTPUTS
+        None.
+
+    .PARAMETER length
+        Lenght of password to create.
+    #>
+    [OutputType([string])]
+    param (
+        [Parameter(Mandatory=$true, HelpMessage="Lenght of password to create.")]
+        [int] $length
+    )
+    $charSet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.ToCharArray()
+    $rng = New-Object System.Security.Cryptography.RNGCryptoServiceProvider
+    $bytes = New-Object byte[]($length)
+
+    $rng.GetBytes($bytes)
+
+    $result = New-Object char[]($length)
+
+    for ($i = 0 ; $i -lt $length ; $i++)
+    {
+        $result[$i] = $charSet[$bytes[$i]%$charSet.Length]
+    }
+
+    return (-join $result)
+}
 
 function Invoke-SNSCreateUserAndUpdateUserData
 {
@@ -199,6 +212,7 @@ function Invoke-SNSCreateUserAndUpdateUserData
     foreach($MemberData in $memberData)
     {
 #region Generate the new UserPrincipalName
+        $properties = "businessPhones, displayName, givenName, id, jobTitle, mail, mobilePhone, UserPrincipalName, preferredLanguage, surname, userPrincipalName, postalCode, identities, UserType, StreetAddress, City, Department, UserType"
         $DisplayName = "$($MemberData.first_name.value) $($MemberData.last_name.value)"
         $UserName = "$($MemberData.first_name.value).$($MemberData.last_name.value)".ToLower()
         # Convert UTF encoded names and create corresponding ASCII version.
@@ -207,19 +221,22 @@ function Invoke-SNSCreateUserAndUpdateUserData
         $UserPrincipalName = "$($UserName)@$($Script:SNSConf.DomainName)"
         # Remove any blanks, space, tab...
         $UserPrincipalName = $UserPrincipalName -replace '\s+'
+        $MailNickname = $UserName -replace '\s+'
 
-        $office365User  = Get-MsolUser -UserPrincipalName $UserPrincipalName -ErrorAction SilentlyContinue
+        $office365User  = Get-MgUser -UserId $UserPrincipalName -Property $properties -ErrorAction SilentlyContinue
 
         if ($office365User)
         {
             # Mailaddress alredy exists. Try with an extra number.
             For ($cnt=1; $cnt -le 5; $cnt++)
             {
-                $UserPrincipalName = "$($UserName).$($cnt)@$($Script:SNSConf.DomainName)"
-                $office365User  = Get-MsolUser -UserPrincipalName $UserPrincipalName -ErrorAction SilentlyContinue
+                $MailNickname = "$($UserName).$($cnt)"
+                $MailNickname = $MailNickname -replace '\s+'
+                $UserPrincipalName = "$($MailNickname)@$($Script:SNSConf.DomainName)"
+                $office365User  = Get-MgUser -UserId $UserPrincipalName -Property $properties -ErrorAction SilentlyContinue
                 if (!$office365User)
                 {
-                    # Mailaddress not used. Uset i!
+                    # Mailaddress not used. Use it!
                     break
                 }
             }
@@ -230,7 +247,48 @@ function Invoke-SNSCreateUserAndUpdateUserData
         {
             try
             {
+#region Create licensing data
+                $addLicensesArray = New-Object System.Collections.ArrayList
+                foreach($licensepack in $Script:SNSConf.LicenseAssignment.keys)
+                {
+                    $packSku = Get-MgSubscribedSku -All | Where-Object SkuPartNumber -eq $licensepack
+                    $skudata = @{SkuId = $packSku.SkuId}
+                    $disabledplans = $packSku.ServicePlans | Where-Object ServicePlanName -in $LicenseAssignment[$licensepack] | Select-Object -ExpandProperty ServicePlanId
+                    if ($disabledplans)
+                    {
+                        $skudata = @{SkuId = $packSku.SkuId
+                                    DisabledPlans = $disabledplans
+                                    }
+                    }
+                    [Void]$addLicensesArray.add($skudata)
+                }
+#endregion
+
 #region Fetch data for the new user
+                $UserPassword = Get-RandomPassword 15
+                $createUserparams = @{
+                    AccountEnabled = $true
+                    DisplayName = $DisplayName
+                    UserPrincipalName = $UserPrincipalName
+                    MailNickname = $MailNickname
+                    GivenName = $MemberData.first_name.value
+                    Surname = $MemberData.last_name.value
+                    City = $MemberData.town.value
+                    Country = $MemberData.country.value
+                    PreferredLanguage = $Script:SNSConf.PreferredLanguage
+                    UsageLocation = $Script:SNSConf.UsageLocation
+                    PostalCode = $MemberData.postcode.value
+                    PasswordProfile = @{
+                        ForceChangePasswordNextSignIn = $true
+                        Password = $UserPassword
+                    }
+                }
+
+                if (-not [string]::IsNullOrEmpty($MemberData.contact_mobile_phone.value))
+                {
+                    $createUserparams["MobilePhone"] = $MemberData.contact_mobile_phone.value
+                }
+
                 $StreetAddress = $MemberData.address_1.value
                 if ($MemberData.address_2.value)
                 {
@@ -241,56 +299,48 @@ function Invoke-SNSCreateUserAndUpdateUserData
                     $StreetAddress += " " + $MemberData.address_3.value
                 }
 
-                if ([string]::IsNullOrEmpty($StreetAddress))
+                if (-not [string]::IsNullOrEmpty($StreetAddress))
                 {
-                    $StreetAddress = ""
+                    $createUserparams["StreetAddress"] = $StreetAddress
                 }
 
-                $AlternateEmailAddresses = $MemberData.email.value
-                if ($UserPrincipalName -like $AlternateEmailAddresses)
+                $OtherMails = New-Object System.Collections.ArrayList
+                if (-not [string]::IsNullOrEmpty($MemberData.email.value))
                 {
-                    # Do not use the office 365 email as alternate email.
-                    # Try to use contact_alt_email.
-                    $AlternateEmailAddresses = $MemberData.contact_alt_email.value
-                    if ($UserPrincipalName -like $AlternateEmailAddresses)
+                    if ($UserPrincipalName -notlike $MemberData.email.value)
                     {
-                        # contact_alt_email not usable.
-                        $AlternateEmailAddresses = ""
+                        # email usable.
+                        $OtherMails.Add($MemberData.email.value)
                     }
                 }
 
-                if ([string]::IsNullOrEmpty($AlternateEmailAddresses))
+                if (-not [string]::IsNullOrEmpty($MemberData.contact_alt_email.value))
                 {
-                    # Option -AlternateEmailAddresses expects an array. Create empty array if there is no AlternateEmailAddresses.
-                    $AlternateEmailAddresses = @()
+                    if ($UserPrincipalName -notlike $MemberData.contact_alt_email.value)
+                    {
+                        # contact_alt_email usable.
+                        $OtherMails.Add($MemberData.contact_alt_email.value)
+                    }
+                }
+
+                if ($OtherMails.Count -gt 0)
+                {
+                    $createUserparams["OtherMails"] = $OtherMails.ToArray()
                 }
 #endregion
 
 #region Create the new user.
-                $newAccount = New-MsolUser -UserPrincipalName $UserPrincipalName -DisplayName $DisplayName `
-                    -FirstName $MemberData.first_name.value  `
-                    -LastName $MemberData.last_name.value `
-                    -StreetAddress $StreetAddress `
-                    -PostalCode $MemberData.postcode.value `
-                    -City $MemberData.town.value `
-                    -Country $MemberData.country.value `
-                    -AlternateEmailAddresses $AlternateEmailAddresses `
-                    -MobilePhone $MemberData.contact_mobile_phone.value `
-                    -PreferredLanguage $Script:SNSConf.PreferredLanguage `
-                    -UsageLocation $Script:SNSConf.UsageLocation `
-                    -LicenseAssignment $Script:SNSConf.LicenseAssignment `
-                    -LicenseOptions $Script:SNSConf.LicenseOptions `
-                    -ErrorAction Stop
-
+                $newAccount = New-MgUser -BodyParameter $createUserparams -ErrorAction Stop
+                Set-MgUserLicense -UserId $UserPrincipalName -Addlicenses $addLicensesArray.ToArray() -RemoveLicenses @()
                 Write-SNSLog "User '$($newAccount.UserPrincipalName)' added for member id '$($MemberData.member_no.value)'."
 #endregion
 
 #region Add the user to the group of active users.
-                $newAccounts.Add($MemberData.member_no.value, @($MemberData, $newAccount))
+                $newAccounts.Add($MemberData.member_no.value, @($MemberData, $newAccount, $UserPassword))
                 $LastAccountUserPrincipalName = $newAccount.UserPrincipalName
                 try
                 {
-                    Add-MsolGroupMember -GroupObjectId $SecurityGroupScoutnet.ObjectId -GroupMemberObjectId $newAccount.ObjectId -ErrorAction "Stop"
+                    New-MgGroupMember -GroupId $SecurityGroupScoutnet.Id -DirectoryObjectId $newAccount.Id -ErrorAction "Stop"
                 }
                 Catch
                 {
@@ -330,7 +380,7 @@ function Invoke-SNSCreateUserAndUpdateUserData
             Start-Sleep -s $Script:SNSConf.WaitMailboxCreationPollTime
             try
             {
-                Get-Mailbox -Identity $LastAccountUserPrincipalName -RecipientTypeDetails "UserMailbox" -ErrorAction "Stop" > $null
+                Get-EXOMailbox -Identity $LastAccountUserPrincipalName -RecipientTypeDetails "UserMailbox" -ErrorAction "Stop" > $null
                 # Mailboxes is created.
                 $doLoop=$false
                 break
@@ -355,9 +405,11 @@ function Invoke-SNSCreateUserAndUpdateUserData
         foreach($newAccountId in $newAccounts.Keys)
         {
 #region Update the mailbox configuration for the new account.
+            $member       = $newAccounts[$newAccountId][0]
+            $newAccount   = $newAccounts[$newAccountId][1]
+            $UserPassword = $newAccounts[$newAccountId][2]
+
             Write-SNSLog "Updating account '$($newAccount.DisplayName)'."
-            $member =  $newAccounts[$newAccountId][0]
-            $newAccount =  $newAccounts[$newAccountId][1]
 
             $SignatureHtml = $Script:SNSConf.SignatureHtml -Replace "<DisplayName>", $newAccount.DisplayName
             $SignatureText = $Script:SNSConf.SignatureText -Replace "<DisplayName>", $newAccount.DisplayName
@@ -376,13 +428,6 @@ function Invoke-SNSCreateUserAndUpdateUserData
 #endregion
 
 #region Send e-mail to the user with the new password and account info
-            $emailFromAddress = $Script:SNSConf.EmailFromAddress
-            if ([string]::IsNullOrWhiteSpace($emailFromAddress))
-            {
-                # Use the login credential as from address.
-                $emailFromAddress = $Script:SNSConf.Credential365.UserName
-            }
-
             if ([string]::IsNullOrWhiteSpace($member.email.value))
             {
                 Write-SNSLog "No valid email address in scoutnet for user '$($newAccount.UserPrincipalName)'. Notify the user about the new account."
@@ -392,10 +437,31 @@ function Invoke-SNSCreateUserAndUpdateUserData
                 try
                 {
                     # Send e-mail to the user with the new password and account info. The password must be replaced at first login.
-                    $NewUserEmailText = $Script:SNSConf.NewUserEmailText -Replace "<DisplayName>", $newAccount.DisplayName -Replace "<Password>", $newAccount.Password -Replace "<UserPrincipalName>", $newAccount.UserPrincipalName
-                    Send-MailMessage -From $emailFromAddress -to $member.email.value -Body $NewUserEmailText `
-                        -SmtpServer $Script:SNSConf.EmailSMTPServer -Port $Script:SNSConf.SmtpPort -Credential $Script:SNSConf.Credential365 `
-                        -UseSsl -Subject $Script:SNSConf.NewUserEmailSubject -Encoding ([System.Text.Encoding]::UTF8) -ErrorAction "Stop"
+                    $NewUserEmailText = $Script:SNSConf.NewUserEmailText -Replace "<DisplayName>", $newAccount.DisplayName -Replace "<Password>", $UserPassword -Replace "<UserPrincipalName>", $newAccount.UserPrincipalName
+                    $params = @{
+                        Message = @{
+                            Subject = $Script:SNSConf.NewUserEmailSubject
+                            importance = "High"
+                            isDeliveryReceiptRequested = "True"
+                            isReadReceiptRequested = "True"
+                            Body = @{
+                                ContentType = "Text"
+                                Content = $NewUserEmailText
+                            }
+                            ToRecipients = @(
+                                @{
+                                    EmailAddress = @{
+                                        Address = $member.email.value
+                                    }
+                                }
+                            )
+                            Flag = @{
+                                flagStatus="flagged"
+                            }
+                        }
+                        SaveToSentItems = "true"
+                    }
+                    Send-MgUserMail -UserId $Script:SNSConf.EmailFromAddress -BodyParameter $params
                 }
                 Catch
                 {
@@ -411,9 +477,30 @@ function Invoke-SNSCreateUserAndUpdateUserData
                 {
                     # Extra info mail requested. Send it to the new account.
                     $NewUserEmailText = $Script:SNSConf.NewUserInfoEmailText -Replace "<DisplayName>", $newAccount.DisplayName -Replace "<UserPrincipalName>", $newAccount.UserPrincipalName
-                    Send-MailMessage -From $emailFromAddress -to  $newAccount.UserPrincipalName -Body $NewUserEmailText `
-                        -SmtpServer $Script:SNSConf.EmailSMTPServer -Port $Script:SNSConf.SmtpPort -Credential $Script:SNSConf.Credential365 `
-                        -UseSsl -Subject $Script:SNSConf.NewUserInfoEmailSubject -Encoding ([System.Text.Encoding]::UTF8) -ErrorAction "Stop"
+                    $params = @{
+                        Message = @{
+                            Subject = $Script:SNSConf.NewUserInfoEmailSubject
+                            importance = "High"
+                            isDeliveryReceiptRequested = "False"
+                            isReadReceiptRequested = "True"
+                            Body = @{
+                                ContentType = "Text"
+                                Content = $NewUserEmailText
+                            }
+                            ToRecipients = @(
+                                @{
+                                    EmailAddress = @{
+                                        Address = $newAccount.UserPrincipalName
+                                    }
+                                }
+                            )
+                            Flag = @{
+                                flagStatus="flagged"
+                            }
+                        }
+                        SaveToSentItems = "true"
+                    }
+                    Send-MgUserMail -UserId $Script:SNSConf.EmailFromAddress -BodyParameter $params -ErrorAction "Stop"
                 }
                 Catch
                 {
@@ -474,9 +561,10 @@ function Invoke-SNSUpdateAccount
 
     try
     {
+        $properties = "OtherMails, businessPhones, displayName, givenName, id, jobTitle, mail, mobilePhone, UserPrincipalName, preferredLanguage, surname, userPrincipalName, postalCode, identities, UserType, StreetAddress, City, Department, UserType, Country"
         $GroupMemberlist = Get-SNSApiGroupMemberlist -Credential $CredentialMemberlist
         $MemberData = $GroupMemberlist.data[$AccountData.CustomAttribute1]
-        $O365MemberData = Get-MsolUser -ObjectId $AccountData.ExternalDirectoryObjectId -ErrorAction "Stop"
+        $O365MemberData =  Get-MgUser -UserId $AccountData.ExternalDirectoryObjectId -Property $properties -ErrorAction "Stop"
 
         if ($MemberData)
         {
@@ -495,68 +583,85 @@ function Invoke-SNSUpdateAccount
                 $StreetAddress = ""
             }
 
-            $AlternateEmailAddresses = $MemberData.email.value
-            if ($O365MemberData.UserPrincipalName -like $AlternateEmailAddresses)
+            $updateUserparams = @{}
+
+            if ("$($MemberData.first_name.value) $($MemberData.last_name.value)" -notlike $O365MemberData.DisplayName)
             {
-                # Do not use the office 365 email as alternate email.
-                # Try to use contact_alt_email.
-                $AlternateEmailAddresses = $MemberData.contact_alt_email.value
-                if ($O365MemberData.UserPrincipalName -like $AlternateEmailAddresses)
+                $updateUserparams["DisplayName"] = "$($MemberData.first_name.value) $($MemberData.last_name.value)"
+            }
+
+            if ($MemberData.first_name.value -notlike $O365MemberData.GivenName)
+            {
+                $updateUserparams["GivenName"] = $MemberData.first_name.value
+            }
+
+            if ($MemberData.last_name.value -notlike $O365MemberData.Surname)
+            {
+                $updateUserparams["Surname"] = $MemberData.last_name.value
+            }
+
+            if ($StreetAddress -notlike $O365MemberData.StreetAddress)
+            {
+                $updateUserparams["StreetAddress"] = $StreetAddress
+            }
+
+            if ($MemberData.postcode.value -notlike $O365MemberData.PostalCode)
+            {
+                $updateUserparams["PostalCode"] = $MemberData.postcode.value
+            }
+
+            if ($MemberData.town.value -notlike $O365MemberData.City)
+            {
+                $updateUserparams["City"] = $MemberData.town.value
+            }
+
+            if ($MemberData.country.value -notlike $O365MemberData.Country)
+            {
+                $updateUserparams["Country"] = $MemberData.country.value
+            }
+
+            if (-not [string]::IsNullOrEmpty($MemberData.contact_mobile_phone.value))
+            {
+                if ($MemberData.contact_mobile_phone.value -notlike $O365MemberData.MobilePhone)
                 {
-                    # contact_alt_email not usable.
-                    $AlternateEmailAddresses = ""
+                    $updateUserparams["MobilePhone"] = $MemberData.contact_mobile_phone.value
+                }
+            }
+            $OtherMails = New-Object System.Collections.ArrayList
+            if (-not [string]::IsNullOrEmpty($MemberData.email.value))
+            {
+                if ($UserPrincipalName -notlike $MemberData.email.value)
+                {
+                    if (-not $O365MemberData.OtherMails.Contains($MemberData.email.value))
+                    {
+                        # email usable.
+                        $OtherMails.Add($MemberData.email.value)
+                    }
                 }
             }
 
-            if ([string]::IsNullOrEmpty($AlternateEmailAddresses))
+            if (-not [string]::IsNullOrEmpty($MemberData.contact_alt_email.value))
             {
-                $AlternateEmailAddresses = ""
+                if ($UserPrincipalName -notlike $MemberData.contact_alt_email.value)
+                {
+                    if (-not $O365MemberData.OtherMails.Contains($MemberData.contact_alt_email.value))
+                    {
+                        # contact_alt_email usable.
+                        $OtherMails.Add($MemberData.contact_alt_email.value)
+                    }
+                }
             }
 
-            if (($MemberData.first_name.value -notlike $O365MemberData.FirstName) -or
-                ($MemberData.last_name.value -notlike $O365MemberData.LastName) -or
-                ($StreetAddress -notlike $O365MemberData.StreetAddress) -or
-                ($MemberData.postcode.value -notlike $O365MemberData.PostalCode) -or
-                ($MemberData.town.value -notlike $O365MemberData.City) -or
-                ($MemberData.country.value -notlike $O365MemberData.Country) -or
-                ($AlternateEmailAddresses -notlike $O365MemberData.AlternateEmailAddresses) -or
-                ($MemberData.contact_mobile_phone.value -notlike $O365MemberData.MobilePhone))
+            if ($OtherMails.Count -gt 0)
             {
-                if ([string]::IsNullOrEmpty($AlternateEmailAddresses))
-                {
-                    # Option -AlternateEmailAddresses expects an array. Create empty array.
-                    $AlternateEmailAddresses = @()
-                }
+                $updateUserparams["OtherMails"] = $OtherMails.ToArray()
+            }
 
+            if ($updateUserparams.Count -gt 0)
+            {
                 # Update user data.
-                Set-MsolUser -ObjectId $AccountData.ExternalDirectoryObjectId `
-                    -DisplayName "$($MemberData.first_name.value) $($MemberData.last_name.value)" `
-                    -FirstName $MemberData.first_name.value  `
-                    -LastName $MemberData.last_name.value `
-                    -StreetAddress $StreetAddress `
-                    -PostalCode $MemberData.postcode.value `
-                    -City $MemberData.town.value `
-                    -Country $MemberData.country.value `
-                    -AlternateEmailAddresses $AlternateEmailAddresses `
-                    -MobilePhone $MemberData.contact_mobile_phone.value `
-                    -ErrorAction Stop
-
+                Update-MgUser -UserId $AccountData.ExternalDirectoryObjectId -BodyParameter $updateUserparams -ErrorAction Stop
                 Write-SNSLog "User '$($AccountData.name)' uppdated with new info from Scoutnet."
-                if ($Script:SNSConf.AllUsersGroupName)
-                {
-                    try
-                    {
-                        # Add the user to the Distribution Group for all users with office 365 account.
-                        Add-DistributionGroupMember -Identity $Script:SNSConf.AllUsersGroupName -Member $AccountData.Identity -ErrorAction "Stop"
-                    }
-                    Catch
-                    {
-                        if ($_.CategoryInfo.Reason -ne "MemberAlreadyExistsException")
-                        {
-                            Write-SNSLog -Level "Warn" "Could not add contact $($AccountData.Identity) to group $($Script:SNSConf.AllUsersGroupName). Error $_"
-                        }
-                    }
-                }
             }
         }
         else
@@ -600,7 +705,7 @@ function Invoke-SNSDisableAccount
     try
     {
         Write-SNSLog "Disabling user '$($AccountData.name)' with Id '$($AccountData.ExternalDirectoryObjectId)'"
-        Set-MsolUser -ObjectId $AccountData.ExternalDirectoryObjectId -BlockCredential $true -ErrorAction "Stop"
+        Update-MgUser -UserId $AccountData.ExternalDirectoryObjectId -AccountEnabled $false -ErrorAction "Stop"
 
         # Mark the account as hidden so the user is not shown in the global address book.
         # Remove any forwarders enabled by the user.
@@ -608,11 +713,11 @@ function Invoke-SNSDisableAccount
 
         # Remove the user from the group of active users.
         $SecurityGroupScoutnet = Get-SNSSecurityGroupScoutnet
-        Remove-MsolGroupMember -GroupObjectId $SecurityGroupScoutnet.ObjectId -GroupMemberObjectId $AccountData.ExternalDirectoryObjectId -ErrorAction "Stop"
+        Remove-MgGroupMemberByRef -GroupId $SecurityGroupScoutnet.Id -DirectoryObjectId $AccountData.ExternalDirectoryObjectId -ErrorAction "Stop"
 
         # Add the user to the group of disabled users.
         $SNSSecurityGroupScoutnetDisabledUsers = Get-SNSSecurityGroupScoutnetDisabledUsers
-        Add-MsolGroupMember -GroupObjectId $SNSSecurityGroupScoutnetDisabledUsers.ObjectId -GroupMemberObjectId $AccountData.ExternalDirectoryObjectId -ErrorAction "Stop"
+        New-MgGroupMember -GroupId $SNSSecurityGroupScoutnetDisabledUsers.Id -DirectoryObjectId $AccountData.ExternalDirectoryObjectId -ErrorAction "Stop"
 
         if ($Script:SNSConf.AllUsersGroupName)
         {
@@ -684,11 +789,11 @@ function Invoke-SNSEnableAccount
 
         # Remove the user from the group of disabled users.
         $SNSSecurityGroupScoutnetDisabledUsers = Get-SNSSecurityGroupScoutnetDisabledUsers
-        Remove-MsolGroupMember -GroupObjectId $SNSSecurityGroupScoutnetDisabledUsers.ObjectId -GroupMemberObjectId $AccountData.ExternalDirectoryObjectId -ErrorAction "Stop"
+        Remove-MgGroupMemberByRef -GroupObjectId $SNSSecurityGroupScoutnetDisabledUsers.Id -DirectoryObjectId $AccountData.ExternalDirectoryObjectId -ErrorAction "Stop"
 
         # Add the user to the group of active users.
         $SecurityGroupScoutnet = Get-SNSSecurityGroupScoutnet
-        Add-MsolGroupMember -GroupObjectId $SecurityGroupScoutnet.ObjectId -GroupMemberObjectId $AccountData.ExternalDirectoryObjectId -ErrorAction "Stop"
+        New-MgGroupMember -GroupObjectId $SecurityGroupScoutnet.Id -DirectoryObjectId $AccountData.ExternalDirectoryObjectId -ErrorAction "Stop"
 
         if ($Script:SNSConf.AllUsersGroupName)
         {
@@ -807,11 +912,11 @@ function Get-SNSUsersInSecurityGroup
     $securityGroupMembers = [System.Collections.ArrayList]::new()
     if ($securityGroup)
     {
-        $GroupMembers = Get-MsolGroupMember -GroupObjectId $securityGroup.ObjectId
+        $GroupMembers = Get-MgGroupMember -GroupId $securityGroup.Id
         # Get the mailbox info for each group member.
         foreach ($GroupMember in $GroupMembers)
         {
-            $member = $allOffice365Users | Where-Object -FilterScript {$_.ExternalDirectoryObjectId -eq $GroupMember.ObjectId}
+            $member = $allOffice365Users | Where-Object -FilterScript {$_.ExternalDirectoryObjectId -eq $GroupMember.Id}
             if ($member)
             {
                 [void]$securityGroupMembers.Add($member)
@@ -836,7 +941,7 @@ function Get-SNSSecurityGroup
 
     )
 
-    $securityGroups = Get-MsolGroup -SearchString $Name -ErrorAction "Stop"
+    $securityGroups = Get-MgGroup -Search "displayName:$Name" -ConsistencyLevel eventual -ErrorAction "Stop"
 
     $securityGroup=$null
     foreach($group in $securityGroups)
@@ -851,7 +956,18 @@ function Get-SNSSecurityGroup
     if (!$securityGroup)
     {
         Write-SNSLog -Level "Warn" "Security group $name is not found. Creating the group."
-        $securityGroup = New-MsolGroup -DisplayName $Name -Description $Description -ErrorAction "Stop"
+
+        $params = @{
+            Description = $Description
+            DisplayName = $Name
+            GroupTypes = @(
+            )
+            MailEnabled = $false
+            MailNickname = $Name
+            SecurityEnabled = $true
+        }
+
+        $securityGroup = New-MgGroup -BodyParameter $params -ErrorAction "Stop"
     }
 
     return $securityGroup

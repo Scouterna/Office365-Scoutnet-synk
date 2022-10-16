@@ -6,8 +6,7 @@
     [string]$SyncGroupDisabledUsersName='scoutnetDisabledUsers'
     [string]$SyncGroupDisabledUsersDescription="Säkerhetsgrupp som används vid synkronisering med Scoutnet. Användare i gruppen är avaktiverade och finns inte längre med i Scoutnet."
     [string]$AllUsersGroupName=""
-    hidden [string[]]$LicenseAssignment =@()
-    hidden [System.Array]$LicenseOptions =@()
+    hidden [System.Collections.Hashtable]$LicenseAssignment
     [string]$PreferredLanguage="sv-SE"
     [string]$UsageLocation="SE"
     [string]$WaitMailboxCreationMaxTime="1200"
@@ -114,7 +113,8 @@ function New-SNSConfiguration
         [Parameter(HelpMessage="Domain name for office365 mail addresses.")]
         [string]$DomainName,
 
-        [Parameter(HelpMessage="License data.")]
+        [Parameter(Mandatory=$true, HelpMessage="License data.")]
+        [ValidateNotNull()]
         $LicenseAssignment,
 
         [Parameter(HelpMessage="List Id to use when syncronising user accounts.")]
@@ -222,35 +222,7 @@ function New-SNSConfiguration
 
     if ($LicenseAssignment)
     {
-        # Create licensing options.
-        foreach($LicenseKey in $LicenseAssignment.Keys)
-        {
-            $conf.LicenseAssignment += "$LicenseKey"
-            try
-            {
-                if (![string]::IsNullOrWhiteSpace($LicenseAssignment[$LicenseKey]))
-                {
-                    $LO = New-MsolLicenseOptions -AccountSkuId $LicenseKey -DisabledPlans $LicenseAssignment[$LicenseKey] -ErrorAction "Stop"
-                    $conf.LicenseOptions += $LO
-                }
-                else
-                {
-                    $LO = New-MsolLicenseOptions -AccountSkuId $LicenseKey -DisabledPlans $null -ErrorAction "Stop"
-                    $conf.LicenseOptions += $LO
-                }
-            }
-            catch
-            {
-                throw "Could not create MsolLicenseOptions. Error: $_"
-            }
-        }
-
-        if ($conf.LicenseOptions.Count -eq 0)
-        {
-            $msg = "The parameter 'SNSLicenseAssignment' did not contain any valid licenses."
-            $msg += "Creation of account cannot be executed!"
-            throw ($msg)
-        }
+        $conf.LicenseAssignment = $LicenseAssignment
     }
     return $conf
 }
