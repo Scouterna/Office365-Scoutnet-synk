@@ -452,7 +452,6 @@ function SNSUpdateExchangeDistributionGroups
 #region Update maillist
             $UpdateDistGroup = @{
                 Identity = $distGroupName
-                Confirm = $Y
                 Members =  $AddressesToAdd.Values
                 ErrorAction = "stop"
                 Verbose = $false
@@ -461,7 +460,7 @@ function SNSUpdateExchangeDistributionGroups
             {
                 if ($PSCmdlet.ShouldProcess($distGroupName, "Update-DistributionGroupMember"))
                 {
-                    Update-DistributionGroupMember @UpdateDistGroup
+                    Update-DistributionGroupMember @UpdateDistGroup -Confirm:$false
                 }
             }
             catch
@@ -487,7 +486,7 @@ function SNSUpdateExchangeDistributionGroups
                 {
                     # Not used in any maillists. Remove the contact.
                     Write-SNSLog "Removing MailContact $($medlem.Identity)"
-                    Remove-MailContact $medlem.Identity -Confirm:$Y -Verbose:$false
+                    Remove-MailContact $medlem.Identity -Confirm:$false -Verbose:$false
                 }
             }
         }

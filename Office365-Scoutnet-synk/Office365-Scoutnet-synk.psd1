@@ -29,7 +29,7 @@ Copyright = 'c 2019, 2020, 2021, 2022 All rights reserved.'
 Description = 'Funktioner för att synkronisera Scoutnet med Office 365.'
 
 # Minimum version of the Windows PowerShell engine required by this module
-PowerShellVersion = '7.1'
+PowerShellVersion = '5.1'
 
 # Name of the Windows PowerShell host required by this module
 # PowerShellHostName = ''
@@ -47,7 +47,12 @@ PowerShellVersion = '7.1'
 # ProcessorArchitecture = ''
 
 # Modules that must be imported into the global environment prior to importing this module
-RequiredModules = @('Microsoft.Graph.Authentication', 'Microsoft.Graph.Users', 'Microsoft.Graph.Groups', 'ExchangeOnlineManagement')
+RequiredModules = @('Microsoft.Graph.Authentication',
+                    'Microsoft.Graph.Users',
+                    'Microsoft.Graph.Users.Actions',
+                    'Microsoft.Graph.Groups',
+                    @{ModuleName='ExchangeOnlineManagement';
+                        RequiredVersion="3.0.0"; })
 
 # Assemblies that must be loaded prior to importing this module
 # RequiredAssemblies = @()
@@ -124,6 +129,10 @@ PrivateData = @{
 ## 2.0.0
 Uppdatering till att använda ExchangeOnlineManagement för hanteringen av
 maillistor och mailboxar.
+
+Uppdatering till att använda MsGraph för användarhantering.
+
+Stödjer windows powershell 5.1 och powershell 7 eller nyare.
 
 '@
 

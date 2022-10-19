@@ -18,13 +18,12 @@ $LogEmailSubject = "Maillist sync log"
 
 # Konfiguration av modulen.
 
-# Licenser för nya användare. Byt ut <office 365 licensnamn> med det namnet du har.
+# Licenser för nya användare.
 # Exemplet nedan lägger in STANDARDPACK och FLOW_FREE. På STANDARDPACK applikationerna "YAMMER_ENTERPRISE", "SWAY","Deskless","POWERAPPS_O365_P1" avstängda.
-# För att hitta vad dina licenser heter använd Get-MsolAccountSku ifrån MSonline paketet.
 $LicenseAssignment=@{
-    "<office 365 licensnamn>:STANDARDPACK" = @(
+    "STANDARDPACK" = @(
         "YAMMER_ENTERPRISE", "SWAY","Deskless","POWERAPPS_O365_P1");
-        "<office 365 licensnamn>:FLOW_FREE"=""
+        "FLOW_FREE"= @()
 }
 
 # Skapa ett konfigurationsobjekt och koppla licenshantering och vilken scoutnet maillist som hanterar användarnas konton.
@@ -166,9 +165,6 @@ p   {margin-top:0; margin-bottom:0}
 # Hämtar credentials för Scoutnet API och för Office 365.
 try
 {
-    # Credentials för access till Office 365 och för att kunna skicka mail.
-    $conf.Credential365 = Get-AutomationPSCredential -Name "MSOnline-Credentials" -ErrorAction "Stop"
-
     # Credentials för Scoutnets API api/group/customlists
     $conf.CredentialCustomlists = Get-AutomationPSCredential -Name 'ScoutnetApiCustomLists-Credentials' -ErrorAction "Stop"
 
@@ -194,6 +190,17 @@ try
 Catch
 {
     Write-SNSLog -Level "Error" "Kunde inte hämta variabeln ScoutnetMailListsHash. Error $_"
+}
+
+try
+{
+    # Logga in på office 365
+    Connect-SnSOffice365 -ManagedIdentity -Configuration $conf -ErrorAction "Stop"
+}
+Catch
+{
+    Write-SNSLog -Level "Error" "Kunde logga in på office 365 Error $_"
+    throw
 }
 
 if (![string]::IsNullOrWhiteSpace($ValidationHash))
@@ -237,7 +244,43 @@ if (![string]::IsNullOrWhiteSpace($ValidationHash))
 }
 
 # Skapa ett mail med loggen och skicka till admin.
+
 $bodyData = Get-Content -Path $conf.LogFilePath -Raw -Encoding UTF8 -ErrorAction "Continue"
-Send-MailMessage -Credential $conf.Credential365 -From $LogEmailFromAddress `
-    -To $LogEmailToAddress -Subject $LogEmailSubject -Body $bodyData `
-    -SmtpServer $conf.EmailSMTPServer -Port $conf.SmtpPort -UseSSL -Encoding UTF8 -ErrorAction "Continue"
+$params = @{
+    Message = @{
+        Subject = $LogEmailSubject
+        Body = @{
+            ContentType = "Text"
+            Content = $bodyData
+        }
+        ToRecipients = @(
+            @{
+                EmailAddress = @{
+                    Address = $LogEmailToAddress
+                }
+            }
+        )
+        From = @(
+            @{
+                EmailAddress = @{
+                    Address = $LogEmailFromAddress
+                }
+            }
+        )
+    }
+}
+
+# A UPN can also be used as -UserId.
+Send-MgUserMail -UserId $LogEmailToAddress -BodyParameter $params
+
+
+try
+{
+    # Logga ut ifrån ExchangeOnline.
+    Disconnect-SnSOffice365
+}
+Catch
+{
+    Write-SNSLog -Level "Error" "Utloggning ifrån ExchangeOnline returnerade felet $_"
+    throw
+}

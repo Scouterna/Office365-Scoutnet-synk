@@ -445,7 +445,7 @@ function Invoke-SNSCreateUserAndUpdateUserData
                             isDeliveryReceiptRequested = "True"
                             isReadReceiptRequested = "True"
                             Body = @{
-                                ContentType = "Text"
+                                ContentType = $Script:SNSConf.NewUserEmailContentType
                                 Content = $NewUserEmailText
                             }
                             ToRecipients = @(
@@ -484,7 +484,7 @@ function Invoke-SNSCreateUserAndUpdateUserData
                             isDeliveryReceiptRequested = "False"
                             isReadReceiptRequested = "True"
                             Body = @{
-                                ContentType = "Text"
+                                ContentType = $Script:SNSConf.NewUserInfoEmailContentType
                                 Content = $NewUserEmailText
                             }
                             ToRecipients = @(
@@ -724,7 +724,7 @@ function Invoke-SNSDisableAccount
             try
             {
                 # Remove the user from the Distribution Group for all users with office 365 account.
-                Remove-DistributionGroupMember -Identity $Script:SNSConf.AllUsersGroupName -Member $AccountData.Identity -Confirm:$Y -ErrorAction "Stop"
+                Remove-DistributionGroupMember -Identity $Script:SNSConf.AllUsersGroupName -Member $AccountData.Identity -Confirm:$false -ErrorAction "Stop"
             }
             Catch
             {

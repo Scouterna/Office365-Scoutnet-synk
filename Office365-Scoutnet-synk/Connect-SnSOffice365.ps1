@@ -13,47 +13,65 @@
     .OUTPUTS
         None. You cannot pipe objects from Connect-SnSOffice365.
 
-    .PARAMETER ConnectionParameters
-        Connection parameters
+    .LINK
+        https://github.com/scouternasetjanster/Office365-Scoutnet-synk
 
-    .EXAMPLE
-        $ConnectionParameters = @{
-            UserPrincipalName = "username@domain"
-        }
-        Connect-SnSOffice365 -ConnectionParameters $ConnectionParameters
+    .PARAMETER Configuration
+        Configuration to use. If not specified the cached configuration will be used.
     #>
 
+    [CmdletBinding(HelpURI = 'https://github.com/scouternasetjanster/Office365-Scoutnet-synk',
+                PositionalBinding = $False)]
     param (
-        [Parameter(Mandatory=$True, HelpMessage="Connection parameters for Connect-SnSOffice365")]
-        [ValidateNotNull()]
-        $ConnectionParameters
-        )
+        [Parameter(Mandatory=$False, HelpMessage="Configuration to use. If not specified the cached configuration will be used.")]
+        $Configuration,
+        [Parameter(HelpMessage="Enable use of managed identity when running in Azure runnbooks.")]
+        [switch]$ManagedIdentity = $false
+    )
+
+    if ($Configuration)
+    {
+        $Script:SNSConf = $Configuration
+    }
+
+    if (!$Script:SNSConf)
+    {
+        throw "No configuration specified. Please provide a configuration!"
+    }
+
+    if ($ManagedIdentity)
+    {
+        Write-SNSLog "Using managed identity for domain $($Script:SNSConf.DomainName)"
+    }
 
     try
     {
-        # Logga in på ExchangeOnline med ExchangeOnlineManagement modulen.
-        $RequiredScopes = @("Directory.AccessAsUser.All",
-                            "Directory.ReadWrite.All",
-                            "Directory.Read.All",
-                            "GroupMember.Read.All",
-                            "GroupMember.ReadWrite.All",
-                            "Group.ReadWrite.All",
-                            "Group.Read.All"
-                            "User.ReadWrite.All",
-                            “User.Read.All”,
-                            "Mail.Send")
-        Connect-MgGraph -Scopes $RequiredScopes -ErrorAction "Stop"
+        if ($ManagedIdentity)
+        {
+            $token = (Get-AzAccessToken -ResourceTypeName MSGraph  -ErrorAction "Stop").token
+            Connect-MgGraph -AccessToken $token -Scopes $Script:SNSConf.RequiredScopes -ErrorAction "Stop"
+        }
+        else
+        {
+            Connect-MgGraph -ContextScope Process -Scopes $Script:SNSConf.RequiredScopes -ErrorAction "Stop"
+        }
     }
     Catch
     {
-        Write-SNSLog -Level "Error" "Kunde logga in på ExchangeOnline Error $_"
+        Write-SNSLog -Level "Error" "Kunde logga in på MgGraph Error $_"
         throw
     }
 
     try
     {
-        # Logga in på ExchangeOnline med ExchangeOnlineManagement modulen.
-        Connect-ExchangeOnline @ConnectionParameters -ErrorAction "Stop" -Verbose:$false -CommandName Get-EXOMailbox,Get-EXORecipient,Get-DistributionGroupMember,Get-DistributionGroup,Update-DistributionGroupMember,New-MailContact,Set-Contact,Set-MailContact,Remove-MailContact,Set-MailContact,Set-Mailbox,Remove-DistributionGroupMember,Add-DistributionGroupMember,Get-DistributionGroupMember,Get-DistributionGroup,Set-MailboxMessageConfiguration,Set-MailboxAutoReplyConfiguration
+        if ($ManagedIdentity)
+        {
+            Connect-ExchangeOnline -ManagedIdentity -Organization $Script:SNSConf.DomainName -ShowBanner:$false -CommandName $Script:SNSConf.commandNames -Verbose:$false -ErrorAction "Stop"
+        }
+        else
+        {
+            Connect-ExchangeOnline -ShowBanner:$false -CommandName $Script:SNSConf.commandNames -Verbose:$false -ErrorAction "Stop"
+        }
     }
     Catch
     {
