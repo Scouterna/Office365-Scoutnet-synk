@@ -14,6 +14,8 @@
 . $PSScriptRoot\Get-SNSExchangeMailListMember.ps1
 . $PSScriptRoot\Get-SNSApiGroupMemberlist.ps1
 . $PSScriptRoot\Invoke-SNSUppdateOffice365User.ps1
+. $PSScriptRoot\Connect-SnSOffice365.ps1
+. $PSScriptRoot\Disconnect-SnSOffice365.ps1
 
 #endregion
 
@@ -65,7 +67,7 @@ function Add-Office365UserToList
 }
 
 
-function Create-MailContact
+function New-SNSMailContact
 {
     param (
         [ValidateNotNull()]
@@ -76,17 +78,17 @@ function Create-MailContact
         )
 
     $contactCreated = $True
-    $ExistingMailContact = get-recipient $Epost -ErrorAction "SilentlyContinue"
+    $ExistingMailContact = Get-EXORecipient $Epost -ErrorAction "SilentlyContinue" -Verbose:$false
     if ($null -eq $ExistingMailContact)
     {
         Write-SNSLog "Creating Contact $Epost for $DisplayName"
         try
         {
-            New-MailContact -Name $Epost -ExternalEmailAddress $Epost -ErrorAction "stop" > $null
+            New-MailContact -Name $Epost -ExternalEmailAddress $Epost -ErrorAction "stop" -Verbose:$false
 
             # Set the name of the member in the company field. This is visibel in Office 365 admin console.
-            Set-Contact -Identity $Epost -Company "$DisplayName"
-            Set-MailContact -Identity $Epost -HiddenFromAddressListsEnabled $true
+            Set-Contact -Identity $Epost -Company "$DisplayName" -Verbose:$false
+            Set-MailContact -Identity $Epost -HiddenFromAddressListsEnabled $true -Verbose:$false
         }
         Catch
         {
@@ -181,13 +183,9 @@ function SNSUpdateExchangeDistributionGroups
     else
     {
         Write-SNSLog "Scoutnet is updated. Starting to update the distribution groups."
+        $otherMailListsMembers, $mailListsToProcessMembers = Get-SNSExchangeMailListMember -Maillists $MailListSettings.Keys
 
-        $ExchangeSession = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri https://outlook.office365.com/powershell-liveid/ -Credential $Script:SNSConf.Credential365 -Authentication Basic -AllowRedirection
-        Import-PSSession $ExchangeSession -AllowClobber -CommandName Set-MailContact,Set-Contact,New-MailContact,Remove-MailContact,Update-DistributionGroupMember,Get-Recipient,Get-Mailbox > $null
-
-        $otherMailListsMembers, $mailListsToProcessMembers = Get-SNSExchangeMailListMember -ExchangeSession $ExchangeSession -Maillists $MailListSettings.Keys
-
-        $allOffice365Users = Get-Mailbox -RecipientTypeDetails "UserMailbox"
+        $allOffice365Users = Get-EXOMailbox -RecipientTypeDetails "UserMailbox" -Properties CustomAttribute1 -Verbose:$false
 
         foreach ($distGroupName in $MailListSettings.keys)
         {
@@ -307,9 +305,9 @@ function SNSUpdateExchangeDistributionGroups
                         if (![string]::IsNullOrWhiteSpace($_))
                         {
                             $ContactCreated = $True
-                            if ($PSCmdlet.ShouldProcess($_, "Create-MailContact"))
+                            if ($PSCmdlet.ShouldProcess($_, "New-SNSMailContact"))
                             {
-                                $ContactCreated = Create-MailContact -Epost $_ -DisplayName $displayName
+                                $ContactCreated = New-SNSMailContact -Epost $_ -DisplayName $displayName
                             }
 
                             if ($ContactCreated)
@@ -410,9 +408,9 @@ function SNSUpdateExchangeDistributionGroups
                     else
                     {
                         $ContactCreated = $True
-                        if ($PSCmdlet.ShouldProcess($MemberData.primary_email, "Create-MailContact"))
+                        if ($PSCmdlet.ShouldProcess($MemberData.primary_email, "New-SNSMailContact"))
                         {
-                            $ContactCreated = Create-MailContact -Epost $MemberData.primary_email -DisplayName $displayName
+                            $ContactCreated = New-SNSMailContact -Epost $MemberData.primary_email -DisplayName $displayName
                         }
 
                         if ($ContactCreated)
@@ -437,9 +435,9 @@ function SNSUpdateExchangeDistributionGroups
                 }
 
                 $ContactCreated = $True
-                if ($PSCmdlet.ShouldProcess($_, "Create-MailContact"))
+                if ($PSCmdlet.ShouldProcess($_, "New-SNSMailContact"))
                 {
-                    $ContactCreated = Create-MailContact -Epost $_ -DisplayName $displayName
+                    $ContactCreated = New-SNSMailContact -Epost $_ -DisplayName $displayName
                 }
 
                 if ($ContactCreated)
@@ -454,15 +452,15 @@ function SNSUpdateExchangeDistributionGroups
 #region Update maillist
             $UpdateDistGroup = @{
                 Identity = $distGroupName
-                Confirm = $Y
                 Members =  $AddressesToAdd.Values
                 ErrorAction = "stop"
+                Verbose = $false
             }
             try
             {
                 if ($PSCmdlet.ShouldProcess($distGroupName, "Update-DistributionGroupMember"))
                 {
-                    Update-DistributionGroupMember @UpdateDistGroup
+                    Update-DistributionGroupMember @UpdateDistGroup -Confirm:$false
                 }
             }
             catch
@@ -488,12 +486,11 @@ function SNSUpdateExchangeDistributionGroups
                 {
                     # Not used in any maillists. Remove the contact.
                     Write-SNSLog "Removing MailContact $($medlem.Identity)"
-                    Remove-MailContact $medlem.Identity -Confirm:$Y
+                    Remove-MailContact $medlem.Identity -Confirm:$false -Verbose:$false
                 }
             }
         }
 
-        Remove-PSSession $ExchangeSession
         Write-SNSLog " "
         Write-SNSLog "Update done new hash value is $NewValidationHash"
         $OutValidationHash = $NewValidationHash

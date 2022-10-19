@@ -13,6 +13,7 @@ Microsoft Office 365 non-profit.
 Azure gratiskonto kan troligtvis också användas, då det ingår 500 minuter Azure automation.
 
 Modulen går även att köra på en dator som har minst Powershell 5.1 installerad.
+Powershell core stöds också så modulen går att köra på linux.
 
 Vid problem, fel, frågor eller tips på förbättringar eller fler funktioner
 som du saknar; lägg ett ärende under `Issues` eller mejla karl.thoren@scouterna.se
@@ -44,8 +45,6 @@ Hur du gör är beskrivet här <https://blog.kloud.com.au/2016/08/24/schedule-of
     1. Bra namn är `Scoutnet-synk` på kontot och resursgruppen.
     1. Välj `North Europe` som Location.
 
-1. Lägg till `MSOnline` modulen. Behövs för att kunna skapa användare.
-
 1. Lägg till `Office365-Scoutnet-synk` som en modul.
    1. Gå in på https://www.powershellgallery.com/packages/Office365-Scoutnet-synk
    1. Välj Azure Automation och tryck på "Deploy to Azure Automation"
@@ -62,13 +61,6 @@ Hur du gör är beskrivet här <https://blog.kloud.com.au/2016/08/24/schedule-of
     Lösenordet är API-nyckeln.
     1. Credential Asset: `ScoutnetApiCustomLists`, API-nyckel för api/group/customlists
     1. Credential Asset: `ScoutnetApiGroupMemberList`, API-nyckel för api/group/memberlist
-
-1. Skapa även en `Credential Asset` med en användare som har adminrättigheter
-    på scoutkårens office 356.
-    1. Credential Asset: `MSOnline-Credentials`, konto som har adminrättigheter
-        på scoutkårens office 356. Rekommendationen är att det är ett separat
-        konto som är kopplat till scoutkårens onmicrosoft.com domän.
-        T.ex administrator@scoutkaren.onmicrosoft.com
 
 ### Synkronisera grupper
 

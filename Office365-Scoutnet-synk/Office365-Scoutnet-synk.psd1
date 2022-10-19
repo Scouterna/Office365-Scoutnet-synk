@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.0.6'
+ModuleVersion = '2.0.0'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -23,7 +23,7 @@ Author = 'Karl Thorén <karl.thoren@scouterna.se>'
 CompanyName = 'Scouterna'
 
 # Copyright statement for this module
-Copyright = 'c 2019, 2020, 2021 All rights reserved.'
+Copyright = 'c 2019, 2020, 2021, 2022 All rights reserved.'
 
 # Description of the functionality provided by this module
 Description = 'Funktioner för att synkronisera Scoutnet med Office 365.'
@@ -47,7 +47,12 @@ PowerShellVersion = '5.1'
 # ProcessorArchitecture = ''
 
 # Modules that must be imported into the global environment prior to importing this module
-RequiredModules = @('MSOnline')
+RequiredModules = @('Microsoft.Graph.Authentication',
+                    'Microsoft.Graph.Users',
+                    'Microsoft.Graph.Users.Actions',
+                    'Microsoft.Graph.Groups',
+                    @{ModuleName='ExchangeOnlineManagement';
+                        RequiredVersion="3.0.0"; })
 
 # Assemblies that must be loaded prior to importing this module
 # RequiredAssemblies = @()
@@ -77,7 +82,9 @@ FunctionsToExport = @(
     'Invoke-SNSUppdateOffice365User',
     'New-SNSConfiguration',
     'Get-SNSConfiguration',
-    'Set-SNSConfiguration'
+    'Set-SNSConfiguration',
+    'Connect-SnSOffice365',
+    'Disconnect-SnSOffice365'
 )
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
@@ -119,62 +126,14 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
-## 1.0.6
-Fixade fel om listan över office 365 konton att skapa innehåller icke medlem.
+## 2.0.0
+Uppdatering till att använda ExchangeOnlineManagement för hanteringen av
+maillistor och mailboxar.
 
-## 1.0.5
-Fixade missad hantering av returvärde ifrån Create-MailContact.
-Dokumentationsuppdateringar.
+Uppdatering till att använda MsGraph för användarhantering.
 
-## 1.0.4
-Ändrade synkronizeringen av listor till att använda Update-DistributionGroupMember
-Det gör att synkroniseringen är stabilare och snabbare.
+Stödjer windows powershell 5.1 och powershell 7 eller nyare.
 
-La till stöd för statiska listor.
-Uppdaterade dokumentationen
-
-## 1.0.3
-Bugfix för problemet med att listor synkades halvägs.
-
-## 1.0.2
-Rensar 'white-space' ifrån UPN (UserPrincipalName).
-Satt minimumversion 1.0 i exemplen.
-
-## 1.0.1
-Bugfix för problemet med att listor synkades halvägs.
-
-## 1.0.0
-Version 1.0.0. Stabil version som använder ExchangePowerShell och MSOnline för
-kopplingen till Exchange online och Azure AD.
-
-## 0.3.3
-
-Uppdaterade testning och automatiserade publisering till PowerShell Gallery.
-
-## 0.3.2
-
-Version för publicering till PowerShell Gallery.
-
-## 0.3.1
-
-Fixar
-- Uppdaterade länkar att peka på Scouternas area på github.
-
-## 0.3.0
-
-Beta 3
-- Stöd för autoreply på avstängda konton.
-- Stäng av eventuella mail forwads på avstängda konton.
-
-## 0.3.0
-
-Beta 2
-- Ändrade så att scouter_synk_option "&" också lägger till office365 adresser.
-
-## 0.2.6
-
-Beta 1
-- Fungerande synkning för maillistor och användarkonton
 '@
 
     } # End of PSData hashtable

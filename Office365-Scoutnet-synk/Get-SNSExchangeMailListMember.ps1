@@ -18,31 +18,15 @@
         The first part is the otherMailListsMembers ArrayList.
         The second part is the mailListsToProcessMembers ArrayList.
 
-    .PARAMETER ExchangeSession
-        Exchange session to use for Import-PSSession.
-
     .PARAMETER Maillists
         Distribution groups that will be part of mailListsToProcessMembers.
     #>
 
     [OutputType([System.Collections.ArrayList], [System.Collections.ArrayList])]
     param (
-        [Parameter(Mandatory=$True, HelpMessage="Exchange session to use.")]
-        $ExchangeSession,
-
         [Parameter(Mandatory=$True, HelpMessage="Distribution groups that will be part of mailListsToProcessMembers.")]
         [string[]]$Maillists
         )
-
-    try
-    {
-        Import-PSSession $ExchangeSession -AllowClobber -CommandName Get-DistributionGroupMember,Get-DistributionGroup -ErrorAction Stop > $null
-    }
-    catch
-    {
-        Write-SNSLog -Level "Error" "Could not import needed functions. Error $_"
-        throw
-    }
 
     $otherMailListsMembers = @{}
     $mailListsToProcessMembers = @{}
@@ -52,7 +36,7 @@
     {
         try
         {
-            $mailListGroups += (Get-DistributionGroup $mailList -ErrorAction Stop).ExchangeObjectId
+            $mailListGroups += (Get-DistributionGroup -Verbose:$false -ErrorAction Stop).ExchangeObjectId
         }
         catch
         {
@@ -63,7 +47,7 @@
 
     try
     {
-        $groups = Get-DistributionGroup -ErrorAction Stop
+        $groups = Get-DistributionGroup -Verbose:$false -ErrorAction Stop
     }
     catch
     {
@@ -76,7 +60,7 @@
         foreach($group in $groups)
         {
             Write-SNSLog "Get distribution list $($group.DisplayName)"
-            $data = Get-DistributionGroupMember -Identity "$($group.ExchangeObjectId)" -ErrorAction Stop
+            $data = Get-DistributionGroupMember -Verbose:$false -Identity "$($group.ExchangeObjectId)" -ErrorAction Stop
             if ($mailListGroups.Contains($group.ExchangeObjectId))
             {
                 $data | ForEach-Object {

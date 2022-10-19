@@ -1,5 +1,5 @@
 ﻿#Requires -Version 5.1
-#Requires -Modules @{ ModuleName="Office365-Scoutnet-synk"; ModuleVersion="1.0" }
+#Requires -Modules @{ ModuleName="Office365-Scoutnet-synk"; ModuleVersion="2.0" }
 
 # Lämplig inställning i Azure automation.
 $ProgressPreference = "silentlyContinue"
@@ -8,7 +8,8 @@ $ProgressPreference = "silentlyContinue"
 $VerbosePreference = "Continue"
 
 # Vem ska mailet med loggen skickas ifrån. Byt ut till en adress som du har i din domän.
-$LogEmailFromAddress = "info@scoutkåren"
+# Måste vara samma användare som loggar in.
+$LogEmailFromAddress = "admin@scoutkåren"
 
 # Vem ska mailet med loggen skickas till. Byt ut till en adminadress eller grupp.
 $LogEmailToAddress = "admin@scoutkåren"
@@ -18,13 +19,11 @@ $LogEmailSubject = "Maillist sync log"
 
 # Konfiguration av modulen.
 
-# Licenser för nya användare. Byt ut <office 365 licensnamn> med det namnet du har.
 # Exemplet nedan lägger in STANDARDPACK och FLOW_FREE. På STANDARDPACK applikationerna "YAMMER_ENTERPRISE", "SWAY","Deskless","POWERAPPS_O365_P1" avstängda.
-# För att hitta vad dina licenser heter använd Get-MsolAccountSku ifrån MSonline paketet.
 $LicenseAssignment=@{
-    "<office 365 licensnamn>:STANDARDPACK" = @(
+    "STANDARDPACK" = @(
         "YAMMER_ENTERPRISE", "SWAY","Deskless","POWERAPPS_O365_P1");
-        "<office 365 licensnamn>:FLOW_FREE"=""
+        "FLOW_FREE"= @()
 }
 
 # Skapa ett konfigurationsobjekt och koppla licenshantering och vilken scoutnet maillist som hanterar användarnas konton.
@@ -33,7 +32,8 @@ $LicenseAssignment=@{
 $conf = New-SNSConfiguration -LicenseAssignment $LicenseAssignment -UserSyncMailListId "0000"
 
 # Vem ska mailet till nya användare skickas ifrån. Byt ut till en adress som du har i din domän.
-$conf.EmailFromAddress = "info@scoutkåren"
+# Måste vara samma användare som loggar in.
+$conf.EmailFromAddress = "admin@scoutkåren"
 
 # Domännam för scoutkårens office 365.
 $conf.DomainName = "scoutkåren.se"
@@ -162,13 +162,11 @@ p   {margin-top:0; margin-bottom:0}
 "@
 
 # Här börjar själva skriptet.
+Remove-Item -Path $conf.LogFilePath
 
 # Skapa credentials för Scoutnet API och för Office 365.
 try
 {
-    # Credentials för access till Office 365 och för att kunna skicka mail.
-    $conf.Credential365 = Get-Credential "administrator mail" -ErrorAction "Stop"
-
     # Användarnamn för Scoutnets API. Användarnamnet är Kår-ID för webbtjänster som står på sidan Webbkoppling.
     $UserName = "000000"
 
@@ -183,6 +181,17 @@ try
 Catch
 {
     Write-SNSLog -Level "Error" "Kunde inte hämta skapa credentials. Error $_"
+    throw
+}
+
+try
+{
+    # Logga in på office 365
+    Connect-SnSOffice365 -Configuration $conf -ErrorAction "Stop"
+}
+Catch
+{
+    Write-SNSLog -Level "Error" "Kunde logga in på office 365 Error $_"
     throw
 }
 
@@ -207,8 +216,41 @@ Catch
     Write-SNSLog -Level "Error" "Kunde inte köra uppdateringen av distributionsgrupper. Fel: $_"
 }
 
-# Skapa ett mail med loggen och skicka till admin.
 $bodyData = Get-Content -Path $conf.LogFilePath -Raw -Encoding UTF8 -ErrorAction "Continue"
-Send-MailMessage -Credential $conf.Credential365 -From $LogEmailFromAddress `
-    -To $LogEmailToAddress -Subject $LogEmailSubject -Body $bodyData `
-    -SmtpServer $conf.EmailSMTPServer -Port $conf.SmtpPort -UseSSL -Encoding UTF8 -ErrorAction "Continue"
+$params = @{
+    Message = @{
+        Subject = $LogEmailSubject
+        Body = @{
+            ContentType = "Text"
+            Content = $bodyData
+        }
+        ToRecipients = @(
+            @{
+                EmailAddress = @{
+                    Address = $LogEmailToAddress
+                }
+            }
+        )
+        From = @(
+            @{
+                EmailAddress = @{
+                    Address = $LogEmailFromAddress
+                }
+            }
+        )
+    }
+}
+
+Send-MgUserMail -UserId $LogEmailToAddress -BodyParameter $params
+
+
+try
+{
+    # Logga ut ifrån ExchangeOnline.
+    Disconnect-SnSOffice365
+}
+Catch
+{
+    Write-SNSLog -Level "Error" "Utloggning ifrån ExchangeOnline returnerade felet $_"
+    throw
+}
