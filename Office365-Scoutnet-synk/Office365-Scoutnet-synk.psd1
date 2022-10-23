@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.0.0'
+ModuleVersion = '2.0.1'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -126,6 +126,10 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
+## 2.0.1
+Fixade att användare kan skapas även om hemadress inte är ifylld i scoutnet.
+Dokumentationsuppdateringar.
+
 ## 2.0.0
 Uppdatering till att använda ExchangeOnlineManagement för hanteringen av
 maillistor och mailboxar.

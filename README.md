@@ -264,15 +264,35 @@ Exempel:
 
 ## Ny version
 
-- Uppdatering av modulen sker genom att ladda ner en ny version och installera modulen.
-- Du hittar senaste versionen av modulen på
+* Uppdatering av modulen sker genom att ladda ner en ny version och installera modulen.
+```powershell
+Update-Module -Name Office365-Scoutnet-synk -Scope CurrentUser
+```
+* Du hittar senaste versionen av modulen på
     https://www.powershellgallery.com/packages/Office365-Scoutnet-synk eller
     <https://github.com/scouternasetjanster/Office365-Scoutnet-synk/releases/latest>
     och där kan du också ser vilken funktionalitet som är ny i respektive version
     och om du behöver göra något för att uppdatera förutom att uppdatera modulen.
-- Du kan hålla dig uppdaterad med nya versioner genom att om du är inloggad
+* Du kan hålla dig uppdaterad med nya versioner genom att om du är inloggad
     på Github trycka på knappen **Watch** uppe till höger på sidan för att då
     kunna bli notifierad vid ny version.
+
+### Uppgradera till version 2.0
+
+I version 2.0 så används Microsoft.Graph för användarkontohanteringen samt för att skicka e-post till nya användare. Samt så används ExchangeOnlineManagement för maillisthanteringen.
+
+Lokalt kan du ta bort den gamla versionen och lägga in den nya så här.
+```powershell
+Uninstall-Module Office365-Scoutnet-synk -AllVersions -Scope CurrentUser
+Install-Module -Name Office365-Scoutnet-synk -Scope CurrentUser
+```
+
+Det gör att vissa ändringar behövs i skriptet som kör modulen.
+* `LogEmailFromAddress` och `conf.EmailFromAddress` måste vara samma konto som används för att logga in eller så måste kontot ha rätt att skicka ifrån den adressen. Modulen `Send-MgUserMail`används och den har en del begränsningar. T.ex kan inte en delad mailbox användas som avsändare.
+* Licenshanteringen är ändrad, så `LicenseAssignment` behöver ändras.
+*  Inloggningshanteringen är ändrad. Nu måste `Connect-SnSOffice365` användas för att logga in.
+* Modulen för att skicka e-post är bytt till `Send-MgUserMail`. Se slutet på exemplet för hur `Send-MgUserMail` används.
+
 
 ## Hjälp
 

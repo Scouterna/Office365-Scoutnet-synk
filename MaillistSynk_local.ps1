@@ -19,7 +19,9 @@ $LogEmailSubject = "Maillist sync log"
 
 # Konfiguration av modulen.
 
-# Exemplet nedan lägger in STANDARDPACK och FLOW_FREE. På STANDARDPACK applikationerna "YAMMER_ENTERPRISE", "SWAY","Deskless","POWERAPPS_O365_P1" avstängda.
+# Licenser för nya användare.
+# Exemplet nedan lägger in licenserna STANDARDPACK och FLOW_FREE. På STANDARDPACK applikationerna "YAMMER_ENTERPRISE", "SWAY","Deskless","POWERAPPS_O365_P1" avstängda.
+# För att lista lisenser kör `Get-MgSubscribedSku -All | Format-List`
 $LicenseAssignment=@{
     "STANDARDPACK" = @(
         "YAMMER_ENTERPRISE", "SWAY","Deskless","POWERAPPS_O365_P1");
@@ -231,17 +233,10 @@ $params = @{
                 }
             }
         )
-        From = @(
-            @{
-                EmailAddress = @{
-                    Address = $LogEmailFromAddress
-                }
-            }
-        )
     }
 }
 
-Send-MgUserMail -UserId $LogEmailToAddress -BodyParameter $params
+Send-MgUserMail -UserId $LogEmailFromAddress -BodyParameter $params
 
 
 try

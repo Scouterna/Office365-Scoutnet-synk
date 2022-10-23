@@ -15,7 +15,6 @@ Behöver köras en gång på varje dator som ska användas för att köra import
 
 ## Som användare
 1. Starta en powershell instans. (Som din användare)
-1. Kör `Install-Module -Name MSOnline -Scope CurrentUser` för att installera modulen.
 1. Kör `Install-Module -Name Office365-Scoutnet-synk -Scope CurrentUser` för att installera modulen.
 
 

@@ -34,9 +34,9 @@
     "GroupMember.Read.All",
     "GroupMember.ReadWrite.All",
     "Group.ReadWrite.All",
-    "Group.Read.All"
+    "Group.Read.All",
     "User.ReadWrite.All",
-    “User.Read.All”,
+    "User.Read.All",
     "Mail.Send")
 }
 
