@@ -212,6 +212,31 @@ function Invoke-SNSCreateUserAndUpdateUserData
         $memberData
     )
 
+#region Create licensing data
+    $addLicensesArray = New-Object System.Collections.ArrayList
+    try
+    {
+        foreach($licensepack in $Script:SNSConf.LicenseAssignment.keys)
+        {
+            $packSku = Get-MgSubscribedSku -All | Where-Object SkuPartNumber -eq $licensepack
+            $skudata = @{SkuId = $packSku.SkuId}
+            $disabledplans = $packSku.ServicePlans | Where-Object ServicePlanName -in $LicenseAssignment[$licensepack] | Select-Object -ExpandProperty ServicePlanId
+            if ($disabledplans)
+            {
+                $skudata = @{SkuId = $packSku.SkuId
+                            DisabledPlans = $disabledplans
+                            }
+            }
+            [Void]$addLicensesArray.add($skudata)
+        }
+    }
+    catch
+    {
+        Write-SNSLog -Level "Error" "Could not create user license data. Error $_"
+        return
+    }
+#endregion
+
     $SecurityGroupScoutnet = Get-SNSSecurityGroupScoutnet
 
     $newAccounts = [ordered]@{}
@@ -221,6 +246,9 @@ function Invoke-SNSCreateUserAndUpdateUserData
 #region Generate the new UserPrincipalName
         $properties = "businessPhones, displayName, givenName, id, jobTitle, mail, mobilePhone, UserPrincipalName, preferredLanguage, surname, userPrincipalName, postalCode, identities, UserType, StreetAddress, City, Department, UserType"
         $DisplayName = "$($MemberData.first_name.value) $($MemberData.last_name.value)"
+
+        Write-SNSLog "Trying to create account for '$($DisplayName)' with id '$($MemberData.member_no.value)'."
+
         $UserName = "$($MemberData.first_name.value).$($MemberData.last_name.value)".ToLower()
         # Convert UTF encoded names and create corresponding ASCII version.
         $UserName = [Text.Encoding]::ASCII.GetString([Text.Encoding]::GetEncoding("Cyrillic").GetBytes($UserName))
@@ -252,26 +280,9 @@ function Invoke-SNSCreateUserAndUpdateUserData
 
         if (!$office365User)
         {
+#region Fetch data for the new user
             try
             {
-#region Create licensing data
-                $addLicensesArray = New-Object System.Collections.ArrayList
-                foreach($licensepack in $Script:SNSConf.LicenseAssignment.keys)
-                {
-                    $packSku = Get-MgSubscribedSku -All | Where-Object SkuPartNumber -eq $licensepack
-                    $skudata = @{SkuId = $packSku.SkuId}
-                    $disabledplans = $packSku.ServicePlans | Where-Object ServicePlanName -in $LicenseAssignment[$licensepack] | Select-Object -ExpandProperty ServicePlanId
-                    if ($disabledplans)
-                    {
-                        $skudata = @{SkuId = $packSku.SkuId
-                                    DisabledPlans = $disabledplans
-                                    }
-                    }
-                    [Void]$addLicensesArray.add($skudata)
-                }
-#endregion
-
-#region Fetch data for the new user
                 $UserPassword = Get-RandomPassword 15
                 $createUserparams = @{
                     AccountEnabled = $true
@@ -280,20 +291,52 @@ function Invoke-SNSCreateUserAndUpdateUserData
                     MailNickname = $MailNickname
                     GivenName = $MemberData.first_name.value
                     Surname = $MemberData.last_name.value
-                    City = $MemberData.town.value
-                    Country = $MemberData.country.value
                     PreferredLanguage = $Script:SNSConf.PreferredLanguage
                     UsageLocation = $Script:SNSConf.UsageLocation
-                    PostalCode = $MemberData.postcode.value
                     PasswordProfile = @{
                         ForceChangePasswordNextSignIn = $true
                         Password = $UserPassword
                     }
                 }
 
+                if (-not [string]::IsNullOrEmpty($MemberData.postcode.value))
+                {
+                    # Only add PostalCode if it exists in scoutnet.
+                    $createUserparams["PostalCode"] = $MemberData.postcode.value
+                }
+                else
+                {
+                    Write-SNSLog -Level "Warn" "No 'postcode' for member '$DisplayName' with id '$($MemberData.member_no.value)'"
+                }
+
+                if (-not [string]::IsNullOrEmpty($MemberData.town.value))
+                {
+                    # Only add City if it exists in scoutnet.
+                    $createUserparams["City"] = $MemberData.town.value
+                }
+                else
+                {
+                    Write-SNSLog -Level "Warn" "No 'town' for member '$DisplayName' with id '$($MemberData.member_no.value)'"
+                }
+
+                if (-not [string]::IsNullOrEmpty($MemberData.country.value))
+                {
+                    # Only add Country if it exists in scoutnet.
+                    $createUserparams["Country"] = $MemberData.country.value
+                }
+                else
+                {
+                    Write-SNSLog -Level "Warn" "No 'country' for member '$DisplayName' with id '$($MemberData.member_no.value)'"
+                }
+
                 if (-not [string]::IsNullOrEmpty($MemberData.contact_mobile_phone.value))
                 {
+                    # Only add MobilePhone if it exists in scoutnet.
                     $createUserparams["MobilePhone"] = $MemberData.contact_mobile_phone.value
+                }
+                else
+                {
+                    Write-SNSLog -Level "Warn" "No 'MobilePhone' for member '$DisplayName' with id '$($MemberData.member_no.value)'"
                 }
 
                 $StreetAddress = $MemberData.address_1.value
@@ -308,8 +351,14 @@ function Invoke-SNSCreateUserAndUpdateUserData
 
                 if (-not [string]::IsNullOrEmpty($StreetAddress))
                 {
+                    # Only add StreetAddress if it exists in scoutnet.
                     $createUserparams["StreetAddress"] = $StreetAddress
                 }
+                else
+                {
+                    Write-SNSLog -Level "Warn" "No 'StreetAddress' for member '$DisplayName' with id '$($MemberData.member_no.value)'"
+                }
+
 
                 $OtherMails = New-Object System.Collections.ArrayList
                 if (-not [string]::IsNullOrEmpty($MemberData.email.value))
@@ -334,31 +383,41 @@ function Invoke-SNSCreateUserAndUpdateUserData
                 {
                     $createUserparams["OtherMails"] = $OtherMails.ToArray()
                 }
+            }
+            catch
+            {
+                Write-SNSLog -Level "Error" "Could not fetch data for user '$($UserPrincipalName)' for member '$DisplayName' with id '$($MemberData.member_no.value)'. Error $_"
+                continue
+            }
 #endregion
 
 #region Create the new user.
+            try
+            {
                 $newAccount = New-MgUser -BodyParameter $createUserparams -ErrorAction Stop
                 Set-MgUserLicense -UserId $UserPrincipalName -Addlicenses $addLicensesArray.ToArray() -RemoveLicenses @()
                 Write-SNSLog "User '$($newAccount.UserPrincipalName)' added for member id '$($MemberData.member_no.value)'."
-#endregion
-
-#region Add the user to the group of active users.
-                $newAccounts.Add($MemberData.member_no.value, @($MemberData, $newAccount, $UserPassword))
-                $LastAccountUserPrincipalName = $newAccount.UserPrincipalName
-                try
-                {
-                    New-MgGroupMember -GroupId $SecurityGroupScoutnet.Id -DirectoryObjectId $newAccount.Id -ErrorAction "Stop"
-                }
-                Catch
-                {
-                    Write-SNSLog -Level "Warn" "Could not add contact '$($newAccount.DisplayName)' to group $($Script:SNSConf.SyncGroupName). Error $_"
-                }
-#endregion
             }
             catch
             {
                 Write-SNSLog -Level "Error" "Could not create user '$($UserPrincipalName)' for member '$DisplayName' with id '$($MemberData.member_no.value)'. Error $_"
+                continue
             }
+#endregion
+
+#region Add the user to the group of active users.
+            $newAccounts.Add($MemberData.member_no.value, @($MemberData, $newAccount, $UserPassword))
+            $LastAccountUserPrincipalName = $newAccount.UserPrincipalName
+            try
+            {
+                New-MgGroupMember -GroupId $SecurityGroupScoutnet.Id -DirectoryObjectId $newAccount.Id -ErrorAction "Stop"
+            }
+            Catch
+            {
+                Write-SNSLog -Level "Warn" "Could not add contact '$($newAccount.DisplayName)' to group $($Script:SNSConf.SyncGroupName). Error $_"
+                continue
+            }
+#endregion
         }
         else
         {
