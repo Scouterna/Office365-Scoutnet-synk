@@ -26,8 +26,8 @@ Du kan ladda ner den senaste versionen via
 <https://github.com/scouternasetjanster/Office365-Scoutnet-synk/releases/latest>
 och där kan du också ser vilken funktionalitet som är ny i respektive version.
 
-Eller via https://www.powershellgallery.com/packages/Office365-Scoutnet-synk där senaste
-versionen alltid är publicerad.
+Eller via <https://www.powershellgallery.com/packages/Office365-Scoutnet-synk>
+där senaste versionen alltid är publicerad.
 
 Läs filen [README.md](README.md) för instruktion om installation och funktionalitet.
 
@@ -46,7 +46,7 @@ Hur du gör är beskrivet här <https://blog.kloud.com.au/2016/08/24/schedule-of
     1. Välj `North Europe` som Location.
 
 1. Lägg till `Office365-Scoutnet-synk` som en modul.
-   1. Gå in på https://www.powershellgallery.com/packages/Office365-Scoutnet-synk
+   1. Gå in på <https://www.powershellgallery.com/packages/Office365-Scoutnet-synk>
    1. Välj Azure Automation och tryck på "Deploy to Azure Automation"
       Modulen kommer nu installeras på Azure Automation.
 
@@ -94,8 +94,8 @@ Hur du gör är beskrivet här <https://blog.kloud.com.au/2016/08/24/schedule-of
 
 1. Kopiera koden ifrån exemplet [MaillistSynk.ps1](MaillistSynk.ps1).
 
-1. Ändra inställningarna så att de matchar scoutkårens Scoutnetprofil och Office 365.
-    T.ex vilka listor som ska uppdateras.
+1. Ändra inställningarna så att de matchar scoutkårens Scoutnetprofil
+och Office 365. T.ex vilka listor som ska uppdateras.
 
 1. Prova att köra `MaillistSynk`.
 
@@ -146,9 +146,10 @@ I exempelfilen så är det några inställningar att ändra:
 - Ändra standardsignatur i `$conf.SignatureText` och `$conf.SignatureHtml`.
 - Ändra rubrik och test på välkomstbrev i `$conf.NewUserEmailSubject` och `$conf.NewUserEmailText`.
     Välkomstbrevet skickas till medlemmes primära e-postadress i scouten.
-- Ändra rubrik och test på informationsbrev i `$conf.NewUserInfoEmailSubject` och `$conf.NewUserInfoEmailText`.
-    Informationsbrevet skickas till användarens nya e-postadress.
-    Kan t.ex innehålla information om var du kan hitta sharepointsiten 
+- Ändra rubrik och test på informationsbrev i `$conf.NewUserInfoEmailSubject`
+och `$conf.NewUserInfoEmailText`.
+    - Informationsbrevet skickas till användarens nya e-postadress.
+    Kan t.ex innehålla information om var du kan hitta sharepointsiten.
 
 ### Office 365 distributionsgrupper - synkronisering med Scoutnet
 
@@ -253,7 +254,8 @@ Exempel:
 
 ##### statisk_lista
 
-Fältet `statisk_lista` används för att markera att listan är en statiskt konfigurerad lista i Scoutnet.
+Fältet `statisk_lista` används för att markera att listan är en statiskt
+konfigurerad lista i Scoutnet.
 Statiska listor i Scoutnet hanteras bara med regelerna ifrån [ledare_synk_option](#ledare_synk_option).
 
 Exempel:
@@ -264,35 +266,45 @@ Exempel:
 
 ## Ny version
 
-* Uppdatering av modulen sker genom att ladda ner en ny version och installera modulen.
+- Uppdatering av modulen sker genom att ladda ner en ny version och installera modulen.
+
 ```powershell
 Update-Module -Name Office365-Scoutnet-synk -Scope CurrentUser
 ```
-* Du hittar senaste versionen av modulen på
-    https://www.powershellgallery.com/packages/Office365-Scoutnet-synk eller
+
+- Du hittar senaste versionen av modulen på
+    <https://www.powershellgallery.com/packages/Office365-Scoutnet-synk> eller
     <https://github.com/scouternasetjanster/Office365-Scoutnet-synk/releases/latest>
     och där kan du också ser vilken funktionalitet som är ny i respektive version
     och om du behöver göra något för att uppdatera förutom att uppdatera modulen.
-* Du kan hålla dig uppdaterad med nya versioner genom att om du är inloggad
+- Du kan hålla dig uppdaterad med nya versioner genom att om du är inloggad
     på Github trycka på knappen **Watch** uppe till höger på sidan för att då
     kunna bli notifierad vid ny version.
 
 ### Uppgradera till version 2.0
 
-I version 2.0 så används Microsoft.Graph för användarkontohanteringen samt för att skicka e-post till nya användare. Samt så används ExchangeOnlineManagement för maillisthanteringen.
+I version 2.0 så används Microsoft.Graph för användarkontohanteringen samt för
+att skicka e-post till nya användare.
+Samt så används ExchangeOnlineManagement för maillisthanteringen.
 
 Lokalt kan du ta bort den gamla versionen och lägga in den nya så här.
+
 ```powershell
 Uninstall-Module Office365-Scoutnet-synk -AllVersions -Scope CurrentUser
 Install-Module -Name Office365-Scoutnet-synk -Scope CurrentUser
 ```
 
 Det gör att vissa ändringar behövs i skriptet som kör modulen.
-* `LogEmailFromAddress` och `conf.EmailFromAddress` måste vara samma konto som används för att logga in eller så måste kontot ha rätt att skicka ifrån den adressen. Modulen `Send-MgUserMail`används och den har en del begränsningar. T.ex kan inte en delad mailbox användas som avsändare.
-* Licenshanteringen är ändrad, så `LicenseAssignment` behöver ändras.
-*  Inloggningshanteringen är ändrad. Nu måste `Connect-SnSOffice365` användas för att logga in.
-* Modulen för att skicka e-post är bytt till `Send-MgUserMail`. Se slutet på exemplet för hur `Send-MgUserMail` används.
 
+- `LogEmailFromAddress` och `conf.EmailFromAddress` måste vara samma konto som
+nvänds för att logga in eller så måste kontot ha rätt att skicka ifrån den adressen.
+Modulen `Send-MgUserMail`används och den har en del begränsningar.
+T.ex kan inte en delad mailbox användas som avsändare.
+- Licenshanteringen är ändrad, så `LicenseAssignment` behöver ändras.
+- Inloggningshanteringen är ändrad. Nu måste `Connect-SnSOffice365` användas
+för att logga in.
+- Modulen för att skicka e-post är bytt till `Send-MgUserMail`.
+Se slutet på exemplet för hur `Send-MgUserMail` används.
 
 ## Hjälp
 
@@ -305,14 +317,17 @@ Det gör att vissa ändringar behövs i skriptet som kör modulen.
 ## Testkörning
 
 `SNSUpdateExchangeDistributionGroups` går att köra med flaggan -WhatIf.
-Med den flaggan aktiverad så kommer `SNSUpdateExchangeDistributionGroups` bara skriva ut
+Med den flaggan aktiverad så kommer
+`SNSUpdateExchangeDistributionGroups` bara skriva ut
 vad den hade gjort, men inte göra några ändringar.
 
-Tillsammans med flaggan -ReturnMaildata så kan man få ut vilka adresser en maillista kommer att innehålla.
+Tillsammans med flaggan -ReturnMaildata så kan man få ut vilka adresser en
+maillista kommer att innehålla.
 
 ### Exempel
 
 Körning utan ändringar och maillistdatan returneras i variabeln `$mailListData`.
+
 ```powershell
 $NewValidationHash, $mailListData = SNSUpdateExchangeDistributionGroups -Configuration $conf -ValidationHash "Tom" -ReturnMaildata -WhatIf
 ```

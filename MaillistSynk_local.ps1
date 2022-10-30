@@ -234,6 +234,7 @@ $params = @{
             }
         )
     }
+    SaveToSentItems = "false"
 }
 
 Send-MgUserMail -UserId $LogEmailFromAddress -BodyParameter $params

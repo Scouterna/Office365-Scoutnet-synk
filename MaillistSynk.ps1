@@ -262,9 +262,9 @@ $params = @{
             }
         )
     }
+    SaveToSentItems = "false"
 }
 
-# A UPN can also be used as -UserId.
 Send-MgUserMail -UserId $LogEmailFromAddress -BodyParameter $params
 
 
