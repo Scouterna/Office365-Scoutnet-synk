@@ -128,6 +128,7 @@ PrivateData = @{
         ReleaseNotes = @'
 ## 2.0.1
 Fixade att användare kan skapas även om hemadress inte är ifylld i scoutnet.
+Fixade hantering av användarlicensedata.
 Dokumentationsuppdateringar.
 
 ## 2.0.0
