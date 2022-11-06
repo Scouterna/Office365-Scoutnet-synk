@@ -30,7 +30,7 @@
     try
     {
         # Logga ut ifrån office 365
-        Disconnect-MgGraph -ErrorAction "Stop" -Verbose:$false
+        Disconnect-MgGraph -ErrorAction "Stop" -Verbose:$false |out-null
     }
     Catch
     {

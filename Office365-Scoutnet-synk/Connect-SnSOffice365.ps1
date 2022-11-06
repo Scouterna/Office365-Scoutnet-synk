@@ -44,22 +44,15 @@
         Write-SNSLog "Using managed identity for domain $($Script:SNSConf.DomainName)"
     }
 
-    try
+    if ($ManagedIdentity)
     {
-        if ($ManagedIdentity)
-        {
-            $token = (Get-AzAccessToken -ResourceTypeName MSGraph  -ErrorAction "Stop").token
-            Connect-MgGraph -AccessToken $token -Scopes $Script:SNSConf.RequiredScopes -ErrorAction "Stop"
-        }
-        else
-        {
-            Connect-MgGraph -ContextScope Process -Scopes $Script:SNSConf.RequiredScopes -ErrorAction "Stop"
-        }
+        Connect-AzAccount -Identity -ErrorAction "Stop" |out-null
+        $token = (Get-AzAccessToken -ResourceTypeName MSGraph -ErrorAction "Stop").token
+        Connect-MgGraph -AccessToken $token -ErrorAction "Stop" |out-null
     }
-    Catch
+    else
     {
-        Write-SNSLog -Level "Error" "Kunde logga in på MgGraph Error $_"
-        throw
+        Connect-MgGraph -ContextScope Process -Scopes $Script:SNSConf.RequiredScopes -ErrorAction "Stop"
     }
 
     try
