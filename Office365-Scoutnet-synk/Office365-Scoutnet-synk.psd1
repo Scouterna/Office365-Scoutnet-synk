@@ -51,6 +51,7 @@ RequiredModules = @('Microsoft.Graph.Authentication',
                     'Microsoft.Graph.Users',
                     'Microsoft.Graph.Users.Actions',
                     'Microsoft.Graph.Groups',
+                    'Microsoft.Graph.Identity.DirectoryManagement',
                     @{ModuleName='ExchangeOnlineManagement';
                         RequiredVersion="3.0.0"; })
 
@@ -128,6 +129,7 @@ PrivateData = @{
         ReleaseNotes = @'
 ## 2.0.2
 Buggfixar för inloggning i Azure.
+La till krav på Microsoft.Graph.Identity.DirectoryManagement.
 
 ## 2.0.1
 Fixade att användare kan skapas även om hemadress inte är ifylld i scoutnet.

@@ -4,7 +4,7 @@ $accountName = 'Scoutnet-sync'
 $rgName = 'Scoutnet-sync'
 $location = 'swedencentral'
 
-#Connect-AzAccount
+Connect-AzAccount
 
 $RequiredScopes = @("Directory.AccessAsUser.All",
     "Directory.ReadWrite.All",
@@ -46,13 +46,7 @@ do
 {
     sleep 1
     $result = Get-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName $moduleName -ErrorAction "Stop"
-} while ($result.ProvisioningState -eq "Creating")
-
-do
-{
-    sleep 1
-    $result = Get-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName $moduleName -ErrorAction "Stop"
-} while ($result.ProvisioningState -ne "ConnectionTypeImported")
+} while (($result.ProvisioningState -eq "Creating") -Or ($result.ProvisioningState -eq "ConnectionTypeImported"))
 
 if ($result.ProvisioningState -eq "Failed")
 {
@@ -67,18 +61,16 @@ do
 {
     sleep 1
     $result = Get-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName $moduleName -ErrorAction "Stop"
-} while ($result.ProvisioningState -eq "Creating")
+} while (($result.ProvisioningState -eq "Creating") -Or ($result.ProvisioningState -eq "ConnectionTypeImported"))
 
-do
-{
-    sleep 1
-    $result = Get-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName $moduleName -ErrorAction "Stop"
-} while ($result.ProvisioningState -ne "ConnectionTypeImported")
 
 if ($result.ProvisioningState -eq "Failed")
 {
     throw "Could not install $moduleName"
 }
+
+$moduleName = 'Microsoft.Graph.Identity.DirectoryManagement'
+New-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName -Name $moduleName -ContentLinkUri "$powershellgallery/$moduleName" -ErrorAction "Stop"
 
 $moduleName = 'Microsoft.Graph.Users.Actions'
 New-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName -Name $moduleName -ContentLinkUri "$powershellgallery/$moduleName" -ErrorAction "Stop"
@@ -91,13 +83,7 @@ do
 {
     sleep 1
     $result = Get-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName $moduleName -ErrorAction "Stop"
-} while ($result.ProvisioningState -eq "Creating")
-
-do
-{
-    sleep 1
-    $result = Get-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName $moduleName -ErrorAction "Stop"
-} while ($result.ProvisioningState -ne "ConnectionTypeImported")
+} while (($result.ProvisioningState -eq "Creating") -Or ($result.ProvisioningState -eq "ConnectionTypeImported"))
 
 
 if ($result.ProvisioningState -eq "Failed")
@@ -111,13 +97,7 @@ do
 {
     sleep 1
     $result = Get-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName $moduleName -ErrorAction "Stop"
-} while ($result.ProvisioningState -eq "Creating")
-
-do
-{
-    sleep 1
-    $result = Get-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName $moduleName -ErrorAction "Stop"
-} while ($result.ProvisioningState -ne "ConnectionTypeImported")
+} while (($result.ProvisioningState -eq "Creating") -Or ($result.ProvisioningState -eq "ConnectionTypeImported"))
 
 if ($result.ProvisioningState -eq "Failed")
 {
