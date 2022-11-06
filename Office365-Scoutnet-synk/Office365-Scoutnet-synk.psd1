@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.0.1'
+ModuleVersion = '2.0.2'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -126,6 +126,9 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
+## 2.0.2
+Buggfixar för inloggning i Azure.
+
 ## 2.0.1
 Fixade att användare kan skapas även om hemadress inte är ifylld i scoutnet.
 Fixade hantering av användarlicensedata.
