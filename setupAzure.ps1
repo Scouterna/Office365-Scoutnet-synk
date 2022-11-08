@@ -19,21 +19,24 @@ $RequiredScopes = @("Directory.AccessAsUser.All",
 
 Connect-MgGraph -Scopes $RequiredScopes
 
+# Fetch API keys and Scoutnet user name.
 $userId = Read-Host "Användarnamn för Scoutnets API. Användarnamnet är Kår-ID för webbtjänster som står på sidan Webbkoppling"
 $pwd_secure_string_customlists = Read-Host "Ange API key för Scoutnets API api/group/customlists" -AsSecureString
 $pwd_secure_string_memberlist = Read-Host "Ange API key för Scoutnets API api/group/memberlist" -AsSecureString
 
 
-
+# Create the resourse group used to store the data,
 New-AzResourceGroup -Name $rgName -Location $location
 
-# Create the automation account
+# Create the automation account in the resourse group.
 New-AzAutomationAccount -Name $accountName -ResourceGroupName $rgName -Location $location
 
-# Enable managed identity
+# Enable managed identity for the automation account.
 Set-AzAutomationAccount -Name $accountName -ResourceGroupName $rgName -AssignSystemIdentity
 
+
 $powershellgallery = "https://www.powershellgallery.com/api/v2/package"
+
 # Install ExchangeOnlineManagement
 $moduleName = 'ExchangeOnlineManagement'
 New-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName -Name $moduleName -ContentLinkUri "$powershellgallery/$moduleName" -ErrorAction "Stop"

@@ -13,7 +13,7 @@ Microsoft Office 365 non-profit.
 Azure gratiskonto kan troligtvis också användas, då det ingår 500 minuter Azure automation.
 
 Modulen går även att köra på en dator som har minst Powershell 5.1 installerad.
-Powershell core stöds också så modulen går att köra på linux.
+Powershell 7.1 stöds också så modulen går att köra på linux.
 
 Vid problem, fel, frågor eller tips på förbättringar eller fler funktioner
 som du saknar; lägg ett ärende under `Issues` eller mejla karl.thoren@scouterna.se
@@ -36,14 +36,30 @@ Läs filen [README.md](README.md) för instruktion om installation och funktiona
 ### Generella inställningar
 
 I non-profit portalen aktivera scoutkårens `Microsoft Azure Sponsorship Subscription`
-<https://nonprofit.microsoft.com/offers/azure> och sen kan du skapa ett
-"Azure Automation Account" som kommer att köra dina skript.
-Hur du gör är beskrivet här <https://blog.kloud.com.au/2016/08/24/schedule-office-365-powershell-tasks-using-azure-automation>
+<https://nonprofit.microsoft.com/offers/azure> och logga in på Azure online med
+en användare som är "domänadmin".
+
+För att skapa en resursgrupp och ett `Azure Automation Account` finns skriptet
+[setupAzure.ps1](setupAzure.ps1) som skapar en `Azure Automation Account` i
+en resursgrupp. Sen installeras nödvändiga moduler och senaste `Office365-Scoutnet-synk`
+modulen.
+
+Skriptet frågar även efter API nycklarna för scoutnet och skapar `Credential Asset`
+för de med namnen som är i exemplet.
+
+[setupAzure.ps1](setupAzure.ps1) ska köras på en PC med windows powershell 5.1 eller
+powershell 7.1 (eller nyare).
+När skriptet loggar in mot Azure så välj en användare som är "domänadmin".
+
+När skriptet är klart kan instruktionerna i [Synkronisera grupper](#Synkronisera-grupper)
+användas för att sätta upp synkronisering.
+
+Att skapa och sätta upp kontot manuellt går till ungefär så här:
 
 1. Skapa ett `Azure Automation Account` och koppla det till
     "Microsoft AzureSponsorship Subscription".
     1. Bra namn är `Scoutnet-synk` på kontot och resursgruppen.
-    1. Välj `North Europe` som Location.
+    1. Välj `Sweden Central` som Location.
 
 1. Lägg till `Office365-Scoutnet-synk` som en modul.
    1. Gå in på <https://www.powershellgallery.com/packages/Office365-Scoutnet-synk>
@@ -285,7 +301,7 @@ Update-Module -Name Office365-Scoutnet-synk -Scope CurrentUser
 
 I version 2.0 så används Microsoft.Graph för användarkontohanteringen samt för
 att skicka e-post till nya användare.
-Samt så används ExchangeOnlineManagement för maillisthanteringen.
+Samt så används ExchangeOnlineManagement v 3 för maillisthanteringen.
 
 Lokalt kan du ta bort den gamla versionen och lägga in den nya så här.
 
@@ -299,7 +315,9 @@ Det gör att vissa ändringar behövs i skriptet som kör modulen.
 - `LogEmailFromAddress` och `conf.EmailFromAddress` måste vara samma konto som
 nvänds för att logga in eller så måste kontot ha rätt att skicka ifrån den adressen.
 Modulen `Send-MgUserMail`används och den har en del begränsningar.
-T.ex kan inte en delad mailbox användas som avsändare.
+Körs synkroniseringen med en "ManagedIdentity" i Azure online automation så kan
+man välja att den använda identiteten kan maila som andra konton på domänen.
+
 - Licenshanteringen är ändrad, så `LicenseAssignment` behöver ändras.
 - Inloggningshanteringen är ändrad. Nu måste `Connect-SnSOffice365` användas
 för att logga in.
