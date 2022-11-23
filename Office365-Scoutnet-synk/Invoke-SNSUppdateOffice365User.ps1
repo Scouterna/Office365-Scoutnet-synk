@@ -636,6 +636,10 @@ function Invoke-SNSUpdateAccount
 
         if ($MemberData)
         {
+            # Create empty structure.
+            $updateUserparams = @{}
+
+#region Handle updated address data.
             $StreetAddress = $MemberData.address_1.value
             if ($MemberData.address_2.value)
             {
@@ -649,23 +653,6 @@ function Invoke-SNSUpdateAccount
             if ([string]::IsNullOrEmpty($StreetAddress))
             {
                 $StreetAddress = ""
-            }
-
-            $updateUserparams = @{}
-
-            if ("$($MemberData.first_name.value) $($MemberData.last_name.value)" -notlike $O365MemberData.DisplayName)
-            {
-                $updateUserparams["DisplayName"] = "$($MemberData.first_name.value) $($MemberData.last_name.value)"
-            }
-
-            if ($MemberData.first_name.value -notlike $O365MemberData.GivenName)
-            {
-                $updateUserparams["GivenName"] = $MemberData.first_name.value
-            }
-
-            if ($MemberData.last_name.value -notlike $O365MemberData.Surname)
-            {
-                $updateUserparams["Surname"] = $MemberData.last_name.value
             }
 
             if ($StreetAddress -notlike $O365MemberData.StreetAddress)
@@ -687,7 +674,26 @@ function Invoke-SNSUpdateAccount
             {
                 $updateUserparams["Country"] = $MemberData.country.value
             }
+#endregion
 
+#region User name
+            if ("$($MemberData.first_name.value) $($MemberData.last_name.value)" -notlike $O365MemberData.DisplayName)
+            {
+                $updateUserparams["DisplayName"] = "$($MemberData.first_name.value) $($MemberData.last_name.value)"
+            }
+
+            if ($MemberData.first_name.value -notlike $O365MemberData.GivenName)
+            {
+                $updateUserparams["GivenName"] = $MemberData.first_name.value
+            }
+
+            if ($MemberData.last_name.value -notlike $O365MemberData.Surname)
+            {
+                $updateUserparams["Surname"] = $MemberData.last_name.value
+            }
+#endregion
+
+#region Handle updated MobilePhone number.
             if (-not [string]::IsNullOrEmpty($MemberData.contact_mobile_phone.value))
             {
                 if ($MemberData.contact_mobile_phone.value -notlike $O365MemberData.MobilePhone)
@@ -695,11 +701,17 @@ function Invoke-SNSUpdateAccount
                     $updateUserparams["MobilePhone"] = $MemberData.contact_mobile_phone.value
                 }
             }
+#endregion
+
+#region Handle other mails, used for password reset.
             $OtherMails = New-Object System.Collections.ArrayList
+            $userEmailInScoutnet = $null
             if (-not [string]::IsNullOrEmpty($MemberData.email.value))
             {
-                if ($UserPrincipalName -notlike $MemberData.email.value)
+                if ($AccountData.UserPrincipalName -notlike $MemberData.email.value)
                 {
+                    # Save the value so both can be set.
+                    $userEmailInScoutnet = $MemberData.email.value
                     if (-not $O365MemberData.OtherMails.Contains($MemberData.email.value))
                     {
                         # email usable.
@@ -710,12 +722,20 @@ function Invoke-SNSUpdateAccount
 
             if (-not [string]::IsNullOrEmpty($MemberData.contact_alt_email.value))
             {
-                if ($UserPrincipalName -notlike $MemberData.contact_alt_email.value)
+                if ($AccountData.UserPrincipalName -notlike $MemberData.contact_alt_email.value)
                 {
                     if (-not $O365MemberData.OtherMails.Contains($MemberData.contact_alt_email.value))
                     {
                         # contact_alt_email usable.
                         [void]$OtherMails.Add($MemberData.contact_alt_email.value)
+                        if (-not [string]::IsNullOrEmpty($userEmailInScoutnet))
+                        {
+                            if (-not $OtherMails.Contains($userEmailInScoutnet))
+                            {
+                                # Add userEmailInScoutnet so both can be set.
+                                [void]$OtherMails.Add($userEmailInScoutnet)
+                            }
+                        }
                     }
                 }
             }
@@ -724,6 +744,7 @@ function Invoke-SNSUpdateAccount
             {
                 $updateUserparams["OtherMails"] = $OtherMails.ToArray()
             }
+#endregion
 
             if ($updateUserparams.Count -gt 0)
             {

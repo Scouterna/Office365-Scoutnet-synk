@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.0.2'
+ModuleVersion = '2.0.3'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -127,12 +127,15 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
+## 2.0.3
+Uppdatering av Invoke-SNSUpdateAccount så office 365 adress inte läggs till på OtherMails.
+
 ## 2.0.2
 Buggfixar för inloggning i Azure.
 La till krav på Microsoft.Graph.Identity.DirectoryManagement.
 
 ## 2.0.1
-Fixade att användare kan skapas även om hemadress inte är ifylld i scoutnet.
+Fixade att användare kan skapas även om hemmadress inte är ifylld i scoutnet.
 Fixade hantering av användarlicensedata.
 Fixade aktivering av användare.
 Dokumentationsuppdateringar.
