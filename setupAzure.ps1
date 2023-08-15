@@ -4,6 +4,8 @@ $accountName = 'Scoutnet-sync'
 $rgName = 'Scoutnet-sync'
 $location = 'swedencentral'
 
+$GraphDesiredVersion = "1.28.0"
+
 Connect-AzAccount
 
 $RequiredScopes = @("Directory.AccessAsUser.All",
@@ -37,11 +39,7 @@ Set-AzAutomationAccount -Name $accountName -ResourceGroupName $rgName -AssignSys
 
 $powershellgallery = "https://www.powershellgallery.com/api/v2/package"
 
-# Install ExchangeOnlineManagement
-$moduleName = 'ExchangeOnlineManagement'
-New-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName -Name $moduleName -ContentLinkUri "$powershellgallery/$moduleName" -ErrorAction "Stop"
-
-$moduleName = 'Microsoft.Graph.Authentication'
+$moduleName = 'PowerShellGet'
 New-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName -Name $moduleName -ContentLinkUri "$powershellgallery/$moduleName" -ErrorAction "Stop"
 
 "Wait for $moduleName to be installed."
@@ -56,8 +54,28 @@ if ($result.ProvisioningState -eq "Failed")
     throw "Could not install $moduleName"
 }
 
-$moduleName = 'Microsoft.Graph.Users'
+
+# Install ExchangeOnlineManagement
+$moduleName = 'ExchangeOnlineManagement'
 New-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName -Name $moduleName -ContentLinkUri "$powershellgallery/$moduleName" -ErrorAction "Stop"
+
+$moduleName = 'Microsoft.Graph.Authentication'
+New-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName -Name $moduleName -ContentLinkUri "$powershellgallery/$moduleName/$GraphDesiredVersion" -ErrorAction "Stop"
+
+"Wait for $moduleName to be installed."
+do
+{
+    sleep 1
+    $result = Get-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName $moduleName -ErrorAction "Stop"
+} while (($result.ProvisioningState -eq "Creating") -Or ($result.ProvisioningState -eq "ConnectionTypeImported"))
+
+if ($result.ProvisioningState -eq "Failed")
+{
+    throw "Could not install $moduleName"
+}
+
+$moduleName = 'Microsoft.Graph.Users'
+New-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName -Name $moduleName -ContentLinkUri "$powershellgallery/$moduleName/$GraphDesiredVersion" -ErrorAction "Stop"
 
 "Wait for $moduleName to be installed."
 do
@@ -73,13 +91,13 @@ if ($result.ProvisioningState -eq "Failed")
 }
 
 $moduleName = 'Microsoft.Graph.Identity.DirectoryManagement'
-New-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName -Name $moduleName -ContentLinkUri "$powershellgallery/$moduleName" -ErrorAction "Stop"
+New-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName -Name $moduleName -ContentLinkUri "$powershellgallery/$moduleName/$GraphDesiredVersion" -ErrorAction "Stop"
 
 $moduleName = 'Microsoft.Graph.Users.Actions'
-New-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName -Name $moduleName -ContentLinkUri "$powershellgallery/$moduleName" -ErrorAction "Stop"
+New-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName -Name $moduleName -ContentLinkUri "$powershellgallery/$moduleName/$GraphDesiredVersion" -ErrorAction "Stop"
 
 $moduleName = 'Microsoft.Graph.Groups'
-New-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName -Name $moduleName -ContentLinkUri "$powershellgallery/$moduleName" -ErrorAction "Stop"
+New-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName -Name $moduleName -ContentLinkUri "$powershellgallery/$moduleName/$GraphDesiredVersion" -ErrorAction "Stop"
 
 "Wait for $moduleName to be installed."
 do

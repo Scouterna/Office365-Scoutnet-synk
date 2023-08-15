@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.0.3'
+ModuleVersion = '2.0.4'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -47,11 +47,16 @@ PowerShellVersion = '5.1'
 # ProcessorArchitecture = ''
 
 # Modules that must be imported into the global environment prior to importing this module
-RequiredModules = @('Microsoft.Graph.Authentication',
-                    'Microsoft.Graph.Users',
-                    'Microsoft.Graph.Users.Actions',
-                    'Microsoft.Graph.Groups',
-                    'Microsoft.Graph.Identity.DirectoryManagement',
+RequiredModules = @(@{ModuleName='Microsoft.Graph.Authentication';
+                        RequiredVersion="1.28.0"; },
+                    @{ModuleName='Microsoft.Graph.Users';
+                        RequiredVersion="1.28.0"; },
+                    @{ModuleName='Microsoft.Graph.Users.Actions';
+                        RequiredVersion="1.28.0"; },
+                    @{ModuleName='Microsoft.Graph.Groups';
+                        RequiredVersion="1.28.0"; },
+                    @{ModuleName='Microsoft.Graph.Identity.DirectoryManagement';
+                        RequiredVersion="1.28.0"; },
                     @{ModuleName='ExchangeOnlineManagement';
                         RequiredVersion="3.0.0"; })
 
@@ -127,6 +132,9 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
+## 2.0.3
+Låste Microsoft.Graph modulerna till version 1.28.0 då 2.0 inte fungerar på Azure.
+
 ## 2.0.3
 Uppdatering av Invoke-SNSUpdateAccount så office 365 adress inte läggs till på OtherMails.
 
