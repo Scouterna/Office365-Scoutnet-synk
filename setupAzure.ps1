@@ -166,10 +166,10 @@ foreach ($scope in $RequiredScopes)
 
 
 $Credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $userId, $pwd_secure_string_customlists
-New-AzAutomationCredential -AutomationAccountName $accountName -Name "ScoutnetApiCustomLists" -Value $Credential -ResourceGroupName $rgName
+New-AzAutomationCredential -AutomationAccountName $accountName -Name "ScoutnetApiCustomLists-Credentials" -Value $Credential -ResourceGroupName $rgName
 
 $Credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $userId, $pwd_secure_string_memberlist
-New-AzAutomationCredential -AutomationAccountName $accountName -Name "ScoutnetApiGroupMemberList" -Value $Credential -ResourceGroupName $rgName
+New-AzAutomationCredential -AutomationAccountName $accountName -Name "ScoutnetApiGroupMemberList-Credentials" -Value $Credential -ResourceGroupName $rgName
 
 New-AzAutomationVariable -AutomationAccountName $accountName -Name "ScoutnetApiUserId" -ResourceGroupName $rgName -Value $userId -Encrypted $False
 

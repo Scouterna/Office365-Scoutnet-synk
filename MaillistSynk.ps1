@@ -170,7 +170,7 @@ try
     $conf.CredentialCustomlists = Get-AutomationPSCredential -Name 'ScoutnetApiCustomLists-Credentials' -ErrorAction "Stop"
 
     # Credentials för Scoutnets API api/group/memberlist
-    $conf.CredentialMemberlist = Get-AutomationPSCredential -Name 'ScoutnetApiGroupMemberList-credentials' -ErrorAction "Stop"
+    $conf.CredentialMemberlist = Get-AutomationPSCredential -Name 'ScoutnetApiGroupMemberList-Credentials' -ErrorAction "Stop"
 }
 Catch
 {

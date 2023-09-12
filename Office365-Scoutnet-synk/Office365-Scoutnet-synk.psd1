@@ -132,7 +132,7 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
-## 2.0.3
+## 2.0.4
 Låste Microsoft.Graph modulerna till version 1.28.0 då 2.0 inte fungerar på Azure.
 
 ## 2.0.3
