@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.0.4'
+ModuleVersion = '2.0.5'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -23,7 +23,7 @@ Author = 'Karl Thorén <karl.thoren@scouterna.se>'
 CompanyName = 'Scouterna'
 
 # Copyright statement for this module
-Copyright = 'c 2019, 2020, 2021, 2022 All rights reserved.'
+Copyright = 'c 2019, 2020, 2021, 2022, 2023 All rights reserved.'
 
 # Description of the functionality provided by this module
 Description = 'Funktioner för att synkronisera Scoutnet med Office 365.'
@@ -132,6 +132,10 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
+## 2.0.5
+La till paus efter skapande av kontakt, så den hinner skapas ordentligt innan scriptet
+ändrar på inställningar i den nya kontakten.
+
 ## 2.0.4
 Låste Microsoft.Graph modulerna till version 1.28.0 då 2.0 inte fungerar på Azure.
 
