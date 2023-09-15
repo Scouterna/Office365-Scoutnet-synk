@@ -86,6 +86,17 @@ function New-SNSMailContact
         {
             New-MailContact -Name $Epost -ExternalEmailAddress $Epost -ErrorAction "stop" -Verbose:$false
 
+            for($i=1; $i -le 10; $i++)
+            {
+                # It takes some time befor the new contact can be accessed. Wait and try to access it.
+                Start-Sleep -s 1.0
+                $ExistingMailContact = Get-EXORecipient $Epost -ErrorAction "SilentlyContinue" -Verbose:$false
+                if ($null -ne $ExistingMailContact)
+                {
+                    $i = 10
+                }
+            }
+
             # Set the name of the member in the company field. This is visibel in Office 365 admin console.
             Set-Contact -Identity $Epost -Company "$DisplayName" -Verbose:$false
             Set-MailContact -Identity $Epost -HiddenFromAddressListsEnabled $true -Verbose:$false
