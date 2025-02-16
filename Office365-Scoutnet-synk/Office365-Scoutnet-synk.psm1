@@ -495,7 +495,7 @@ function SNSUpdateExchangeDistributionGroups
                 $IsInmaillistMembers = $otherMailListsMembers[$_.Identity]
                 if ($null -eq $IsInmaillistMembers)
                 {
-                    # Not used in any maillists. Remove the contact.
+                    # Not used in any maillists. Remove the contact. Remove-MailContact handles -WhatIf.
                     Write-SNSLog "Removing MailContact $($medlem.Identity)"
                     Remove-MailContact $medlem.Identity -Confirm:$false -Verbose:$false
                 }

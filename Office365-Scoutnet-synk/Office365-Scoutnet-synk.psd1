@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.0.5'
+ModuleVersion = '2.0.6'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -132,6 +132,9 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
+## 2.0.6
+Uppdaterade dokumentationen om hur en listtyp satt till statisk_lista fungerar och kan användas.
+
 ## 2.0.5
 La till paus efter skapande av kontakt, så den hinner skapas ordentligt innan scriptet
 ändrar på inställningar i den nya kontakten.

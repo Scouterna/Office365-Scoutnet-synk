@@ -102,6 +102,11 @@ Att skapa och sätta upp kontot manuellt går till ungefär så här:
 
     Regelnamnen behöver inte användas om du bara vill styra med [scouter_synk_option](#scouter_synk_option).
 
+1. Vill du låta scoutnet kunna styra vilka medlemmar som kommer med på
+   en lista så sätt listtypen till [statisk_lista](#statisk_lista).
+   Då fungerar scoutnets inkluderande och exkluderande regelhantering.
+   Se [statisk_lista](#statisk_lista) för mer info.
+
 1. I Azure automation skapa runbooken `MaillistSynk` för synkroniseringen.
     Typen ska vara `PowerShell Runbook`
 
@@ -270,9 +275,14 @@ Exempel:
 
 ##### statisk_lista
 
-Fältet `statisk_lista` används för att markera att listan är en statiskt
-konfigurerad lista i Scoutnet.
-Statiska listor i Scoutnet hanteras bara med regelerna ifrån [ledare_synk_option](#ledare_synk_option).
+Fältet `statisk_lista` används för att markera att listan är
+en statiskt konfigurerad lista i Scoutnet.
+Statiska listor i Scoutnet hanteras bara med reglerna ifrån [ledare_synk_option](#ledare_synk_option).
+
+Resultatet är att Scoutnets huvudlista används för att hämta adresserna för listan.
+Dvs inte listorna för de individuella reglerna.
+Funktionen kan då även användas för om Scoutnets funktionen med exkluderande
+och inkluderande regler används.
 
 Exempel:
 
@@ -313,7 +323,7 @@ Install-Module -Name Office365-Scoutnet-synk -Scope CurrentUser
 Det gör att vissa ändringar behövs i skriptet som kör modulen.
 
 - `LogEmailFromAddress` och `conf.EmailFromAddress` måste vara samma konto som
-nvänds för att logga in eller så måste kontot ha rätt att skicka ifrån den adressen.
+används för att logga in eller så måste kontot ha rätt att skicka ifrån den adressen.
 Modulen `Send-MgUserMail`används och den har en del begränsningar.
 Körs synkroniseringen med en "ManagedIdentity" i Azure online automation så kan
 man välja att den använda identiteten kan maila som andra konton på domänen.
