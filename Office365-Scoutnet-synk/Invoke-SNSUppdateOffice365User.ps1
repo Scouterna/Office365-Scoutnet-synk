@@ -246,6 +246,12 @@ function Invoke-SNSCreateUserAndUpdateUserData
     $LastAccountUserPrincipalName=$null
     foreach($MemberData in $memberData)
     {
+        if ([string]::IsNullOrWhiteSpace($MemberData.email.value))
+        {
+            Write-SNSLog  -Level "Error" "No valid email address in scoutnet for user '$($newAccount.UserPrincipalName)'. Notify the user about that the account cannot be created!"
+            continue
+        }
+
 #region Generate the new UserPrincipalName
         $properties = "businessPhones, displayName, givenName, id, jobTitle, mail, mobilePhone, UserPrincipalName, preferredLanguage, surname, userPrincipalName, postalCode, identities, UserType, StreetAddress, City, Department, UserType"
         $DisplayName = "$($MemberData.first_name.value) $($MemberData.last_name.value)"
