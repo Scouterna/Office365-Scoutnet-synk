@@ -90,21 +90,69 @@ function New-SNSMailContact
             {
                 # It takes some time befor the new contact can be accessed. Wait and try to access it.
                 Start-Sleep -s 1.0
-                $ExistingMailContact = Get-EXORecipient $Epost -ErrorAction "SilentlyContinue" -Verbose:$false
+                $ExistingMailContact = Get-Contact $Epost -ErrorAction "SilentlyContinue" -Verbose:$false
                 if ($null -ne $ExistingMailContact)
                 {
                     $i = 10
                 }
             }
 
-            # Set the name of the member in the company field. This is visibel in Office 365 admin console.
-            Set-Contact -Identity $Epost -Company "$DisplayName" -Verbose:$false
-            Set-MailContact -Identity $Epost -HiddenFromAddressListsEnabled $true -Verbose:$false
+            try
+            {
+                # Set the name of the member in the company field. This is visibel in Office 365 admin console.
+                Set-Contact -Identity $Epost -Company "$DisplayName" -ErrorAction "stop" -Verbose:$false
+                try
+                {
+                    # Hide the contact from address lists.
+                    Set-MailContact -Identity $Epost -HiddenFromAddressListsEnabled $true -ErrorAction "stop" -Verbose:$false
+                }
+                Catch
+                {
+                    Write-SNSLog -Level "Warn" "Could not set hidden from address lists field for $Epost, will try again next time the sync runs. Error $_"
+                }
+            }
+            Catch
+            {
+                Write-SNSLog -Level "Warn" "Could not set company field for $Epost, will try again next time the sync runs. Error $_"
+            }
         }
         Catch
         {
             Write-SNSLog -Level "Warn" "Could not create mail contact with address $Epost. Error $_"
             $contactCreated = $False
+        }
+    }
+    else
+    {
+        try
+        {
+            $MailContactInfo = Get-Contact $Epost -ErrorAction "SilentlyContinue" -Verbose:$false
+            # Set the company field for the existing contact and hide it from address lists if necessary.
+            if ($MailContactInfo.Company -eq "")
+            {
+                try
+                {
+                    # Set the company field for the existing contact.
+                    Set-Contact -Identity $Epost -Company "$DisplayName" -ErrorAction "stop" -Verbose:$false
+                    try
+                    {
+                        # Hide the contact from address lists.
+                        Set-MailContact -Identity $Epost -HiddenFromAddressListsEnabled $true -ErrorAction "stop" -Verbose:$false
+                    }
+                    Catch
+                    {
+                        Write-SNSLog -Level "Warn" "Could not set hidden from address lists field for $Epost, will try again next time the sync runs. Error $_"
+                    }
+                }
+                Catch
+                {
+                    Write-SNSLog -Level "Warn" "Could not set company field for $Epost, will try again next time the sync runs. Error $_"
+                }
+            }
+        }
+        Catch
+        {
+            Write-SNSLog -Level "Warn" "Could not get mail contact info for $Epost, will try again next time the sync runs. Error $_"
         }
     }
 
