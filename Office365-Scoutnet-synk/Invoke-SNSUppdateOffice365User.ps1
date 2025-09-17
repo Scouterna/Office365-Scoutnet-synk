@@ -374,7 +374,8 @@ function Invoke-SNSCreateUserAndUpdateUserData
 
                 if (-not [string]::IsNullOrEmpty($MemberData.contact_alt_email.value))
                 {
-                    if ($UserPrincipalName -notlike $MemberData.contact_alt_email.value)
+                    if ($UserPrincipalName -notlike $MemberData.contact_alt_email.value -and
+                        $MemberData.contact_alt_email.value -ne $MemberData.email.value)
                     {
                         # contact_alt_email usable.
                         [void]$OtherMails.Add($MemberData.contact_alt_email.value)
