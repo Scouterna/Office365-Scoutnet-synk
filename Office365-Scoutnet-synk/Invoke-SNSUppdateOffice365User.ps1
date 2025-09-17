@@ -944,7 +944,7 @@ function Get-SNSSoutnetLeaders
         }
     }
 
-    return $MemberListScoutnet
+    Write-Output -NoEnumerate $MemberListScoutnet
 }
 
 function Get-SNSUsersInSecurityGroupScoutnet
@@ -955,7 +955,8 @@ function Get-SNSUsersInSecurityGroupScoutnet
         [ValidateNotNull()]
         $allOffice365Users
     )
-    return Get-SNSUsersInSecurityGroup -allOffice365Users $allOffice365Users -Name $Script:SNSConf.SyncGroupName -Description $Script:SNSConf.SyncGroupDescription
+    $GroupMembers = Get-SNSUsersInSecurityGroup -allOffice365Users $allOffice365Users -Name $Script:SNSConf.SyncGroupName -Description $Script:SNSConf.SyncGroupDescription
+    Write-Output -NoEnumerate $GroupMembers
 }
 
 function Get-SNSUsersInSecurityGroupScoutnetDisabledUsers
@@ -966,7 +967,8 @@ function Get-SNSUsersInSecurityGroupScoutnetDisabledUsers
         [ValidateNotNull()]
         $allOffice365Users
     )
-    return Get-SNSUsersInSecurityGroup -allOffice365Users $allOffice365Users -Name $Script:SNSConf.SyncGroupDisabledUsersName -Description $Script:SNSConf.SyncGroupDisabledUsersDescription
+    $GroupMembers = Get-SNSUsersInSecurityGroup -allOffice365Users $allOffice365Users -Name $Script:SNSConf.SyncGroupDisabledUsersName -Description $Script:SNSConf.SyncGroupDisabledUsersDescription
+    Write-Output -NoEnumerate $GroupMembers
 }
 
 function Get-SNSSecurityGroupScoutnet
@@ -1013,7 +1015,7 @@ function Get-SNSUsersInSecurityGroup
         }
     }
 
-    return $securityGroupMembers
+    Write-Output -NoEnumerate $securityGroupMembers
 }
 
 function Get-SNSSecurityGroup
