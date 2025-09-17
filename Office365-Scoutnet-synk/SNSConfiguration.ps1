@@ -258,7 +258,8 @@ function New-SNSConfiguration
     $conf.commandNames += "Set-MailContact,Set-Mailbox,Remove-DistributionGroupMember,"
     $conf.commandNames += "Add-DistributionGroupMember,Get-DistributionGroupMember,"
     $conf.commandNames += "Get-DistributionGroup,Set-MailboxMessageConfiguration,"
-    $conf.commandNames += "Set-MailboxAutoReplyConfiguration"
+    $conf.commandNames += "Set-MailboxAutoReplyConfiguration,"
+    $conf.commandNames += "Get-Contact"
 
     return $conf
 }
