@@ -23,7 +23,7 @@ Author = 'Karl Thorén <karl.thoren@scouterna.se>'
 CompanyName = 'Scouterna'
 
 # Copyright statement for this module
-Copyright = 'c 2019, 2020, 2021, 2022, 2023 All rights reserved.'
+Copyright = 'c 2019, 2020, 2021, 2022, 2023, 2025 All rights reserved.'
 
 # Description of the functionality provided by this module
 Description = 'Funktioner för att synkronisera Scoutnet med Office 365.'
@@ -133,6 +133,15 @@ PrivateData = @{
         # ReleaseNotes of this module
         ReleaseNotes = @'
 ## 2.0.6
+Ändrade så att om en användare i scoutnet inte har någon epostadress så skapas ingen användare i Office 365.
+
+Fixade så när användare skapas så läggs inte samma alternativa epost två gånger. I OtherMails listan för en användare måste varje element vara unik.
+
+Ändrade så Get-SNSUsersInSecurityGroup alltid returnerar en array även om det bara är en medlem i gruppen.
+
+När en mailkontakt skapas så behöver inte skriptet lyckas med att sätta fältet "company" till scoutens namn samt sätta
+parametern HiddenFromAddressListsEnabled. För att hantera det så kollar skriptet att information är inskriven när existerande kontakt används i efterföljande körningar.
+
 Uppdaterade dokumentationen om hur en listtyp satt till statisk_lista fungerar och kan användas.
 
 ## 2.0.5
