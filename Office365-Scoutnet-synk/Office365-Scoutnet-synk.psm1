@@ -1,6 +1,6 @@
 ﻿#Requires -Version 5.1
 
-[Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
+[Net.ServicePointManager]::SecurityProtocol = "tls13, tls12"
 
 #region import everything we need
 

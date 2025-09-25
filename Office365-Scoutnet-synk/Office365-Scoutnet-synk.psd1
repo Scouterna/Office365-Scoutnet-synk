@@ -135,6 +135,7 @@ PrivateData = @{
 ## 2.1.0
 Uppdaterade och låste Microsoft.Graph modulerna till version 2.30.0. De nyare versionerna fungerar i azure runbooks.
 Uppdaterade ExchangeOnlineManagement till version 3.9.0.
+Lade till support för TLS 1.3 och tog bort äldre versioner.
 
 ## 2.0.6
 Ändrade så att om en användare i scoutnet inte har någon epostadress så skapas ingen användare i Office 365.
