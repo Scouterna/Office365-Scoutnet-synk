@@ -4,7 +4,7 @@ $accountName = 'Scoutnet-sync'
 $rgName = 'Scoutnet-sync'
 $location = 'swedencentral'
 
-$GraphDesiredVersion = "1.28.0"
+$GraphDesiredVersion = "2.30.0"
 
 Connect-AzAccount
 
@@ -45,7 +45,7 @@ New-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $r
 "Wait for $moduleName to be installed."
 do
 {
-    sleep 1
+    Start-Sleep 1
     $result = Get-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName $moduleName -ErrorAction "Stop"
 } while (($result.ProvisioningState -eq "Creating") -Or ($result.ProvisioningState -eq "ConnectionTypeImported"))
 
@@ -65,7 +65,7 @@ New-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $r
 "Wait for $moduleName to be installed."
 do
 {
-    sleep 1
+    Start-Sleep 1
     $result = Get-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName $moduleName -ErrorAction "Stop"
 } while (($result.ProvisioningState -eq "Creating") -Or ($result.ProvisioningState -eq "ConnectionTypeImported"))
 
@@ -80,7 +80,7 @@ New-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $r
 "Wait for $moduleName to be installed."
 do
 {
-    sleep 1
+    Start-Sleep 1
     $result = Get-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName $moduleName -ErrorAction "Stop"
 } while (($result.ProvisioningState -eq "Creating") -Or ($result.ProvisioningState -eq "ConnectionTypeImported"))
 
@@ -102,7 +102,7 @@ New-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $r
 "Wait for $moduleName to be installed."
 do
 {
-    sleep 1
+    Start-Sleep 1
     $result = Get-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName $moduleName -ErrorAction "Stop"
 } while (($result.ProvisioningState -eq "Creating") -Or ($result.ProvisioningState -eq "ConnectionTypeImported"))
 
@@ -116,7 +116,7 @@ $moduleName = 'Microsoft.Graph.Users.Actions'
 "Wait for $moduleName to be installed."
 do
 {
-    sleep 1
+    Start-Sleep 1
     $result = Get-AzAutomationModule -AutomationAccountName $accountName -ResourceGroupName $rgName $moduleName -ErrorAction "Stop"
 } while (($result.ProvisioningState -eq "Creating") -Or ($result.ProvisioningState -eq "ConnectionTypeImported"))
 

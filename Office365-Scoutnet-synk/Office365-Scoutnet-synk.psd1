@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.0.6'
+ModuleVersion = '2.1.0'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -48,17 +48,17 @@ PowerShellVersion = '5.1'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(@{ModuleName='Microsoft.Graph.Authentication';
-                        RequiredVersion="1.28.0"; },
+                        RequiredVersion="2.30.0"; },
                     @{ModuleName='Microsoft.Graph.Users';
-                        RequiredVersion="1.28.0"; },
+                        RequiredVersion="2.30.0"; },
                     @{ModuleName='Microsoft.Graph.Users.Actions';
-                        RequiredVersion="1.28.0"; },
+                        RequiredVersion="2.30.0"; },
                     @{ModuleName='Microsoft.Graph.Groups';
-                        RequiredVersion="1.28.0"; },
+                        RequiredVersion="2.30.0"; },
                     @{ModuleName='Microsoft.Graph.Identity.DirectoryManagement';
-                        RequiredVersion="1.28.0"; },
+                        RequiredVersion="2.30.0"; },
                     @{ModuleName='ExchangeOnlineManagement';
-                        RequiredVersion="3.0.0"; })
+                        RequiredVersion="3.9.0"; })
 
 # Assemblies that must be loaded prior to importing this module
 # RequiredAssemblies = @()
@@ -132,6 +132,10 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
+## 2.1.0
+Uppdaterade och låste Microsoft.Graph modulerna till version 2.30.0. De nyare versionerna fungerar i azure runbooks.
+Uppdaterade ExchangeOnlineManagement till version 3.9.0.
+
 ## 2.0.6
 Ändrade så att om en användare i scoutnet inte har någon epostadress så skapas ingen användare i Office 365.
 
