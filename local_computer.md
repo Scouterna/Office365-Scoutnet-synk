@@ -8,17 +8,11 @@ Powershell 7 eller nyare på Linux funkar och är testat.
 För att göra det så behöver du förbereda så din dator har de moduler som behövs.
 Alla kommandon kös i powershell
 
-## Steg som adminstratör
-
-Behöver köras en gång på varje dator som ska användas för att köra import skriptet.
-
-1. Starta en powershell instans som adminstratör.
-2. Kör `Set-ExecutionPolicy RemoteSigned`
-    1. Inställning för att kunna ladda in exchange online modulerna.
-
 ## Som användare
 
 1. Starta en powershell instans. (Som din användare)
+1. Kör `Install-Module -Name Microsoft.Graph -Repository PSGallery -RequiredVersion 2.39.0 -Force`
+1. Kör `Install-Module -Name ExchangeOnlineManagement -Repository PSGallery -RequiredVersion 3.10.1 -Force`
 1. Kör `Install-Module -Name Office365-Scoutnet-synk -Scope CurrentUser`
    för att installera modulen.
 

@@ -51,6 +51,9 @@ för de med namnen som är i exemplet.
 powershell 7.1 (eller nyare).
 När skriptet loggar in mot Azure så välj en användare som är "domänadmin".
 
+Innan skriptet körs behövs Graph modulerna installeras.
+Kör `Install-Module -Name Microsoft.Graph -Repository PSGallery -RequiredVersion 2.39.0 -Force`
+
 När skriptet är klart kan instruktionerna i [Synkronisera grupper](#Synkronisera-grupper)
 användas för att sätta upp synkronisering.
 

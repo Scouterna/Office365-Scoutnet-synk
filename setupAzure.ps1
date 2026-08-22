@@ -4,7 +4,7 @@ $accountName = 'Scoutnet-sync'
 $rgName = 'Scoutnet-sync'
 $location = 'swedencentral'
 
-$GraphDesiredVersion = "2.30.0"
+$GraphDesiredVersion = "2.39.0"
 
 Connect-AzAccount
 
