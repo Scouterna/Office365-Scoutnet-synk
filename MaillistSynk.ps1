@@ -19,11 +19,11 @@ $LogEmailSubject = "Maillist sync log"
 # Konfiguration av modulen.
 
 # Licenser för nya användare.
-# Exemplet nedan lägger in licenserna STANDARDPACK och FLOW_FREE. På STANDARDPACK applikationerna "YAMMER_ENTERPRISE", "SWAY","Deskless","POWERAPPS_O365_P1" avstängda.
+# Exemplet nedan lägger in licenserna O365_BUSINESS_ESSENTIALS och FLOW_FREE. På O365_BUSINESS_ESSENTIALS applikationerna "YAMMER_ENTERPRISE", "SWAY" avstängda.
 # För att lista lisenser kör `Get-MgSubscribedSku -All | Format-List`
 $LicenseAssignment=@{
-    "STANDARDPACK" = @(
-        "YAMMER_ENTERPRISE", "SWAY","Deskless","POWERAPPS_O365_P1");
+    "O365_BUSINESS_ESSENTIALS" = @(
+        "YAMMER_ENTERPRISE", "SWAY");
         "FLOW_FREE"= @()
 }
 

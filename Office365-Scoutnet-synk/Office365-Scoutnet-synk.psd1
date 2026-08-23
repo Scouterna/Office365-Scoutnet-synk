@@ -132,6 +132,11 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
+## 2.0.8
+Fixade så att när en användare skapas i Office 365 så kopplas licenser till kontot direkt efter skapandet.
+När användaren är skapad används Set-MgUserLicense() för att koppla licens till kontot.
+Tidigare användes $UserPrincipalName som UserId men det fungerar inte längre utan $newAccount.Id är ett bättre UserId.
+
 ## 2.0.7
 Ändrat hanteringen av licenser för nya konton, löser problemet med att licenser inte sätts på nya konton när de skapas.
 
