@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.0.6'
+ModuleVersion = '2.0.7'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -23,7 +23,7 @@ Author = 'Karl Thorén <karl.thoren@scouterna.se>'
 CompanyName = 'Scouterna'
 
 # Copyright statement for this module
-Copyright = 'c 2019, 2020, 2021, 2022, 2023, 2025 All rights reserved.'
+Copyright = 'c 2019, 2020, 2021, 2022, 2023, 2025, 2026 All rights reserved.'
 
 # Description of the functionality provided by this module
 Description = 'Funktioner för att synkronisera Scoutnet med Office 365.'
@@ -132,6 +132,9 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
+## 2.0.7
+Ändrat hanteringen av licenser för nya konton, löser problemet med att licenser inte sätts på nya konton när de skapas.
+
 ## 2.0.6
 Ändrade så att om en användare i scoutnet inte har någon epostadress så skapas ingen användare i Office 365.
 
