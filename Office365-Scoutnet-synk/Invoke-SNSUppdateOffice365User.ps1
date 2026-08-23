@@ -43,14 +43,21 @@
     {
         foreach($licensepack in $Script:SNSConf.LicenseAssignment.keys)
         {
-            $packSku = Get-MgSubscribedSku -All | Where-Object SkuPartNumber -eq $licensepack
-            $skudata = @{SkuId = $packSku.SkuId}
-            $disabledplans = $packSku.ServicePlans | Where-Object ServicePlanName -in $Script:SNSConf.LicenseAssignment[$licensepack] | Select-Object -ExpandProperty ServicePlanId
-            if ($disabledplans)
+            $packSku = @(Get-MgSubscribedSku -All | Where-Object SkuPartNumber -eq $licensepack)
+            if ($packSku.Count -ne 1)
             {
-                $skudata = @{SkuId = $packSku.SkuId
-                            DisabledPlans = $disabledplans
-                            }
+                throw "Could not find exactly one subscribed SKU '$licensepack'."
+            }
+
+            $skudata = [Microsoft.Graph.PowerShell.Models.MicrosoftGraphAssignedLicense]::new()
+            $skudata.SkuId = [string]$packSku[0].SkuId
+            $disabledplans = @($packSku[0].ServicePlans |
+                Where-Object ServicePlanName -in @($Script:SNSConf.LicenseAssignment[$licensepack]) |
+                Select-Object -ExpandProperty ServicePlanId |
+                ForEach-Object { [string]$_ })
+            if ($disabledplans.Count -gt 0)
+            {
+                $skudata.DisabledPlans = $disabledplans
             }
             [Void]$userLicenseData.add($skudata)
         }
