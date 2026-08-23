@@ -38,28 +38,32 @@
     }
 
 #region Create licensing data
-    $userLicenseData = New-Object System.Collections.ArrayList
+    $userLicenseData = @()
     try
     {
         foreach($licensepack in $Script:SNSConf.LicenseAssignment.keys)
         {
-            $packSku = @(Get-MgSubscribedSku -All | Where-Object SkuPartNumber -eq $licensepack)
-            if ($packSku.Count -ne 1)
+            $packSku = Get-MgSubscribedSku -All |
+                Where-Object { $_.SkuPartNumber -eq $licensepack } |
+                Select-Object -First 1
+            if ($null -eq $packSku)
             {
-                throw "Could not find exactly one subscribed SKU '$licensepack'."
+                throw "Could not find subscribed SKU '$licensepack'."
             }
 
-            $skudata = [Microsoft.Graph.PowerShell.Models.MicrosoftGraphAssignedLicense]::new()
-            $skudata.SkuId = [string]$packSku[0].SkuId
-            $disabledplans = @($packSku[0].ServicePlans |
-                Where-Object ServicePlanName -in @($Script:SNSConf.LicenseAssignment[$licensepack]) |
+            $disabledplans = @($packSku.ServicePlans |
+                Where-Object {
+                    $_.ServicePlanName -in @($Script:SNSConf.LicenseAssignment[$licensepack])
+                } |
                 Select-Object -ExpandProperty ServicePlanId |
                 ForEach-Object { [string]$_ })
+
+            $skudata = @{SkuId = $packSku.SkuId}
             if ($disabledplans.Count -gt 0)
             {
                 $skudata.DisabledPlans = $disabledplans
             }
-            [Void]$userLicenseData.add($skudata)
+            $userLicenseData += $skudata
         }
     }
     catch
@@ -411,12 +415,14 @@ function Invoke-SNSCreateUserAndUpdateUserData
             try
             {
                 $newAccount = New-MgUser -BodyParameter $createUserparams -ErrorAction Stop
-                Set-MgUserLicense -UserId $UserPrincipalName -Addlicenses $userLicenseData.ToArray() -RemoveLicenses @()
+                Write-SNSLog "User '$($newAccount.UserPrincipalName)' created. Assigning licenses."
+                Set-MgUserLicense -UserId $newAccount.Id -Addlicenses $userLicenseData -RemoveLicenses @() -ErrorAction Stop
+                Write-SNSLog "Licenses assigned to user '$($newAccount.UserPrincipalName)'."
                 Write-SNSLog "User '$($newAccount.UserPrincipalName)' added for member id '$($MemberData.member_no.value)'."
             }
             catch
             {
-                Write-SNSLog -Level "Error" "Could not create user '$($UserPrincipalName)' for member '$DisplayName' with id '$($MemberData.member_no.value)'. Error $_"
+                Write-SNSLog -Level "Error" "Could not create or license user '$($UserPrincipalName)' for member '$DisplayName' with id '$($MemberData.member_no.value)'. Error $_"
                 continue
             }
 #endregion
