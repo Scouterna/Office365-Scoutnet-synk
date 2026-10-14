@@ -52,10 +52,64 @@ powershell 7.1 (eller nyare).
 När skriptet loggar in mot Azure så välj en användare som är "domänadmin".
 
 Innan skriptet körs behövs Graph modulerna installeras.
-Kör `Install-Module -Name Microsoft.Graph -Repository PSGallery -RequiredVersion 2.39.0 -Force`
+Kör `Install-Module -Name Microsoft.Graph -Repository PSGallery -Force`
 
 När skriptet är klart kan instruktionerna i [Synkronisera grupper](#Synkronisera-grupper)
 användas för att sätta upp synkronisering.
+
+### Uppgradera Microsoft Graph i en befintlig Azure-installation
+
+Den här instruktionen gäller en befintlig Azure Automation-installation där
+Microsoft Graph-modulerna är installerade i version `2.39.0`. Uppgradera inte
+Graph-modulerna innan den installerade versionen av `Office365-Scoutnet-synk`
+stöder den nya Graph-versionen. I projektets [modulmanifest](Office365-Scoutnet-synk/Office365-Scoutnet-synk.psd1)
+är Graph-modulerna för närvarande låsta till exakt `2.39.0`. En nyare Graph-version
+kan därför göra att synkroniseringsmodulen inte går att importera. Använd en
+uppdaterad utgåva av `Office365-Scoutnet-synk` där `RequiredVersion` för samtliga
+Graph-moduler har ändrats till den version du ska installera.
+
+1. Pausa schemat för runbooken `MaillistSynk` och kontrollera att inga jobb körs.
+    Anteckna de installerade modulversionerna så att du kan återställa dem vid behov.
+2. Gå till Azure-portalen och öppna ditt `Automation Account`.
+3. Under **Shared Resources** välj **Modules** (eller **Modules** i den runtime-miljö
+    som runbooken använder). Uppgradera följande moduler från PowerShell Gallery
+    till samma senaste version:
+    - `Microsoft.Graph.Authentication`
+    - `Microsoft.Graph.Users`
+    - `Microsoft.Graph.Users.Actions`
+    - `Microsoft.Graph.Groups`
+    - `Microsoft.Graph.Identity.DirectoryManagement`
+4. Vänta tills varje modul har status **Available** och kontrollera att alla fem
+    har samma version. Importen kan ta en stund.
+5. Importera/uppgradera `Office365-Scoutnet-synk` till den utgåva som kräver just
+    den Graph-versionen. Testkör runbooken manuellt innan schemat aktiveras igen.
+
+Om du använder PowerShell i stället för portalen kan du importera en bestämd,
+gemensam version från PowerShell Gallery med `New-AzAutomationModule`. Ersätt
+platshållaren med den senaste version som finns tillgänglig för samtliga fem
+moduler. Anslut först till rätt Azure-prenumeration och ange namnet på det
+befintliga Automation Accountet och resursgruppen i `$accountName` respektive
+`$rgName`:
+
+```powershell
+$GraphModuleVersion = '<Graph-version>'
+$GraphModules = @(
+     'Microsoft.Graph.Authentication',
+     'Microsoft.Graph.Users',
+     'Microsoft.Graph.Users.Actions',
+     'Microsoft.Graph.Groups',
+     'Microsoft.Graph.Identity.DirectoryManagement'
+)
+
+foreach ($moduleName in $GraphModules) {
+     New-AzAutomationModule `
+          -AutomationAccountName $accountName `
+          -ResourceGroupName $rgName `
+          -Name $moduleName `
+          -ContentLinkUri "https://www.powershellgallery.com/api/v2/package/$moduleName/$GraphModuleVersion" `
+          -ErrorAction Stop
+}
+```
 
 Att skapa och sätta upp kontot manuellt går till ungefär så här:
 
