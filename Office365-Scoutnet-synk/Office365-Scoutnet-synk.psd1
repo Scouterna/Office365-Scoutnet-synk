@@ -48,15 +48,15 @@ PowerShellVersion = '5.1'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(@{ModuleName='Microsoft.Graph.Authentication';
-                        RequiredVersion="2.39.0"; },
+                        RequiredVersion="2.41.2"; },
                     @{ModuleName='Microsoft.Graph.Users';
-                        RequiredVersion="2.39.0"; },
+                        RequiredVersion="2.41.2"; },
                     @{ModuleName='Microsoft.Graph.Users.Actions';
-                        RequiredVersion="2.39.0"; },
+                        RequiredVersion="2.41.2"; },
                     @{ModuleName='Microsoft.Graph.Groups';
-                        RequiredVersion="2.39.0"; },
+                        RequiredVersion="2.41.2"; },
                     @{ModuleName='Microsoft.Graph.Identity.DirectoryManagement';
-                        RequiredVersion="2.39.0"; },
+                        RequiredVersion="2.41.2"; },
                     @{ModuleName='ExchangeOnlineManagement';
                         RequiredVersion="3.10.1"; })
 
