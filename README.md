@@ -60,10 +60,10 @@ användas för att sätta upp synkronisering.
 ### Uppgradera Microsoft Graph i en befintlig Azure-installation
 
 Den här instruktionen gäller en befintlig Azure Automation-installation där
-Microsoft Graph-modulerna är installerade i version `2.39.0`. Uppgradera inte
+Microsoft Graph-modulerna är installerade i version `1.28.0`. Uppgradera inte
 Graph-modulerna innan den installerade versionen av `Office365-Scoutnet-synk`
 stöder den nya Graph-versionen. I projektets [modulmanifest](Office365-Scoutnet-synk/Office365-Scoutnet-synk.psd1)
-är Graph-modulerna för närvarande låsta till exakt `2.39.0`. En nyare Graph-version
+är Graph-modulerna för närvarande låsta till exakt `2.41.2`. En nyare Graph-version
 kan därför göra att synkroniseringsmodulen inte går att importera. Använd en
 uppdaterad utgåva av `Office365-Scoutnet-synk` där `RequiredVersion` för samtliga
 Graph-moduler har ändrats till den version du ska installera.
