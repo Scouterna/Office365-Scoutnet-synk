@@ -23,7 +23,7 @@ Author = 'Karl Thorén <karl.thoren@scouterna.se>'
 CompanyName = 'Scouterna'
 
 # Copyright statement for this module
-Copyright = 'c 2019, 2020, 2021, 2022, 2023, 2025 All rights reserved.'
+Copyright = 'c 2019, 2020, 2021, 2022, 2023, 2025, 2026 All rights reserved.'
 
 # Description of the functionality provided by this module
 Description = 'Funktioner för att synkronisera Scoutnet med Office 365.'
@@ -136,6 +136,13 @@ PrivateData = @{
 Uppdaterade och låste Microsoft.Graph modulerna till version 2.30.0. De nyare versionerna fungerar i azure runbooks.
 Uppdaterade ExchangeOnlineManagement till version 3.9.0.
 Lade till support för TLS 1.3 och tog bort äldre versioner.
+## 2.0.8
+Fixade så att när en användare skapas i Office 365 så kopplas licenser till kontot direkt efter skapandet.
+När användaren är skapad används Set-MgUserLicense() för att koppla licens till kontot.
+Tidigare användes $UserPrincipalName som UserId men det fungerar inte längre utan $newAccount.Id är ett bättre UserId.
+
+## 2.0.7
+Ändrat hanteringen av licenser för nya konton, löser problemet med att licenser inte sätts på nya konton när de skapas.
 
 ## 2.0.6
 Ändrade så att om en användare i scoutnet inte har någon epostadress så skapas ingen användare i Office 365.
