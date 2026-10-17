@@ -141,6 +141,8 @@ Lade till support för TLS 1.3 och tog bort äldre versioner.
 Lade till stöd för -WhatIf och -Confirm vid ändringar av mailkontakter och konfiguration.
 Ändrade JSON-konverteringen så att varje objekt som skickas via pipeline konverteras separat.
 Justerade utmatningen av samlingsobjekt så att de returneras utan enumerering vid anrop till Write-Output -NoEnumerate.
+Löste linting problem med att använda Write-Output utan -NoEnumerate i en pipeline.
+Alla lintvarningar är nu lösta.
 
 ## 2.0.8
 Fixade så att när en användare skapas i Office 365 så kopplas licenser till kontot direkt efter skapandet.
