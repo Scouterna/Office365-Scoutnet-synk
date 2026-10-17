@@ -69,6 +69,7 @@ function Add-Office365UserToList
 
 function New-SNSMailContact
 {
+    [CmdletBinding(SupportsShouldProcess=$true)]
     param (
         [ValidateNotNull()]
         $Epost,
@@ -79,6 +80,11 @@ function New-SNSMailContact
 
     $contactCreated = $True
     $ExistingMailContact = Get-EXORecipient $Epost -ErrorAction "SilentlyContinue" -Verbose:$false
+    if (-not $PSCmdlet.ShouldProcess($Epost, "Create or update mail contact"))
+    {
+        return $contactCreated
+    }
+
     if ($null -eq $ExistingMailContact)
     {
         Write-SNSLog "Creating Contact $Epost for $DisplayName"
@@ -208,25 +214,26 @@ function SNSUpdateExchangeDistributionGroups
         [switch] $ReturnMaildata
     )
 
+    $SNSConf = $Script:SNSConf
     if ($Configuration)
     {
-        $Script:SNSConf = $Configuration
+        $SNSConf = $Configuration
     }
 
-    if (!$Script:SNSConf)
+    if (!$SNSConf)
     {
         throw "No configuration specified. Please provide a configuration!"
     }
 
     $AddressesInMailLists = @{}
 
-    $MailListSettings = $Script:SNSConf.MailListSettings
+    $MailListSettings = $SNSConf.MailListSettings
 
     # Fetch maillist info from scoutnet.
-    $CustomLists, $CustomListsHash = Get-SNSMaillistInfo -CredentialCustomlists $Script:SNSConf.CredentialCustomlists -MaillistsIds $MailListSettings.values
+    $CustomLists, $CustomListsHash = Get-SNSMaillistInfo -CredentialCustomlists $SNSConf.CredentialCustomlists -MaillistsIds $MailListSettings.values
 
     # Fetch all members and their mailaddresses.
-    $allMailAddresses, $allMailAddressesHash = Get-SNSUserEmail -CredentialMemberlist $Script:SNSConf.CredentialMemberlist
+    $allMailAddresses, $allMailAddressesHash = Get-SNSUserEmail -CredentialMemberlist $SNSConf.CredentialMemberlist
 
     $MailListSettingsHash = ("{0:X8}" -f (($MailListSettings | ConvertTo-Json).GetHashCode()))
 
@@ -363,11 +370,7 @@ function SNSUpdateExchangeDistributionGroups
                     $mailaddresses | ForEach-Object {
                         if (![string]::IsNullOrWhiteSpace($_))
                         {
-                            $ContactCreated = $True
-                            if ($PSCmdlet.ShouldProcess($_, "New-SNSMailContact"))
-                            {
-                                $ContactCreated = New-SNSMailContact -Epost $_ -DisplayName $displayName
-                            }
+                            $ContactCreated = New-SNSMailContact -Epost $_ -DisplayName $displayName
 
                             if ($ContactCreated)
                             {
@@ -466,11 +469,7 @@ function SNSUpdateExchangeDistributionGroups
                     }
                     else
                     {
-                        $ContactCreated = $True
-                        if ($PSCmdlet.ShouldProcess($MemberData.primary_email, "New-SNSMailContact"))
-                        {
-                            $ContactCreated = New-SNSMailContact -Epost $MemberData.primary_email -DisplayName $displayName
-                        }
+                        $ContactCreated = New-SNSMailContact -Epost $MemberData.primary_email -DisplayName $displayName
 
                         if ($ContactCreated)
                         {
@@ -493,11 +492,7 @@ function SNSUpdateExchangeDistributionGroups
                     continue
                 }
 
-                $ContactCreated = $True
-                if ($PSCmdlet.ShouldProcess($_, "New-SNSMailContact"))
-                {
-                    $ContactCreated = New-SNSMailContact -Epost $_ -DisplayName $displayName
-                }
+                $ContactCreated = New-SNSMailContact -Epost $email -DisplayName $email
 
                 if ($ContactCreated)
                 {
@@ -545,7 +540,10 @@ function SNSUpdateExchangeDistributionGroups
                 {
                     # Not used in any maillists. Remove the contact. Remove-MailContact handles -WhatIf.
                     Write-SNSLog "Removing MailContact $($medlem.Identity)"
-                    Remove-MailContact $medlem.Identity -Confirm:$false -Verbose:$false
+                    if ($PSCmdlet.ShouldProcess($medlem.Identity, "Remove-MailContact"))
+                    {
+                        Remove-MailContact $medlem.Identity -Confirm:$false -Verbose:$false
+                    }
                 }
             }
         }

@@ -304,11 +304,15 @@ function Set-SNSConfiguration
     .PARAMETER new
         Create new empty configuration.
     #>
+    [CmdletBinding(SupportsShouldProcess=$true)]
     param
     (
         [Parameter(Mandatory=$True, HelpMessage="The new configuration.")]
         $Configuration
     )
 
-    $script:SNSConf = $Configuration
+    if ($PSCmdlet.ShouldProcess("SNSConfiguration", "Set current configuration"))
+    {
+        $script:SNSConf = $Configuration
+    }
 }
