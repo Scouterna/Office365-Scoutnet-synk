@@ -52,7 +52,7 @@
     }
     else
     {
-        Connect-MgGraph -ContextScope Process -Scopes $Script:SNSConf.RequiredScopes -ErrorAction "Stop"
+        Connect-MgGraph -UseDeviceCode -ContextScope Process -Scopes $Script:SNSConf.RequiredScopes -ErrorAction "Stop"
     }
 
     try
@@ -63,7 +63,7 @@
         }
         else
         {
-            Connect-ExchangeOnline -ShowBanner:$false -CommandName $Script:SNSConf.commandNames -Verbose:$false -ErrorAction "Stop"
+            Connect-ExchangeOnline -Device -ShowBanner:$false -CommandName $Script:SNSConf.commandNames -Verbose:$false -ErrorAction "Stop"
         }
     }
     Catch

@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.0.8'
+ModuleVersion = '2.1.0'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -48,17 +48,17 @@ PowerShellVersion = '5.1'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(@{ModuleName='Microsoft.Graph.Authentication';
-                        RequiredVersion="1.28.0"; },
+                        RequiredVersion="2.41.2"; },
                     @{ModuleName='Microsoft.Graph.Users';
-                        RequiredVersion="1.28.0"; },
+                        RequiredVersion="2.41.2"; },
                     @{ModuleName='Microsoft.Graph.Users.Actions';
-                        RequiredVersion="1.28.0"; },
+                        RequiredVersion="2.41.2"; },
                     @{ModuleName='Microsoft.Graph.Groups';
-                        RequiredVersion="1.28.0"; },
+                        RequiredVersion="2.41.2"; },
                     @{ModuleName='Microsoft.Graph.Identity.DirectoryManagement';
-                        RequiredVersion="1.28.0"; },
+                        RequiredVersion="2.41.2"; },
                     @{ModuleName='ExchangeOnlineManagement';
-                        RequiredVersion="3.0.0"; })
+                        RequiredVersion="3.10.1"; })
 
 # Assemblies that must be loaded prior to importing this module
 # RequiredAssemblies = @()
@@ -132,6 +132,10 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
+## 2.1.0
+Uppdaterade och låste Microsoft.Graph modulerna till version 2.30.0. De nyare versionerna fungerar i azure runbooks.
+Uppdaterade ExchangeOnlineManagement till version 3.9.0.
+Lade till support för TLS 1.3 och tog bort äldre versioner.
 ## 2.0.8
 Fixade så att när en användare skapas i Office 365 så kopplas licenser till kontot direkt efter skapandet.
 När användaren är skapad används Set-MgUserLicense() för att koppla licens till kontot.
