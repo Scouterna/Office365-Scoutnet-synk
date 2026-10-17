@@ -17,7 +17,7 @@ jobs:
     name: Lint module with PSScriptAnalyzer
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v7
     - name: Install needed modules
       shell: pwsh
       run: |
