@@ -37,7 +37,9 @@
     "Group.Read.All",
     "User.ReadWrite.All",
     "User.Read.All",
-    "Mail.Send")
+    "Mail.Send",
+    "Mail.Send.Shared"
+    )
 }
 
 function New-SNSConfiguration
