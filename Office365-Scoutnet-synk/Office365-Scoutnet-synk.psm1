@@ -70,6 +70,7 @@ function Add-Office365UserToList
 function New-SNSMailContact
 {
     [CmdletBinding(SupportsShouldProcess=$true)]
+    [OutputType([bool])]
     param (
         [ValidateNotNull()]
         $Epost,
@@ -180,7 +181,7 @@ function SNSUpdateExchangeDistributionGroups
         None. You cannot pipe objects to SNSUpdateExchangeDistributionGroups.
 
     .OUTPUTS
-        None.
+        The new validation hash as a string. With -ReturnMaildata, returns the validation hash and a hashtable of mail addresses.
 
     .LINK
         https://github.com/scouternasetjanster/Office365-Scoutnet-synk
@@ -202,6 +203,7 @@ function SNSUpdateExchangeDistributionGroups
     [CmdletBinding(HelpURI = 'https://github.com/scouternasetjanster/Office365-Scoutnet-synk',
                 PositionalBinding = $False,
                 SupportsShouldProcess = $True)]
+    [OutputType([string], [object[]])]
     param (
         [Parameter(Mandatory=$True, HelpMessage="Hash value used to validate if Scoutnet is updated.")]
         [ValidateNotNull()]

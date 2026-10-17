@@ -109,6 +109,11 @@ function New-SNSConfiguration
         Autoreply message for disabled accounts.
         If set this text is set as autoreply message for disabled accounts. Html is supported.
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        'PSUseShouldProcessForStateChangingFunctions',
+        '',
+        Justification = 'Funktionen skapar och returnerar endast ett konfigurationsobjekt; den ändrar inte systemtillstånd.'
+    )]
     [OutputType([SNSConfiguration])]
     param
     (

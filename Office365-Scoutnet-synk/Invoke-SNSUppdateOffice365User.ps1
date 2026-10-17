@@ -89,8 +89,8 @@
     }
 
     [System.Collections.ArrayList]$SecurityGroupScoutnet = Get-SNSUsersInSecurityGroupScoutnet -allOffice365Users $allOffice365Users
-    [System.Collections.ArrayList]$UsersInSecurityGroupScoutnetDisabledUsers = Get-SNSUsersInSecurityGroupScoutnetDisabledUsers -allOffice365Users $allOffice365Users
-    [System.Collections.ArrayList]$MemberListScoutnet = Get-SNSSoutnetLeaders -CredentialCustomlists $Script:SNSConf.CredentialCustomlists -CredentialMemberlist $Script:SNSConf.CredentialMemberlist -MailListId $Script:SNSConf.UserSyncMailListId
+    [System.Collections.ArrayList]$UsersInSecurityGroupScoutnetDisabledUsers = Get-SNSDisabledScoutnetUserList -allOffice365Users $allOffice365Users
+    [System.Collections.ArrayList]$MemberListScoutnet = Get-SNSScoutnetLeaderList -CredentialCustomlists $Script:SNSConf.CredentialCustomlists -CredentialMemberlist $Script:SNSConf.CredentialMemberlist -MailListId $Script:SNSConf.UserSyncMailListId
     $GroupMemberlist = Get-SNSApiGroupMemberlist -Credential $Script:SNSConf.CredentialMemberlist
 
     if (!$GroupMemberlist)
@@ -825,7 +825,7 @@ function Invoke-SNSDisableAccount
         Remove-MgGroupMemberByRef -GroupId $SecurityGroupScoutnet.Id -DirectoryObjectId $AccountData.ExternalDirectoryObjectId -ErrorAction "Stop"
 
         # Add the user to the group of disabled users.
-        $SNSSecurityGroupScoutnetDisabledUsers = Get-SNSSecurityGroupScoutnetDisabledUsers
+        $SNSSecurityGroupScoutnetDisabledUsers = Get-SNSDisabledScoutnetUserGroup
         New-MgGroupMember -GroupId $SNSSecurityGroupScoutnetDisabledUsers.Id -DirectoryObjectId $AccountData.ExternalDirectoryObjectId -ErrorAction "Stop"
 
         if ($Script:SNSConf.AllUsersGroupName)
@@ -897,7 +897,7 @@ function Invoke-SNSEnableAccount
         Set-Mailbox -Identity $AccountData.UserPrincipalName -HiddenFromAddressListsEnabled $false -ErrorAction "Stop"
 
         # Remove the user from the group of disabled users.
-        $SNSSecurityGroupScoutnetDisabledUsers = Get-SNSSecurityGroupScoutnetDisabledUsers
+        $SNSSecurityGroupScoutnetDisabledUsers = Get-SNSDisabledScoutnetUserGroup
         Remove-MgGroupMemberByRef -GroupId $SNSSecurityGroupScoutnetDisabledUsers.Id -DirectoryObjectId $AccountData.ExternalDirectoryObjectId -ErrorAction "Stop"
 
         # Add the user to the group of active users.
@@ -925,7 +925,7 @@ function Invoke-SNSEnableAccount
     }
 }
 
-function Get-SNSSoutnetLeaders
+function Get-SNSScoutnetLeaderList
 {
     [OutputType([System.Collections.ArrayList])]
     param (
@@ -979,7 +979,7 @@ function Get-SNSUsersInSecurityGroupScoutnet
     Write-Output -NoEnumerate -InputObject $GroupMembers
 }
 
-function Get-SNSUsersInSecurityGroupScoutnetDisabledUsers
+function Get-SNSDisabledScoutnetUserList
 {
     [OutputType([System.Collections.ArrayList])]
     param (
@@ -996,7 +996,7 @@ function Get-SNSSecurityGroupScoutnet
     return Get-SNSSecurityGroup -Name $Script:SNSConf.SyncGroupName -Description $Script:SNSConf.SyncGroupDescription
 }
 
-function Get-SNSSecurityGroupScoutnetDisabledUsers
+function Get-SNSDisabledScoutnetUserGroup
 {
     return Get-SNSSecurityGroup -Name $Script:SNSConf.SyncGroupDisabledUsersName -Description $Script:SNSConf.SyncGroupDisabledUsersDescription
 }
