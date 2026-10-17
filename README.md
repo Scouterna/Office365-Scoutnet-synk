@@ -44,6 +44,9 @@ För att skapa en resursgrupp och ett `Azure Automation Account` finns skriptet
 en resursgrupp. Sen installeras nödvändiga moduler och senaste `Office365-Scoutnet-synk`
 modulen.
 
+Skriptet installerar modulerna till PowerShell-runtime 7.2 i Azure Automation.
+Välj PowerShell 7.2 när du skapar runbooken. Skriptet skapar inte själva runbooken.
+
 Skriptet frågar även efter API nycklarna för scoutnet och skapar `Credential Asset`
 för de med namnen som är i exemplet.
 
@@ -51,8 +54,15 @@ för de med namnen som är i exemplet.
 powershell 7.1 (eller nyare).
 När skriptet loggar in mot Azure så välj en användare som är "domänadmin".
 
-Innan skriptet körs behövs Graph modulerna installeras.
-Kör `Install-Module -Name Microsoft.Graph -Repository PSGallery -Force`
+Innan skriptet körs behöver Az- och Graph-modulerna installeras:
+
+```powershell
+Install-Module -Name Az.Accounts, Az.Resources, Az.Automation -Repository PSGallery -Scope CurrentUser
+Install-Module -Name Microsoft.Graph -Repository PSGallery -Scope CurrentUser
+```
+
+Skriptet kontrollerar att de moduler det använder finns installerade lokalt
+innan det ansluter till Azure.
 
 När skriptet är klart kan instruktionerna i [Synkronisera grupper](#Synkronisera-grupper)
 användas för att sätta upp synkronisering.
