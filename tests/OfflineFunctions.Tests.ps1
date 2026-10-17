@@ -19,12 +19,81 @@ Describe 'New-SNSConfiguration' {
             -DomainName 'example.org' -LogFilePath 'test.log' `
             -AllUsersGroupName 'all-users'
 
-        $configuration | Should -BeOfType [SNSConfiguration]
+        $configuration.GetType().Name | Should -Be 'SNSConfiguration'
         $configuration.DomainName | Should -Be 'example.org'
         $configuration.LogFilePath | Should -Be 'test.log'
         $configuration.AllUsersGroupName | Should -Be 'all-users'
         $configuration.PreferredLanguage | Should -Be 'sv-SE'
         $configuration.UsageLocation | Should -Be 'SE'
+    }
+
+    It 'stores supplied credentials, mailing lists, account email templates, and settings' {
+        $mailListSettings = @{
+            scouts = @{
+                scoutnet_list_id = 'list-1'
+                scouter_synk_option = 'p'
+            }
+        }
+        $configuration = New-SNSConfiguration `
+            -CredentialMemberlist $credential `
+            -CredentialCustomlists $credential `
+            -MailListSettings $mailListSettings `
+            -DomainName 'example.org' `
+            -LicenseAssignment @{ Basic = @('Teams') } `
+            -UserSyncMailListId 'leaders-list' `
+            -LogFilePath 'sync.log' `
+            -AllUsersGroupName 'all-users' `
+            -SignatureText 'Hello <DisplayName>' `
+            -SignatureHtml '<p>Hello <DisplayName></p>' `
+            -NewUserEmailSubject 'Welcome' `
+            -NewUserEmailText 'Use <Password> to sign in as <UserPrincipalName>' `
+            -NewUserEmailContentType 'HTML' `
+            -NewUserInfoEmailSubject 'More information' `
+            -NewUserInfoEmailText 'Welcome <DisplayName>' `
+            -NewUserInfoEmailContentType 'HTML' `
+            -DisabledAccountsAutoReplyText 'Contact <DisplayName>'
+
+        [object]::ReferenceEquals($configuration.CredentialMemberlist, $credential) | Should -BeTrue
+        [object]::ReferenceEquals($configuration.CredentialCustomlists, $credential) | Should -BeTrue
+        [object]::ReferenceEquals($configuration.MailListSettings, $mailListSettings) | Should -BeTrue
+        $configuration.DomainName | Should -Be 'example.org'
+        $configuration.UserSyncMailListId | Should -Be 'leaders-list'
+        $configuration.LogFilePath | Should -Be 'sync.log'
+        $configuration.AllUsersGroupName | Should -Be 'all-users'
+        $configuration.SignatureText | Should -Be 'Hello <DisplayName>'
+        $configuration.SignatureHtml | Should -Be '<p>Hello <DisplayName></p>'
+        $configuration.NewUserEmailSubject | Should -Be 'Welcome'
+        $configuration.NewUserEmailText | Should -Be 'Use <Password> to sign in as <UserPrincipalName>'
+        $configuration.NewUserEmailContentType | Should -Be 'HTML'
+        $configuration.NewUserInfoEmailSubject | Should -Be 'More information'
+        $configuration.NewUserInfoEmailText | Should -Be 'Welcome <DisplayName>'
+        $configuration.NewUserInfoEmailContentType | Should -Be 'HTML'
+        $configuration.DisabledAccountsAutoReplyText | Should -Be 'Contact <DisplayName>'
+    }
+}
+
+Describe 'SNSConfiguration accessors' {
+    It 'returns the current configuration and replaces it when requested' {
+        $configuration = [SNSConfiguration]::new()
+        $configuration.DomainName = 'example.org'
+
+        Set-SNSConfiguration -Configuration $configuration
+
+        [object]::ReferenceEquals((Get-SNSConfiguration), $configuration) | Should -BeTrue
+        (Get-SNSConfiguration).DomainName | Should -Be 'example.org'
+    }
+
+    It 'does not replace the current configuration when WhatIf is specified' {
+        $current = [SNSConfiguration]::new()
+        $current.DomainName = 'current.example.org'
+        $candidate = [SNSConfiguration]::new()
+        $candidate.DomainName = 'candidate.example.org'
+        Set-SNSConfiguration -Configuration $current
+
+        Set-SNSConfiguration -Configuration $candidate -WhatIf
+
+        [object]::ReferenceEquals((Get-SNSConfiguration), $current) | Should -BeTrue
+        (Get-SNSConfiguration).DomainName | Should -Be 'current.example.org'
     }
 }
 

@@ -182,4 +182,159 @@ Describe 'SNSUpdateExchangeDistributionGroups' {
             Should -Invoke Update-DistributionGroupMember -Times 0 -Exactly
         }
     }
+
+    It 'handles Office 365 address options, ignored and unknown members, failed contacts, and obsolete contacts' {
+        InModuleScope Office365-Scoutnet-synk {
+            function Get-EXOMailbox {}
+            function Update-DistributionGroupMember {}
+            function Remove-MailContact {}
+
+            $configuration = [SNSConfiguration]::new()
+            $credential = [pscredential]::new('test', (ConvertTo-SecureString 'test' -AsPlainText -Force))
+            $configuration.CredentialCustomlists = $credential
+            $configuration.CredentialMemberlist = $credential
+            $configuration.MailListSettings = @{
+                office = @{
+                    scoutnet_list_id = 'list-office'
+                    scouter_synk_option = '@'
+                    ledare_synk_option = '-'
+                    email_addresses = @()
+                }
+                both = @{
+                    scoutnet_list_id = 'list-both'
+                    scouter_synk_option = '&'
+                    ledare_synk_option = '-'
+                    email_addresses = @()
+                }
+                fallback = @{
+                    scoutnet_list_id = 'list-fallback'
+                    scouter_synk_option = 't'
+                    ledare_synk_option = '-'
+                    email_addresses = @()
+                }
+                ignored = @{
+                    scoutnet_list_id = 'list-ignored'
+                    scouter_synk_option = ''
+                    ledare_synk_option = '-'
+                    ignore_user = @('ignored-member')
+                    email_addresses = @()
+                }
+                unknown = @{
+                    scoutnet_list_id = 'list-unknown'
+                    scouter_synk_option = ''
+                    ledare_synk_option = '-'
+                    email_addresses = @()
+                }
+                failed = @{
+                    scoutnet_list_id = 'list-failed'
+                    scouter_synk_option = 'p'
+                    ledare_synk_option = '-'
+                    email_addresses = @()
+                }
+            }
+
+            $memberData = @{
+                office = @{
+                    first_name = 'Office'
+                    last_name = 'Member'
+                    primary_email = 'office-scout@example.org'
+                    mailaddresses = @('office-scout@example.org')
+                    contacts_addresses = @()
+                }
+                both = @{
+                    first_name = 'Both'
+                    last_name = 'Member'
+                    primary_email = 'both-scout@example.org'
+                    mailaddresses = @('both-scout@example.org')
+                    contacts_addresses = @()
+                }
+                fallback = @{
+                    first_name = 'Fallback'
+                    last_name = 'Member'
+                    primary_email = 'fallback@example.org'
+                    mailaddresses = @('fallback@example.org')
+                    contacts_addresses = @()
+                }
+                'ignored-member' = @{
+                    first_name = 'Ignored'
+                    last_name = 'Member'
+                    primary_email = 'ignored@example.org'
+                    mailaddresses = @('ignored@example.org')
+                    contacts_addresses = @()
+                }
+                failed = @{
+                    first_name = 'Failed'
+                    last_name = 'Contact'
+                    primary_email = 'failed@example.org'
+                    mailaddresses = @('failed@example.org')
+                    contacts_addresses = @()
+                }
+            }
+            $customLists = @{
+                'list-office' = @{ scouter = @('office'); ledare = @() }
+                'list-both' = @{ scouter = @('both'); ledare = @() }
+                'list-fallback' = @{ scouter = @('fallback'); ledare = @() }
+                'list-ignored' = @{ scouter = @('ignored-member'); ledare = @() }
+                'list-unknown' = @{ scouter = @('missing-member'); ledare = @() }
+                'list-failed' = @{ scouter = @('failed'); ledare = @() }
+            }
+            $mailContacts = @{
+                'obsolete@example.org' = [pscustomobject]@{
+                    Identity = 'obsolete@example.org'
+                    RecipientType = 'MailContact'
+                }
+                'shared@example.org' = [pscustomobject]@{
+                    Identity = 'shared@example.org'
+                    RecipientType = 'MailContact'
+                }
+                'failed@example.org' = [pscustomobject]@{
+                    Identity = 'failed@example.org'
+                    RecipientType = 'MailContact'
+                }
+            }
+            $otherListContacts = @{
+                'shared@example.org' = [pscustomobject]@{
+                    Identity = 'shared@example.org'
+                    RecipientType = 'MailContact'
+                }
+            }
+
+            $global:MailListSyncMessages = @()
+            Mock Write-SNSLog { $global:MailListSyncMessages += $Message }
+            Mock Get-SNSMaillistInfo { return $customLists, 'list-hash' }
+            Mock Get-SNSUserEmail { return $memberData, 'member-hash' }
+            Mock Get-SNSExchangeMailListMember { return $otherListContacts, $mailContacts }
+            Mock Get-EXOMailbox { return @([pscustomobject]@{ Id = 'unused-user' }) }
+            Mock Add-Office365UserToList {
+                if ($Member -in @('office', 'both')) {
+                    return $true, "$Member@office.org"
+                }
+                return $false, $null
+            }
+            Mock New-SNSMailContact {
+                return $Epost -ne 'failed@example.org'
+            }
+            Mock Update-DistributionGroupMember {}
+            Mock Remove-MailContact {}
+
+            $null, $mailData = SNSUpdateExchangeDistributionGroups `
+                -ValidationHash 'previous-hash' -Configuration $configuration `
+                -ReturnMaildata -WhatIf
+
+            @($mailData.office) | Should -Be @('office@office.org')
+            @($mailData.both) | Should -Contain 'both@office.org'
+            @($mailData.both) | Should -Contain 'both-scout@example.org'
+            @($mailData.fallback) | Should -Be @('fallback@example.org')
+            @($mailData.ignored) | Should -BeNullOrEmpty
+            @($mailData.unknown) | Should -BeNullOrEmpty
+            @($mailData.failed) | Should -BeNullOrEmpty
+            Should -Invoke Add-Office365UserToList -Times 3 -Exactly
+            Should -Invoke New-SNSMailContact -Times 3 -Exactly
+            $global:MailListSyncMessages | Should -Contain 'Removing MailContact obsolete@example.org'
+            $global:MailListSyncMessages | Should -Not -Contain 'Removing MailContact shared@example.org'
+            $global:MailListSyncMessages | Should -Not -Contain 'Removing MailContact failed@example.org'
+            Should -Invoke Remove-MailContact -Times 0 -Exactly
+            Remove-Variable MailListSyncMessages -Scope Global
+        }
+    }
 }

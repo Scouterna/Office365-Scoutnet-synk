@@ -206,3 +206,312 @@ Describe 'Invoke-SNSDisableAccount' {
         }
     }
 }
+
+Describe 'Invoke-SNSEnableAccount' {
+    It 'enables the account, moves it to the active group, and disables autoreply' {
+        InModuleScope Office365-Scoutnet-synk {
+            function Update-MgUser {
+                param($UserId, $AccountEnabled, $ErrorAction)
+            }
+            function Set-Mailbox {
+                param($Identity, $HiddenFromAddressListsEnabled, $ErrorAction)
+            }
+            function Remove-MgGroupMemberByRef {
+                param($GroupId, $DirectoryObjectId, $ErrorAction)
+            }
+            function New-MgGroupMember {
+                param($GroupId, $DirectoryObjectId, $ErrorAction)
+            }
+            function Set-MailboxAutoReplyConfiguration {
+                param($Identity, $AutoReplyState, $InternalMessage, $ExternalMessage)
+            }
+
+            $script:SNSConf = [SNSConfiguration]::new()
+            $accountData = [pscustomobject]@{
+                name = 'Ada Lovelace'
+                ExternalDirectoryObjectId = 'user-id'
+                UserPrincipalName = 'ada.lovelace@example.org'
+                Identity = 'ada.lovelace@example.org'
+            }
+
+            Mock Write-SNSLog {}
+            Mock Update-MgUser {}
+            Mock Set-Mailbox {}
+            Mock Get-SNSDisabledScoutnetUserGroup { return [pscustomobject]@{ Id = 'disabled-group' } }
+            Mock Get-SNSSecurityGroupScoutnet { return [pscustomobject]@{ Id = 'active-group' } }
+            Mock Remove-MgGroupMemberByRef {}
+            Mock New-MgGroupMember {}
+            Mock Set-MailboxAutoReplyConfiguration {}
+
+            Invoke-SNSEnableAccount -AccountData $accountData
+
+            Should -Invoke Update-MgUser -Times 1 -Exactly -ParameterFilter {
+                $UserId -eq 'user-id' -and $AccountEnabled -eq $true
+            }
+            Should -Invoke Set-Mailbox -Times 1 -Exactly -ParameterFilter {
+                $Identity -eq 'ada.lovelace@example.org' -and
+                $HiddenFromAddressListsEnabled -eq $false
+            }
+            Should -Invoke Remove-MgGroupMemberByRef -Times 1 -Exactly -ParameterFilter {
+                $GroupId -eq 'disabled-group' -and $DirectoryObjectId -eq 'user-id'
+            }
+            Should -Invoke New-MgGroupMember -Times 1 -Exactly -ParameterFilter {
+                $GroupId -eq 'active-group' -and $DirectoryObjectId -eq 'user-id'
+            }
+            Should -Invoke Set-MailboxAutoReplyConfiguration -Times 1 -Exactly -ParameterFilter {
+                $Identity -eq 'ada.lovelace@example.org' -and $AutoReplyState -eq 'Disabled'
+            }
+        }
+    }
+}
+
+Describe 'Get-SNSSecurityGroup' {
+    It 'returns an existing group with the matching display name' {
+        InModuleScope Office365-Scoutnet-synk {
+            $matchingGroup = [pscustomobject]@{
+                Id = 'matching-group'
+                DisplayName = 'Scoutnet users'
+            }
+            Mock Get-MgGroup {
+                return @(
+                    [pscustomobject]@{ Id = 'other-group'; DisplayName = 'Other users' }
+                    $matchingGroup
+                )
+            }
+            Mock New-MgGroup {}
+
+            $group = Get-SNSSecurityGroup -Name 'Scoutnet users' -Description 'Synchronized users'
+
+            $group.Id | Should -Be 'matching-group'
+            Should -Invoke Get-MgGroup -Times 1 -Exactly -ParameterFilter {
+                $Search -eq 'displayName:Scoutnet users' -and $ConsistencyLevel -eq 'eventual'
+            }
+            Should -Invoke New-MgGroup -Times 0 -Exactly
+        }
+    }
+
+    It 'creates a security group when no matching group exists' {
+        InModuleScope Office365-Scoutnet-synk {
+            $createdGroup = [pscustomobject]@{
+                Id = 'new-group'
+                DisplayName = 'Scoutnet users'
+            }
+            Mock Get-MgGroup {
+                return @([pscustomobject]@{ Id = 'other-group'; DisplayName = 'Other users' })
+            }
+            Mock New-MgGroup { return $createdGroup }
+            Mock Write-SNSLog {}
+
+            $group = Get-SNSSecurityGroup -Name 'Scoutnet users' -Description 'Synchronized users'
+
+            $group.Id | Should -Be 'new-group'
+            Should -Invoke New-MgGroup -Times 1 -Exactly -ParameterFilter {
+                $BodyParameter.DisplayName -eq 'Scoutnet users' -and
+                $BodyParameter.Description -eq 'Synchronized users' -and
+                $BodyParameter.MailEnabled -eq $false -and
+                $BodyParameter.SecurityEnabled -eq $true -and
+                $BodyParameter.MailNickname -eq 'Scoutnet users' -and
+                $BodyParameter.GroupTypes.Count -eq 0
+            }
+            Should -Invoke Write-SNSLog -Times 1 -Exactly -ParameterFilter {
+                $Level -eq 'Warn' -and $Message -like '*Creating the group*'
+            }
+        }
+    }
+}
+
+Describe 'Get-SNSUsersInSecurityGroup' {
+    It 'returns only group members that match Office 365 users, always as a collection' {
+        InModuleScope Office365-Scoutnet-synk {
+            $expectedUser = [pscustomobject]@{
+                ExternalDirectoryObjectId = 'user-1'
+                DisplayName = 'Ada Lovelace'
+            }
+            $allOffice365Users = @(
+                $expectedUser
+                [pscustomobject]@{
+                    ExternalDirectoryObjectId = 'user-2'
+                    DisplayName = 'Grace Hopper'
+                }
+            )
+            Mock Get-SNSSecurityGroup {
+                return [pscustomobject]@{ Id = 'security-group' }
+            }
+            Mock Get-MgGroupMember {
+                return @(
+                    [pscustomobject]@{ Id = 'user-1' }
+                    [pscustomobject]@{ Id = 'deleted-user' }
+                )
+            }
+
+            $members = Get-SNSUsersInSecurityGroup -Name 'Scoutnet users' `
+                -Description 'Synchronized users' -allOffice365Users $allOffice365Users
+
+            ($members -is [System.Collections.ArrayList]) | Should -BeTrue
+            $members.Count | Should -Be 1
+            $members[0].ExternalDirectoryObjectId | Should -Be 'user-1'
+            Should -Invoke Get-MgGroupMember -Times 1 -Exactly -ParameterFilter {
+                $GroupId -eq 'security-group'
+            }
+        }
+    }
+}
+
+Describe 'Invoke-SNSUppdateOffice365User' {
+            It 'creates, updates, re-enables, disables, and retains users according to Scoutnet membership' {
+                InModuleScope Office365-Scoutnet-synk {
+                    function Get-MgSubscribedSku {}
+                    function Get-EXOMailbox {}
+
+                    $configuration = [SNSConfiguration]::new()
+                    $configuration.CredentialCustomlists = [pscredential]::new(
+                        'test',
+                        [System.Security.SecureString]::new()
+                    )
+                    $configuration.CredentialMemberlist = $configuration.CredentialCustomlists
+                    $activeAccount = [pscustomobject]@{
+                        Name = 'Active Scout'
+                        CustomAttribute1 = 'active-member'
+                        ExternalDirectoryObjectId = 'active-id'
+                    }
+                    $returningAccount = [pscustomobject]@{
+                        Name = 'Returning Scout'
+                        CustomAttribute1 = 'returning-member'
+                        ExternalDirectoryObjectId = 'returning-id'
+                    }
+                    $disabledAccount = [pscustomobject]@{
+                        Name = 'Still Disabled'
+                        CustomAttribute1 = 'disabled-member'
+                        ExternalDirectoryObjectId = 'disabled-id'
+                    }
+                    $leavingAccount = [pscustomobject]@{
+                        Name = 'Leaving Scout'
+                        CustomAttribute1 = 'leaving-member'
+                        ExternalDirectoryObjectId = 'leaving-id'
+                    }
+                    $unconnectedAccount = [pscustomobject]@{
+                        Name = 'Unconnected User'
+                        CustomAttribute1 = 'unconnected-member'
+                        ExternalDirectoryObjectId = 'unconnected-id'
+                    }
+                    $disabledGroupAccounts = [System.Collections.ArrayList]::new()
+                    [void]$disabledGroupAccounts.Add($returningAccount)
+                    [void]$disabledGroupAccounts.Add($disabledAccount)
+                    $activeGroupAccounts = [System.Collections.ArrayList]::new()
+                    [void]$activeGroupAccounts.Add($activeAccount)
+                    [void]$activeGroupAccounts.Add($leavingAccount)
+                    $newMemberData = [pscustomobject]@{ member_no = 'new-member' }
+                    $scoutnetData = @{
+                        data = @{
+                            'new-member' = $newMemberData
+                        }
+                    }
+                    $allAccounts = @(
+                        $activeAccount
+                        $returningAccount
+                        $disabledAccount
+                        $leavingAccount
+                        $unconnectedAccount
+                    )
+
+                    Mock Write-SNSLog {}
+                    Mock Get-EXOMailbox { return $allAccounts }
+                    Mock Get-SNSUsersInSecurityGroupScoutnet { return $activeGroupAccounts }
+                    Mock Get-SNSDisabledScoutnetUserList { return $disabledGroupAccounts }
+                    Mock Get-SNSScoutnetLeaderList {
+                        return [System.Collections.ArrayList]@(
+                            'active-member',
+                            'returning-member',
+                            'new-member',
+                            'missing-data'
+                        )
+                    }
+                    Mock Get-SNSApiGroupMemberlist { return $scoutnetData }
+                    Mock Invoke-SNSCreateUserAndUpdateUserData {}
+                    Mock Invoke-SNSEnableAccount {}
+                    Mock Invoke-SNSDisableAccount {}
+                    Mock Invoke-SNSUpdateAccount {}
+
+                    Invoke-SNSUppdateOffice365User -Configuration $configuration
+
+                    Should -Invoke Invoke-SNSCreateUserAndUpdateUserData -Times 1 -Exactly -ParameterFilter {
+                        $memberData.Count -eq 1 -and $memberData[0].member_no -eq 'new-member'
+                    }
+                    Should -Invoke Invoke-SNSEnableAccount -Times 1 -Exactly -ParameterFilter {
+                        $AccountData.CustomAttribute1 -eq 'returning-member'
+                    }
+                    Should -Invoke Invoke-SNSDisableAccount -Times 1 -Exactly -ParameterFilter {
+                        $AccountData.CustomAttribute1 -eq 'leaving-member'
+                    }
+                    Should -Invoke Invoke-SNSUpdateAccount -Times 2 -Exactly
+                    Should -Invoke Write-SNSLog -Times 1 -Exactly -ParameterFilter {
+                        $Level -eq 'Warn' -and $Message -like '*missing-data*'
+                    }
+                    Should -Invoke Write-SNSLog -Times 1 -Exactly -ParameterFilter {
+                        $Message -eq "Account not connected to Scoutnet 'Unconnected User'"
+                    }
+                }
+            }
+
+            It 'aborts before processing accounts when Scoutnet returns no data' {
+                InModuleScope Office365-Scoutnet-synk {
+                    function Get-EXOMailbox {}
+
+                    $configuration = [SNSConfiguration]::new()
+                    $configuration.CredentialCustomlists = [pscredential]::new(
+                        'test',
+                        [System.Security.SecureString]::new()
+                    )
+                    $configuration.CredentialMemberlist = $configuration.CredentialCustomlists
+                    Mock Write-SNSLog {}
+                    Mock Get-EXOMailbox {
+                        return [pscustomobject]@{ CustomAttribute1 = 'existing-member' }
+                    }
+                    Mock Get-SNSUsersInSecurityGroupScoutnet { return [System.Collections.ArrayList]::new() }
+                    Mock Get-SNSDisabledScoutnetUserList { return [System.Collections.ArrayList]::new() }
+                    Mock Get-SNSScoutnetLeaderList { return [System.Collections.ArrayList]::new() }
+                    Mock Get-SNSApiGroupMemberlist { return $null }
+                    Mock Invoke-SNSCreateUserAndUpdateUserData {}
+
+                    { Invoke-SNSUppdateOffice365User -Configuration $configuration } |
+                        Should -Throw '*No data returned from Scoutnet*'
+                    Should -Invoke Invoke-SNSCreateUserAndUpdateUserData -Times 0 -Exactly
+                }
+            }
+
+            It 'logs and stops when a configured license SKU cannot be found' {
+                InModuleScope Office365-Scoutnet-synk {
+                    function Get-MgSubscribedSku {}
+                    function Get-EXOMailbox {}
+
+                    $configuration = [SNSConfiguration]::new()
+                    $configuration.LicenseAssignment = @{ 'Missing SKU' = @() }
+                    Mock Write-SNSLog {}
+                    Mock Get-MgSubscribedSku { return @() }
+                    Mock Get-EXOMailbox {}
+
+                    Invoke-SNSUppdateOffice365User -Configuration $configuration
+
+                    Should -Invoke Write-SNSLog -Times 1 -Exactly -ParameterFilter {
+                        $Level -eq 'Error' -and $Message -like "*Missing SKU*"
+                    }
+                    Should -Invoke Get-EXOMailbox -Times 0 -Exactly
+                }
+            }
+}
+
+Describe 'Get-SNSUsersInSecurityGroup missing group' {
+    It 'returns an empty collection without querying members when the group does not exist' {
+        InModuleScope Office365-Scoutnet-synk {
+            Mock Get-SNSSecurityGroup { return $null }
+            Mock Get-MgGroupMember {}
+
+            $members = Get-SNSUsersInSecurityGroup -Name 'Missing group' `
+                -Description 'Group not found' -allOffice365Users @()
+
+            ($members -is [System.Collections.ArrayList]) | Should -BeTrue
+            $members.Count | Should -Be 0
+            Should -Invoke Get-MgGroupMember -Times 0 -Exactly
+        }
+    }
+}
