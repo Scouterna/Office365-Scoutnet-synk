@@ -139,6 +139,7 @@ Uppdaterade och låste Microsoft.Graph modulerna till version 2.41.2. De nyare v
 Uppdaterade ExchangeOnlineManagement till version 3.10.1.
 Lade till support för TLS 1.3 och tog bort äldre versioner.
 Lade till stöd för -WhatIf och -Confirm vid ändringar av mailkontakter och konfiguration.
+Ändrade JSON-konverteringen så att varje objekt som skickas via pipeline konverteras separat.
 ## 2.0.8
 Fixade så att när en användare skapas i Office 365 så kopplas licenser till kontot direkt efter skapandet.
 När användaren är skapad används Set-MgUserLicense() för att koppla licens till kontot.

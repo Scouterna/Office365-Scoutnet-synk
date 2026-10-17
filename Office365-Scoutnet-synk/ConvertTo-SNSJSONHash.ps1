@@ -27,24 +27,26 @@
         [Parameter(ValueFromPipeline)]
         $root
     )
-    $hash = @{}
+    process {
+        $hash = @{}
 
-    $keys = $root | Get-Member -MemberType NoteProperty | Select-Object -exp Name
+        $keys = $root | Get-Member -MemberType NoteProperty | Select-Object -exp Name
 
-    $keys | ForEach-Object{
-        $key=$_
-        $obj=$root.$($_)
-        if ($obj -match "@{")
-        {
-            $nesthash=ConvertTo-SNSJSONHash $obj
-            $hash.add($key,$nesthash)
+        $keys | ForEach-Object{
+            $key=$_
+            $obj=$root.$($_)
+            if ($obj -match "@{")
+            {
+                $nesthash=ConvertTo-SNSJSONHash $obj
+                $hash.add($key,$nesthash)
+            }
+            else
+            {
+                # Use unescape so the data is readable.
+                $obj = [System.Text.RegularExpressions.Regex]::Unescape($obj)
+                $hash.add($key,$obj)
+            }
         }
-        else
-        {
-            # Use unescape so the data is readable.
-            $obj = [System.Text.RegularExpressions.Regex]::Unescape($obj)
-            $hash.add($key,$obj)
-        }
+        return $hash
     }
-    return $hash
 }
