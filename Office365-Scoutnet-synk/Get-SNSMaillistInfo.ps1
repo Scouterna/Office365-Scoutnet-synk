@@ -23,8 +23,8 @@
     .PARAMETER UriApiCustomList
         Url for the API. Defaults to https://www.scoutnet.se/api/group/customlists
 
-    .PARAMETER Maillists
-        Maillists to process. A hashtable there the key kan be used to find the list in office365, and the value is the scoutnet list Id.
+    .PARAMETER MaillistsIds
+        Mail-list settings to process. Each setting must include scoutnet_list_id and may include statisk_lista.
 
     .LINK
         https://www.scoutnet.se
@@ -59,15 +59,16 @@
     # For each list fetch the user id of the members.
     foreach ($key in $CustomListInfo.Keys)
     {
-        if ($MaillistsIds.ContainsValue($key) | Sort-Object -Unique)
+        $matchingMaillists = @($MaillistsIds | Where-Object { $_.scoutnet_list_id -eq $key })
+        if ($matchingMaillists.Count -gt 0)
         {
             $ledare = @()
             $scouter = @()
 
             Write-SNSLog ("Fetching data for maillist {0}" -f ($CustomListInfo[$key].title))
-            $enum = $MaillistsIds.GetEnumerator().Where({$_.ContainsValue($key)})
+            $mailListSettings = $matchingMaillists[0]
 
-            if ($enum[0].statisk_lista)
+            if ($mailListSettings.statisk_lista)
             {
                 # Static list. Fetch users from the list not the rules.
                 $ledareData = Get-SNSApiGroupCustomlist -Credential $CredentialCustomlists -Uri $UriApiCustomList -listid $key

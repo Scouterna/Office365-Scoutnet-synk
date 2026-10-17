@@ -744,7 +744,8 @@ function Invoke-SNSUpdateAccount
             {
                 if ($AccountData.UserPrincipalName -notlike $MemberData.contact_alt_email.value)
                 {
-                    if (-not $O365MemberData.OtherMails.Contains($MemberData.contact_alt_email.value))
+                    if (-not $O365MemberData.OtherMails.Contains($MemberData.contact_alt_email.value) -and
+                        -not $OtherMails.Contains($MemberData.contact_alt_email.value))
                     {
                         # contact_alt_email usable.
                         [void]$OtherMails.Add($MemberData.contact_alt_email.value)

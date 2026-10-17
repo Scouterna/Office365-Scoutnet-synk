@@ -417,6 +417,40 @@ Körning utan ändringar och maillistdatan returneras i variabeln `$mailListData
 $NewValidationHash, $mailListData = SNSUpdateExchangeDistributionGroups -Configuration $conf -ValidationHash "Tom" -ReturnMaildata -WhatIf
 ```
 
+## Automatiserade tester
+
+Enhetstesterna körs med Pester 5 eller senare. Installera Pester för din
+användare från PowerShell:
+
+```powershell
+Install-Module Pester -MinimumVersion 5.0.0 -Scope CurrentUser -Force
+```
+
+Kör testerna med kodtäckningsanalys från projektets rot:
+
+```powershell
+$config = New-PesterConfiguration
+$config.Run.Path = './tests'
+$config.Run.Exit = $true
+$config.CodeCoverage.Enabled = $true
+$config.CodeCoverage.Path = @(
+    './Office365-Scoutnet-synk/*.ps1',
+    './Office365-Scoutnet-synk/*.psm1'
+)
+$config.CodeCoverage.OutputFormat = 'JaCoCo'
+$config.CodeCoverage.OutputPath = 'coverage.xml'
+$config.Output.CIFormat = 'Auto'
+Invoke-Pester -Configuration $config
+```
+
+Pester visar täckningsgraden i terminalen och skapar JaCoCo-rapporten
+`coverage.xml` i projektroten.
+
+Samma tester körs automatiskt i GitHub Actions vid push och pull request mot
+`master`. Workflowen publicerar XML-rapporten och en HTML-rapport som artifact
+`pester-coverage` för varje körning. Ladda ner och packa upp artifactet från
+GitHub Actions-körningen och öppna `coverage-report/index.html` i en webbläsare.
+
 ## Tekniska förtydliganden
 
 ### Uppdatering av distributions listor med hjälp av SNSUpdateExchangeDistributionGroups

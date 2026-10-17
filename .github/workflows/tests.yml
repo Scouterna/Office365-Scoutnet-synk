@@ -1,0 +1,55 @@
+name: unit tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  pester:
+    name: Run Pester tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Pester
+        shell: pwsh
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          Install-Module Pester -MinimumVersion 5.0.0 -Scope CurrentUser -Force -SkipPublisherCheck -ErrorAction Stop
+      - name: Run tests
+        shell: pwsh
+        run: |
+          $config = New-PesterConfiguration
+          $config.Run.Path = './tests'
+          $config.Run.Exit = $true
+          $config.CodeCoverage.Enabled = $true
+          $config.CodeCoverage.Path = @(
+            './Office365-Scoutnet-synk/*.ps1',
+            './Office365-Scoutnet-synk/*.psm1'
+          )
+          $config.CodeCoverage.OutputFormat = 'JaCoCo'
+          $config.CodeCoverage.OutputPath = 'coverage.xml'
+          $config.Output.CIFormat = 'Auto'
+          Invoke-Pester -Configuration $config
+      - name: Set up .NET
+        if: always() && hashFiles('coverage.xml') != ''
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Generate HTML coverage report
+        if: always() && hashFiles('coverage.xml') != ''
+        shell: pwsh
+        run: |
+          dotnet tool install dotnet-reportgenerator-globaltool --tool-path ./.tools
+          & ./.tools/reportgenerator "-reports:coverage.xml" "-targetdir:coverage-report" "-reporttypes:Html"
+      - name: Publish coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pester-coverage
+          path: |
+            coverage.xml
+            coverage-report/
+          if-no-files-found: warn

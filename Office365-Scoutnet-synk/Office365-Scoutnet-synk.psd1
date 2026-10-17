@@ -135,6 +135,8 @@ PrivateData = @{
         # ReleaseNotes of this module
         ReleaseNotes = @'
 ## 2.1.0
+Rättade hanteringen av maillistor så att konfigurerade Scoutnet-listor väljs utifrån scoutnet_list_id.
+Förhindrade att samma e-postadress läggs till flera gånger i OtherMails när användarkontot uppdateras.
 Uppdaterade och låste Microsoft.Graph modulerna till version 2.41.2. De nyare versionerna fungerar i azure runbooks.
 Uppdaterade ExchangeOnlineManagement till version 3.10.1.
 Lade till support för TLS 1.3 och tog bort äldre versioner.
@@ -205,4 +207,3 @@ Stödjer windows powershell 5.1 och powershell 7 eller nyare.
 # DefaultCommandPrefix = ''
 
 }
-
