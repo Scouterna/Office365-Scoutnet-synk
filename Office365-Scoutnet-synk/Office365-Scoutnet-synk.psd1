@@ -135,8 +135,8 @@ PrivateData = @{
         # ReleaseNotes of this module
         ReleaseNotes = @'
 ## 2.1.0
-Uppdaterade och låste Microsoft.Graph modulerna till version 2.30.0. De nyare versionerna fungerar i azure runbooks.
-Uppdaterade ExchangeOnlineManagement till version 3.9.0.
+Uppdaterade och låste Microsoft.Graph modulerna till version 2.41.2. De nyare versionerna fungerar i azure runbooks.
+Uppdaterade ExchangeOnlineManagement till version 3.10.1.
 Lade till support för TLS 1.3 och tog bort äldre versioner.
 ## 2.0.8
 Fixade så att när en användare skapas i Office 365 så kopplas licenser till kontot direkt efter skapandet.
