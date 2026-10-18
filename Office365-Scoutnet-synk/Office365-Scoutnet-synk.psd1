@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.1.0'
+ModuleVersion = '3.0.0'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -134,7 +134,7 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
-## 2.1.0
+## 3.0.0
 Rättade hanteringen av maillistor så att konfigurerade Scoutnet-listor väljs utifrån scoutnet_list_id.
 Förhindrade att samma e-postadress läggs till flera gånger i OtherMails när användarkontot uppdateras.
 Uppdaterade och låste Microsoft.Graph modulerna till version 2.41.2. De nyare versionerna fungerar i azure runbooks.
@@ -145,6 +145,7 @@ Lade till stöd för -WhatIf och -Confirm vid ändringar av mailkontakter och ko
 Justerade utmatningen av samlingsobjekt så att de returneras utan enumerering vid anrop till Write-Output -NoEnumerate.
 Löste linting problem med att använda Write-Output utan -NoEnumerate i en pipeline.
 Alla lintvarningar är nu lösta.
+Unittester tillagda för att öka kvaliteten och säkerställa att funktioner fungerar som förväntat.
 
 ## 2.0.8
 Fixade så att när en användare skapas i Office 365 så kopplas licenser till kontot direkt efter skapandet.

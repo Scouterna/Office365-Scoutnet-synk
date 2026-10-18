@@ -12,6 +12,15 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+      - name: "Validate release tag"
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          semver_regex='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+          if [[ ! "$TAG_NAME" =~ $semver_regex ]]; then
+            echo "Tag '$TAG_NAME' is not a valid version tag (expected vMAJOR.MINOR.PATCH with optional SemVer prerelease/build metadata)." >&2
+            exit 1
+          fi
       - name: "Build release package"
         run: |
           zip -r Office365-Scoutnet-synk.zip Office365-Scoutnet-synk
@@ -34,7 +43,7 @@ jobs:
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          prerelease: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             LICENSE
             MaillistSynk.ps1
