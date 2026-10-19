@@ -3,7 +3,7 @@
 Synkronisering av Scoutnets e-postlistor till Office 365 kan även köras lokalt
 på en dator med Windows 10. Äldre windows versioner borde även de fungera,
 men det är inte testat.
-Powershell 7 eller nyare på Linux funkar och är testat.
+Powershell 7.6 eller nyare krävs.
 
 För att göra det så behöver du förbereda så din dator har de moduler som behövs.
 Alla kommandon kös i powershell

@@ -23,13 +23,13 @@ Author = 'Karl Thorén <karl.thoren@scouterna.se>'
 CompanyName = 'Scouterna'
 
 # Copyright statement for this module
-Copyright = 'c 2019, 2020, 2021, 2022, 2023, 2025, 2026 All rights reserved.'
+Copyright = 'c 2019 All rights reserved.'
 
 # Description of the functionality provided by this module
 Description = 'Funktioner för att synkronisera Scoutnet med Office 365.'
 
 # Minimum version of the Windows PowerShell engine required by this module
-PowerShellVersion = '5.1'
+PowerShellVersion = '7.6'
 
 # Name of the Windows PowerShell host required by this module
 # PowerShellHostName = ''
@@ -116,7 +116,7 @@ PrivateData = @{
 
     PSData = @{
 
-        Prerelease = "beta1"
+        Prerelease = "beta2"
 
         # Tags applied to this module. These help with module discovery in online galleries.
         Tags = @('scoutnet',
@@ -138,7 +138,9 @@ PrivateData = @{
 Rättade hanteringen av maillistor så att konfigurerade Scoutnet-listor väljs utifrån scoutnet_list_id.
 Förhindrade att samma e-postadress läggs till flera gånger i OtherMails när användarkontot uppdateras.
 Uppdaterade och låste Microsoft.Graph modulerna till version 2.41.2. De nyare versionerna fungerar i azure runbooks.
-Uppdaterade ExchangeOnlineManagement till version 3.10.1.
+Uppdaterade ExchangeOnlineManagement till version 3.10.1. Den versionen kräver PowerShell 7.6 i Azure Automation.
+SetupAzure.ps1 uppdaterad så att den kan ta emot parametrar för kontonamn, resursgrupp och plats. Det gör det möjligt att skapa flera olika Azure Automation-konton med olika namn.
+SetupAzure.ps1 installerar version 2.41.2 av Microsoft.Graph modulerna och version 3.10.1 av ExchangeOnlineManagement modulen.
 Lade till support för TLS 1.3 och tog bort äldre versioner.
 Lade till stöd för -WhatIf och -Confirm vid ändringar av mailkontakter och konfiguration.
 Ändrade JSON-konverteringen så att varje objekt som skickas via pipeline konverteras separat.

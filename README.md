@@ -12,8 +12,7 @@ Microsoft Office 365 non-profit.
 
 Azure gratiskonto kan troligtvis också användas, då det ingår 500 minuter Azure automation.
 
-Modulen går även att köra på en dator som har minst Powershell 5.1 installerad.
-Powershell 7.1 stöds också så modulen går att köra på linux.
+Modulen går även att köra på en dator som har minst Powershell 7.6 installerad.
 
 Vid problem, fel, frågor eller tips på förbättringar eller fler funktioner
 som du saknar; lägg ett ärende under `Issues` eller mejla karl.thoren@scouterna.se
@@ -40,19 +39,24 @@ I non-profit portalen aktivera scoutkårens `Microsoft Azure Sponsorship Subscri
 en användare som är "domänadmin".
 
 För att skapa en resursgrupp och ett `Azure Automation Account` finns skriptet
-[setupAzure.ps1](setupAzure.ps1) som skapar en `Azure Automation Account` i
-en resursgrupp. Sen installeras nödvändiga moduler och senaste `Office365-Scoutnet-synk`
-modulen.
+[setupAzure.ps1](setupAzure.ps1) som skapar kontot, en Runtime Environment för
+PowerShell 7.6 och de moduler som behövs för synkroniseringen. Skriptet skapar
+inte själva runbooken.
 
-Skriptet installerar modulerna till PowerShell-runtime 7.2 i Azure Automation.
-Välj PowerShell 7.2 när du skapar runbooken. Skriptet skapar inte själva runbooken.
+När du skapar runbooken, välj Runtime Environment
+`PowerShell-7.6-Office365-Scoutnet-synk`.
 
 Skriptet frågar även efter API nycklarna för scoutnet och skapar `Credential Asset`
 för de med namnen som är i exemplet.
 
-[setupAzure.ps1](setupAzure.ps1) ska köras på en PC med windows powershell 5.1 eller
-powershell 7.1 (eller nyare).
+[setupAzure.ps1](setupAzure.ps1) ska köras på en PC med windows powershell 7.6.
 När skriptet loggar in mot Azure så välj en användare som är "domänadmin".
+Kontonamn, resursgrupp och Azure-region kan anges som parametrar; om de utelämnas
+används `Scoutnet-sync` för konto och resursgrupp samt `swedencentral` som region:
+
+```powershell
+.\setupAzure.ps1 -accountName 'Scoutnet-sync' -rgName 'Scoutnet-sync' -location 'swedencentral'
+```
 
 Innan skriptet körs behöver Az- och Graph-modulerna installeras:
 
@@ -61,11 +65,45 @@ Install-Module -Name Az.Accounts, Az.Resources, Az.Automation -Repository PSGall
 Install-Module -Name Microsoft.Graph -Repository PSGallery -Scope CurrentUser
 ```
 
-Skriptet kontrollerar att de moduler det använder finns installerade lokalt
-innan det ansluter till Azure.
+Skriptet använder Azure Automation REST API via `Invoke-AzRestMethod` för att
+skapa Runtime Environment och installera dess paket. Graph-modulerna,
+`ExchangeOnlineManagement` och `Office365-Scoutnet-synk` läggs i miljön.
+Standardpaketen anges uttryckligen till Az `15.1.0` och Azure CLI `2.77.0`.
 
 När skriptet är klart kan instruktionerna i [Synkronisera grupper](#Synkronisera-grupper)
 användas för att sätta upp synkronisering.
+
+### Uppgradera modulen i en Runtime Environment
+
+Skriptet [updateraAzureOffice365ScoutnetSync.ps1](updateraAzureOffice365ScoutnetSync.ps1)
+uppgraderar Runtime Environment `PowerShell-7.6-Office365-Scoutnet-synk` med
+`Office365-Scoutnet-synk` version `3.0.0-beta2` från PowerShell Gallery.
+Standardvärdena för Automation-kontot och resursgruppen är `Scoutnet-sync`.
+Ange andra värden om Automation-kontot eller resursgruppen har andra namn.
+
+Skriptet läser `RequiredModules` från modulmanifestet för den valda versionen
+och använder dess exakta `RequiredVersion` för varje beroende. Alla beroenden
+importeras före synkroniseringsmodulen i Runtime Environment för PowerShell
+`7.6`. Skriptet avbryts om manifestet saknar exakta beroendeversioner, en import
+misslyckas eller slutkontrollen hittar fel version eller status.
+
+Installera Az-modulerna vid behov, anslut till rätt Azure-prenumeration och kör:
+
+```powershell
+Install-Module -Name Az.Accounts, Az.Automation -Repository PSGallery -Scope CurrentUser
+Connect-AzAccount
+.\updateraAzureOffice365ScoutnetSync.ps1
+```
+
+En annan modulversion kan anges med `-ModuleVersion`. Ange Automation-kontot och
+resursgruppen med respektive parameter om de har andra namn:
+
+```powershell
+.\updateraAzureOffice365ScoutnetSync.ps1 `
+    -AutomationAccountName '<Automation-konto>' `
+    -ResourceGroupName '<resursgrupp>' `
+    -ModuleVersion '<modulversion>'
+```
 
 ### Uppgradera Microsoft Graph i en befintlig Azure-installation
 
@@ -139,7 +177,7 @@ Att skapa och sätta upp kontot manuellt går till ungefär så här:
     - *Get a csv/xls/json list of members, based on mailing lists you have set up*.
         (api/group/customlists)
 
-1. I Azure resursgruppen skapa `Credential Asset` för varje API nyckel.
+1. I samma Azure Automation Account som runbooken skapa `Credential Asset` för varje API nyckel.
     Användarnamnet är Kår-ID för webbtjänster som står på sidan Webbkoppling.
     Lösenordet är API-nyckeln.
     1. Credential Asset: `ScoutnetApiCustomLists`, API-nyckel för api/group/customlists
@@ -394,6 +432,7 @@ används för att logga in eller så måste kontot ha rätt att skicka ifrån de
 Modulen `Send-MgUserMail`används och den har en del begränsningar.
 Körs synkroniseringen med en "ManagedIdentity" i Azure online automation så kan
 man välja att den använda identiteten kan maila som andra konton på domänen.
+Graph-token från Az-modulen hanteras i det format som Microsoft Graph-modulen kräver.
 
 - Licenshanteringen är ändrad, så `LicenseAssignment` behöver ändras.
 - Inloggningshanteringen är ändrad. Nu måste `Connect-SnSOffice365` användas

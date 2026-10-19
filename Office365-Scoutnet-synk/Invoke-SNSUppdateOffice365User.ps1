@@ -43,7 +43,7 @@
     {
         foreach($licensepack in $Script:SNSConf.LicenseAssignment.keys)
         {
-            $packSku = Get-MgSubscribedSku -All |
+            $packSku = Get-MgSubscribedSku |
                 Where-Object { $_.SkuPartNumber -eq $licensepack } |
                 Select-Object -First 1
             if ($null -eq $packSku)

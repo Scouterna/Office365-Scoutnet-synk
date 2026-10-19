@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+﻿#Requires -Version 7.6
 
 [Net.ServicePointManager]::SecurityProtocol = "tls13, tls12"
 

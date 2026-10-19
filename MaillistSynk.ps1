@@ -163,14 +163,43 @@ p   {margin-top:0; margin-bottom:0}
 
 # Här börjar själva skriptet.
 
+function Get-SNSAutomationCredential
+{
+    param(
+        [Parameter(Mandatory)]
+        [string]$Name
+    )
+
+    foreach ($credentialName in @($Name, "$Name-Credentials"))
+    {
+        try
+        {
+            $credential = Get-AutomationPSCredential -Name $credentialName -ErrorAction Stop
+            if ($null -ne $credential)
+            {
+                return $credential
+            }
+        }
+        catch
+        {
+            if ($_.Exception.Message -notlike 'Credential not found.*')
+            {
+                throw
+            }
+        }
+    }
+
+    throw "Credential not found. Create a Credential named '$Name' in this Azure Automation account."
+}
+
 # Hämtar credentials för Scoutnet API och för Office 365.
 try
 {
     # Credentials för Scoutnets API api/group/customlists
-    $conf.CredentialCustomlists = Get-AutomationPSCredential -Name 'ScoutnetApiCustomLists-Credentials' -ErrorAction "Stop"
+    $conf.CredentialCustomlists = Get-SNSAutomationCredential -Name 'ScoutnetApiCustomLists'
 
     # Credentials för Scoutnets API api/group/memberlist
-    $conf.CredentialMemberlist = Get-AutomationPSCredential -Name 'ScoutnetApiGroupMemberList-Credentials' -ErrorAction "Stop"
+    $conf.CredentialMemberlist = Get-SNSAutomationCredential -Name 'ScoutnetApiGroupMemberList'
 }
 Catch
 {

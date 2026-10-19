@@ -223,7 +223,7 @@ Describe 'Connect-SnSOffice365' {
                 $ResourceTypeName -eq 'MSGraph'
             }
             Should -Invoke Connect-MgGraph -Times 1 -Exactly -ParameterFilter {
-                $AccessToken -eq 'graph-token'
+                $AccessToken -is [System.Security.SecureString]
             }
             Should -Invoke Connect-ExchangeOnline -Times 1 -Exactly -ParameterFilter {
                 $ManagedIdentity -and $Organization -eq 'example.org'
