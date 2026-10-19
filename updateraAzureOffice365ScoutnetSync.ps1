@@ -29,8 +29,15 @@ function Invoke-SNSAutomationRestMethod
         $ResourceId = 'https://management.azure.com/' + $ResourceId.TrimStart('/')
     }
 
+    $requestUri = $ResourceId
+    if ($requestUri -notmatch '[?&]api-version=')
+    {
+        $querySeparator = if ($requestUri.Contains('?')) { '&' } else { '?' }
+        $requestUri = "$requestUri${querySeparator}api-version=2024-10-23"
+    }
+
     $requestParameters = @{
-        Uri = [uri]"${ResourceId}?api-version=2024-10-23"
+        Uri = [uri]$requestUri
         Method = $Method
         ErrorAction = 'Stop'
     }
@@ -49,19 +56,122 @@ function Get-SNSRuntimeEnvironmentPackages
         [string]$PackagesResourceId
     )
 
-    $response = Invoke-SNSAutomationRestMethod -ResourceId $PackagesResourceId -Method GET
+    $allPackages = [System.Collections.Generic.List[object]]::new()
+    $resourceId = $PackagesResourceId
+    do
+    {
+        $response = Invoke-SNSAutomationRestMethod -ResourceId $resourceId -Method GET
+        if ($response.StatusCode -ne 200)
+        {
+            throw "Kunde inte läsa paketen i Runtime Environment. HTTP $($response.StatusCode): $($response.Content)"
+        }
+
+        $packageList = $response.Content | ConvertFrom-Json -ErrorAction Stop
+        if ($null -eq $packageList.value)
+        {
+            throw "Azure returnerade en ogiltig paketlista för Runtime Environment. HTTP $($response.StatusCode): $($response.Content)"
+        }
+
+        foreach ($package in $packageList.value)
+        {
+            $allPackages.Add($package)
+        }
+
+        $resourceId = $packageList.nextLink
+    } while (-not [string]::IsNullOrWhiteSpace($resourceId))
+
+    return $allPackages.ToArray()
+}
+
+function Get-SNSRuntimeEnvironmentPackage
+{
+    param(
+        [Parameter(Mandatory)]
+        [string]$PackageResourceId
+    )
+
+    $response = Invoke-SNSAutomationRestMethod -ResourceId $PackageResourceId -Method GET
+    if ($response.StatusCode -eq 404)
+    {
+        return $null
+    }
     if ($response.StatusCode -ne 200)
     {
-        throw "Kunde inte läsa paketen i Runtime Environment. HTTP $($response.StatusCode): $($response.Content)"
+        throw "Kunde inte läsa paketet i Runtime Environment. HTTP $($response.StatusCode): $($response.Content)"
     }
 
-    $packageList = $response.Content | ConvertFrom-Json -ErrorAction Stop
-    if ($null -eq $packageList.value)
+    $package = $response.Content | ConvertFrom-Json -ErrorAction Stop
+    if ($null -eq $package.properties)
     {
-        throw "Azure returnerade en ogiltig paketlista för Runtime Environment. HTTP $($response.StatusCode): $($response.Content)"
+        throw "Azure returnerade ett ogiltigt paketobjekt i Runtime Environment. HTTP $($response.StatusCode): $($response.Content)"
     }
 
-    @($packageList.value)
+    return $package
+}
+
+function Get-SNSRuntimeEnvironmentPackageVersion
+{
+    param(
+        [Parameter(Mandatory)]
+        [psobject]$Package
+    )
+
+    $version = [string]$Package.properties.contentLink.version
+    if (-not [string]::IsNullOrWhiteSpace($version))
+    {
+        return $version.Trim()
+    }
+
+    $version = [string]$Package.properties.version
+    if (-not [string]::IsNullOrWhiteSpace($version))
+    {
+        return $version.Trim()
+    }
+
+    $contentUri = [string]$Package.properties.contentLink.uri
+    if (-not [string]::IsNullOrWhiteSpace($contentUri))
+    {
+        $uri = [uri]$contentUri
+        $pathSegments = @($uri.AbsolutePath.TrimEnd('/').Split('/') | Where-Object { $_ })
+        if ($pathSegments.Count -ge 2 -and
+            [uri]::UnescapeDataString($pathSegments[-2]) -eq $Package.name)
+        {
+            return [uri]::UnescapeDataString($pathSegments[-1])
+        }
+    }
+
+    return ''
+}
+
+function Test-SNSSystemVersion
+{
+    param(
+        [Parameter(Mandatory)]
+        [string]$Version
+    )
+
+    $parsedVersion = $null
+    return [System.Version]::TryParse($Version, [ref]$parsedVersion)
+}
+
+function Test-SNSRuntimeEnvironmentPackageVersion
+{
+    param(
+        [Parameter(Mandatory)]
+        [psobject]$Package,
+        [Parameter(Mandatory)]
+        [string]$ExpectedVersion
+    )
+
+    if (Test-SNSSystemVersion -Version $ExpectedVersion)
+    {
+        return (Get-SNSRuntimeEnvironmentPackageVersion -Package $Package) -eq $ExpectedVersion
+    }
+
+    return (
+        (Get-SNSRuntimeEnvironmentPackageVersion -Package $Package) -eq $ExpectedVersion -or
+        [string]$Package.tags.snsSourceVersion -eq $ExpectedVersion
+    )
 }
 
 function Get-SNSRequiredPackages
@@ -181,17 +291,39 @@ function Install-SNSRuntimeEnvironmentPackage
         [Parameter(Mandatory)]
         [string]$PackageResourceId,
         [Parameter(Mandatory)]
-        [string]$PackagesResourceId
+        [string]$PackagesResourceId,
+        [psobject]$ExistingPackage
     )
 
-    $packagePayload = @{
+    $contentLink = @{
+        uri = "$PowerShellGalleryPackageUri/$($Package.Name)/$($Package.Version)"
+        version = $null
+    }
+    if (Test-SNSSystemVersion -Version $Package.Version)
+    {
+        $contentLink.version = $Package.Version
+    }
+
+    $packagePayloadData = @{
         properties = @{
-            contentLink = @{
-                uri = "$PowerShellGalleryPackageUri/$($Package.Name)/$($Package.Version)"
-                version = $Package.Version
+            contentLink = $contentLink
+        }
+    }
+    if (-not (Test-SNSSystemVersion -Version $Package.Version))
+    {
+        $tags = @{}
+        if ($null -ne $ExistingPackage -and $null -ne $ExistingPackage.tags)
+        {
+            foreach ($tagName in $ExistingPackage.tags.PSObject.Properties.Name)
+            {
+                $tags[$tagName] = $ExistingPackage.tags.$tagName
             }
         }
-    } | ConvertTo-Json -Depth 10
+        $tags['snsSourceVersion'] = $Package.Version
+        $packagePayloadData['tags'] = $tags
+    }
+
+    $packagePayload = $packagePayloadData | ConvertTo-Json -Depth 10
 
     $response = Invoke-SNSAutomationRestMethod `
         -ResourceId $PackageResourceId `
@@ -207,6 +339,7 @@ function Install-SNSRuntimeEnvironmentPackage
     $timeout = [TimeSpan]::FromMinutes(20)
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $previousState = $null
+    $versionMustMatch = Test-SNSSystemVersion -Version $Package.Version
     do
     {
         Start-Sleep -Seconds 10
@@ -224,7 +357,10 @@ function Install-SNSRuntimeEnvironmentPackage
         }
 
         $provisioningState = $installedPackage.properties.provisioningState
-        $installedVersion = $installedPackage.properties.contentLink.version
+        $installedVersion = Get-SNSRuntimeEnvironmentPackageVersion -Package $installedPackage
+        $versionMatches = Test-SNSRuntimeEnvironmentPackageVersion `
+            -Package $installedPackage `
+            -ExpectedVersion $Package.Version
         if ($provisioningState -ne $previousState)
         {
             Write-Host "Importstatus för $($Package.Name) $installedVersion`: $provisioningState"
@@ -236,12 +372,18 @@ function Install-SNSRuntimeEnvironmentPackage
             $importError = $installedPackage.properties.error
             throw "Importen av $($Package.Name) version $($Package.Version) misslyckades. $($importError.code): $($importError.message)"
         }
+        if ($provisioningState -eq 'Succeeded' -and
+            [string]::IsNullOrWhiteSpace($installedVersion) -and
+            (Test-SNSSystemVersion -Version $Package.Version))
+        {
+            throw "Azure rapporterar att $($Package.Name) är färdigimporterad men returnerar ingen version i properties.version, contentLink.version eller contentLink.uri. Paketdetaljer: $($installedPackage | ConvertTo-Json -Depth 10 -Compress)"
+        }
 
         if ($stopwatch.Elapsed -ge $timeout)
         {
             throw "Importen av $($Package.Name) version $($Package.Version) slutfördes inte inom 20 minuter."
         }
-    } while ($provisioningState -ne 'Succeeded' -or $installedVersion -ne $Package.Version)
+    } while ($provisioningState -ne 'Succeeded' -or ($versionMustMatch -and -not $versionMatches))
 }
 
 Write-Host "Kontrollerar Azure-inloggning och Automation-kontot '$AutomationAccountName' i resursgruppen '$ResourceGroupName'..."
@@ -277,12 +419,52 @@ $RequiredPackages = Get-SNSRequiredPackages
 Write-Host "Uppgraderar paket i Runtime Environment '$RuntimeEnvironmentName' enligt beroendena i $ModuleName $ModuleVersion..."
 foreach ($package in $RequiredPackages)
 {
-    Write-Host "Importerar $($package.Name) version $($package.Version)..."
     $packageResourceId = "$packagesResourceId/$([uri]::EscapeDataString($package.Name))"
+    $installedPackage = Get-SNSRuntimeEnvironmentPackage -PackageResourceId $packageResourceId
+    $installedVersion = if ($null -ne $installedPackage) {
+        Get-SNSRuntimeEnvironmentPackageVersion -Package $installedPackage
+    }
+    else {
+        ''
+    }
+    $provisioningState = if ($null -ne $installedPackage) {
+        [string]$installedPackage.properties.provisioningState
+    }
+    else {
+        ''
+    }
+
+    $versionIsSystemVersion = Test-SNSSystemVersion -Version $package.Version
+    if ($provisioningState -eq 'Succeeded' -and
+        [string]::IsNullOrWhiteSpace($installedVersion) -and
+        $versionIsSystemVersion)
+    {
+        throw "Azure rapporterar att $($package.Name) är färdigimporterad men returnerar ingen version i properties.version, contentLink.version eller contentLink.uri. Paketdetaljer: $($installedPackage | ConvertTo-Json -Depth 10 -Compress)"
+    }
+
+    if ($null -ne $installedPackage -and
+        (Test-SNSRuntimeEnvironmentPackageVersion -Package $installedPackage -ExpectedVersion $package.Version) -and
+        $provisioningState -eq 'Succeeded')
+    {
+        Write-Host "$($package.Name) version $($package.Version) är redan installerad. Hoppar över importen."
+        continue
+    }
+
+    if ($null -eq $installedPackage)
+    {
+        Write-Host "$($package.Name) saknas i Runtime Environment och importeras."
+    }
+    else
+    {
+        Write-Host "$($package.Name) importeras: Azure rapporterar version '$installedVersion' med status '$provisioningState'; förväntad version '$($package.Version)' med status 'Succeeded'."
+    }
+
+    Write-Host "Importerar $($package.Name) version $($package.Version)..."
     Install-SNSRuntimeEnvironmentPackage `
         -Package $package `
         -PackageResourceId $packageResourceId `
-        -PackagesResourceId $packagesResourceId
+        -PackagesResourceId $packagesResourceId `
+        -ExistingPackage $installedPackage
 }
 
 $installedPackages = Get-SNSRuntimeEnvironmentPackages -PackagesResourceId $packagesResourceId
@@ -296,9 +478,12 @@ foreach ($package in $RequiredPackages)
         throw "Slutkontrollen misslyckades: $($package.Name) saknas i Runtime Environment '$RuntimeEnvironmentName'."
     }
 
-    $installedVersion = $installedPackage.properties.contentLink.version
+    $installedVersion = Get-SNSRuntimeEnvironmentPackageVersion -Package $installedPackage
     $provisioningState = $installedPackage.properties.provisioningState
-    if ($installedVersion -ne $package.Version -or $provisioningState -ne 'Succeeded')
+    $versionMustMatch = Test-SNSSystemVersion -Version $package.Version
+    if (($versionMustMatch -and
+            -not (Test-SNSRuntimeEnvironmentPackageVersion -Package $installedPackage -ExpectedVersion $package.Version)) -or
+        $provisioningState -ne 'Succeeded')
     {
         throw "Slutkontrollen misslyckades för $($package.Name): version '$installedVersion', status '$provisioningState'. Förväntade version '$($package.Version)' med status 'Succeeded'."
     }
