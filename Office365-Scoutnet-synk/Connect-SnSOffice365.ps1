@@ -47,11 +47,7 @@
     if ($ManagedIdentity)
     {
         Connect-AzAccount -Identity -ErrorAction "Stop" |out-null
-        $token = (Get-AzAccessToken -ResourceTypeName MSGraph -ErrorAction "Stop").token
-        if ($token -is [string])
-        {
-            $token = ConvertTo-SecureString -String $token -AsPlainText -Force
-        }
+        $token = (Get-AzAccessToken -ResourceTypeName MSGraph -AsSecureString -ErrorAction "Stop").token
         Connect-MgGraph -AccessToken $token -ErrorAction "Stop" |out-null
     }
     else

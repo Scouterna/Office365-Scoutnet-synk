@@ -189,7 +189,7 @@ Describe 'Connect-SnSOffice365' {
                 param([switch]$Identity, $ErrorAction)
             }
             function Get-AzAccessToken {
-                param($ResourceTypeName, $ErrorAction)
+                param($ResourceTypeName, [switch]$AsSecureString, $ErrorAction)
             }
             function Connect-MgGraph {
                 param($AccessToken, [switch]$UseDeviceCode, $ContextScope, $Scopes, $ErrorAction)
@@ -208,7 +208,9 @@ Describe 'Connect-SnSOffice365' {
 
             Mock Connect-AzAccount {}
             Mock Get-AzAccessToken {
-                return [pscustomobject]@{ Token = 'graph-token' }
+                return [pscustomobject]@{
+                    Token = ConvertTo-SecureString -String 'graph-token' -AsPlainText -Force
+                }
             }
             Mock Connect-MgGraph {}
             Mock Connect-ExchangeOnline {}
@@ -220,7 +222,7 @@ Describe 'Connect-SnSOffice365' {
                 $Identity
             }
             Should -Invoke Get-AzAccessToken -Times 1 -Exactly -ParameterFilter {
-                $ResourceTypeName -eq 'MSGraph'
+                $ResourceTypeName -eq 'MSGraph' -and $AsSecureString
             }
             Should -Invoke Connect-MgGraph -Times 1 -Exactly -ParameterFilter {
                 $AccessToken -is [System.Security.SecureString]
