@@ -360,10 +360,15 @@ Describe 'Get-SNSUsersInSecurityGroup' {
 Describe 'Invoke-SNSUppdateOffice365User' {
             It 'creates, updates, re-enables, disables, and retains users according to Scoutnet membership' {
                 InModuleScope Office365-Scoutnet-synk {
-                    function Get-MgSubscribedSku {}
+                    function Invoke-MgGraphRequest {
+                        param($Method, $Uri, $ErrorAction)
+                    }
                     function Get-EXOMailbox {}
 
                     $configuration = [SNSConfiguration]::new()
+                    $configuration.LicenseAssignment = @{
+                        'O365_BUSINESS_ESSENTIALS' = @('YAMMER_ENTERPRISE')
+                    }
                     $configuration.CredentialCustomlists = [pscredential]::new(
                         'test',
                         [System.Security.SecureString]::new()
@@ -415,6 +420,30 @@ Describe 'Invoke-SNSUppdateOffice365User' {
                     )
 
                     Mock Write-SNSLog {}
+                    Mock Invoke-MgGraphRequest {
+                        if ($Uri -eq 'https://graph.microsoft.com/v1.0/subscribedSkus')
+                        {
+                            return @{
+                                value = @()
+                                '@odata.nextLink' = 'https://graph.microsoft.com/v1.0/subscribedSkus?$skiptoken=next'
+                            }
+                        }
+
+                        return @{
+                            value = @(
+                                [pscustomobject]@{
+                                    SkuPartNumber = 'O365_BUSINESS_ESSENTIALS'
+                                    SkuId = 'sku-id'
+                                    ServicePlans = @(
+                                        [pscustomobject]@{
+                                            ServicePlanName = 'YAMMER_ENTERPRISE'
+                                            ServicePlanId = 'plan-id'
+                                        }
+                                    )
+                                }
+                            )
+                        }
+                    }
                     Mock Get-EXOMailbox { return $allAccounts }
                     Mock Get-SNSUsersInSecurityGroupScoutnet { return $activeGroupAccounts }
                     Mock Get-SNSDisabledScoutnetUserList { return $disabledGroupAccounts }
@@ -435,7 +464,18 @@ Describe 'Invoke-SNSUppdateOffice365User' {
                     Invoke-SNSUppdateOffice365User -Configuration $configuration
 
                     Should -Invoke Invoke-SNSCreateUserAndUpdateUserData -Times 1 -Exactly -ParameterFilter {
-                        $memberData.Count -eq 1 -and $memberData[0].member_no -eq 'new-member'
+                        $memberData.Count -eq 1 -and
+                        $memberData[0].member_no -eq 'new-member' -and
+                        $userLicenseData.Count -eq 1 -and
+                        $userLicenseData[0].SkuId -eq 'sku-id' -and
+                        $userLicenseData[0].DisabledPlans[0] -eq 'plan-id'
+                    }
+                    Should -Invoke Invoke-MgGraphRequest -Times 2 -Exactly -ParameterFilter {
+                        $Method -eq 'GET' -and
+                        $Uri -in @(
+                            'https://graph.microsoft.com/v1.0/subscribedSkus',
+                            'https://graph.microsoft.com/v1.0/subscribedSkus?$skiptoken=next'
+                        )
                     }
                     Should -Invoke Invoke-SNSEnableAccount -Times 1 -Exactly -ParameterFilter {
                         $AccountData.CustomAttribute1 -eq 'returning-member'
@@ -481,19 +521,43 @@ Describe 'Invoke-SNSUppdateOffice365User' {
 
             It 'logs and stops when a configured license SKU cannot be found' {
                 InModuleScope Office365-Scoutnet-synk {
-                    function Get-MgSubscribedSku {}
+                    function Invoke-MgGraphRequest {
+                        param($Method, $Uri, $ErrorAction)
+                    }
                     function Get-EXOMailbox {}
 
                     $configuration = [SNSConfiguration]::new()
                     $configuration.LicenseAssignment = @{ 'Missing SKU' = @() }
                     Mock Write-SNSLog {}
-                    Mock Get-MgSubscribedSku { return @() }
+                    Mock Invoke-MgGraphRequest { return @{ value = @() } }
                     Mock Get-EXOMailbox {}
 
                     Invoke-SNSUppdateOffice365User -Configuration $configuration
 
                     Should -Invoke Write-SNSLog -Times 1 -Exactly -ParameterFilter {
                         $Level -eq 'Error' -and $Message -like "*Missing SKU*"
+                    }
+                    Should -Invoke Get-EXOMailbox -Times 0 -Exactly
+                }
+            }
+
+            It 'logs and stops when Microsoft Graph cannot return subscribed SKUs' {
+                InModuleScope Office365-Scoutnet-synk {
+                    function Invoke-MgGraphRequest {
+                        param($Method, $Uri, $ErrorAction)
+                    }
+                    function Get-EXOMailbox {}
+
+                    $configuration = [SNSConfiguration]::new()
+                    $configuration.LicenseAssignment = @{ 'Configured SKU' = @() }
+                    Mock Write-SNSLog {}
+                    Mock Invoke-MgGraphRequest { throw 'Graph request failed' }
+                    Mock Get-EXOMailbox {}
+
+                    Invoke-SNSUppdateOffice365User -Configuration $configuration
+
+                    Should -Invoke Write-SNSLog -Times 1 -Exactly -ParameterFilter {
+                        $Level -eq 'Error' -and $Message -like '*Graph request failed*'
                     }
                     Should -Invoke Get-EXOMailbox -Times 0 -Exactly
                 }

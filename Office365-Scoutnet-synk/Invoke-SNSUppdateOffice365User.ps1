@@ -41,9 +41,26 @@
     $userLicenseData = @()
     try
     {
+        $subscribedSkus = @()
+        if ($Script:SNSConf.LicenseAssignment.Count -gt 0)
+        {
+            $skuUri = 'https://graph.microsoft.com/v1.0/subscribedSkus'
+            do
+            {
+                $skuResponse = Invoke-MgGraphRequest -Method GET -Uri $skuUri -ErrorAction Stop
+                if ($null -eq $skuResponse -or $null -eq $skuResponse.value)
+                {
+                    throw 'Microsoft Graph returned an invalid subscribed SKU response.'
+                }
+
+                $subscribedSkus += @($skuResponse.value)
+                $skuUri = $skuResponse.'@odata.nextLink'
+            } while (-not [string]::IsNullOrWhiteSpace($skuUri))
+        }
+
         foreach($licensepack in $Script:SNSConf.LicenseAssignment.keys)
         {
-            $packSku = Get-MgSubscribedSku |
+            $packSku = $subscribedSkus |
                 Where-Object { $_.SkuPartNumber -eq $licensepack } |
                 Select-Object -First 1
             if ($null -eq $packSku)
