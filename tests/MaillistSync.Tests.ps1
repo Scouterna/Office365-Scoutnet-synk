@@ -99,7 +99,7 @@ Describe 'SNSUpdateExchangeDistributionGroups' {
             Mock Get-SNSUserEmail { return @{}, 'member-hash' }
             Mock Get-SNSExchangeMailListMember {}
 
-            $mailSettingsHash = '{0:X8}' -f (($configuration.MailListSettings | ConvertTo-Json).GetHashCode())
+            $mailSettingsHash = Get-SNSStableHash -InputObject $configuration.MailListSettings
             $expectedHash = "0xlist-hashmember-hash$mailSettingsHash"
             $validationHash = SNSUpdateExchangeDistributionGroups `
                 -ValidationHash $expectedHash -Configuration $configuration

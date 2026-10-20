@@ -103,6 +103,5 @@
     }
     Write-SNSLog "Done"
 
-    $str = $CustomLists | ConvertTo-Json
-    return $CustomLists, ("{0:X8}" -f ($str.GetHashCode()))
+    return $CustomLists, (Get-SNSStableHash -InputObject $CustomLists)
 }

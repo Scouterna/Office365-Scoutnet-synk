@@ -480,7 +480,7 @@ Kör testerna med kodtäckningsanalys från projektets rot:
 ```powershell
 $config = New-PesterConfiguration
 $config.Run.Path = './tests'
-$config.Run.Exit = $true
+$config.Run.Exit = $false
 $config.CodeCoverage.Enabled = $true
 $config.CodeCoverage.Path = @(
     './Office365-Scoutnet-synk/*.ps1',
@@ -491,6 +491,10 @@ $config.CodeCoverage.OutputPath = 'coverage.xml'
 $config.Output.CIFormat = 'Auto'
 Invoke-Pester -Configuration $config
 ```
+
+`$config.Run.Exit = $true` avslutar PowerShell-processen när testerna är klara.
+Använd därför inte den inställningen i en interaktiv terminal; den används i
+GitHub Actions för att avsluta teststeget med rätt statuskod.
 
 Pester visar täckningsgraden i terminalen och skapar JaCoCo-rapporten
 `coverage.xml` i projektroten.
@@ -529,6 +533,9 @@ Det här är för att kunna följa GDPR. Kontakter till Scouter som slutat ska t
     matchande Scoutnet ID upp.
     Exchange fältet `CustomAttribute1` ska innehålla Scoutnet ID.
     1. Lägg in eventuella extra e-postadresser.
+
+Valideringshashen beräknas stabilt från Scoutnet-data och inställningar. Samma
+data ger därför samma hash även om ordningen på listor eller medlemmar varierar.
 
 ### E-postadresser genereras på följande sätt
 

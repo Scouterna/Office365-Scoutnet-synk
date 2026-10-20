@@ -6,6 +6,7 @@
 
 . $PSScriptRoot\SNSConfiguration.ps1
 . $PSScriptRoot\Write-SNSLog.ps1
+. $PSScriptRoot\Get-SNSStableHash.ps1
 . $PSScriptRoot\ConvertTo-SNSJSONHash.ps1
 . $PSScriptRoot\Receive-SNSApiJson.ps1
 . $PSScriptRoot\Get-SNSApiGroupCustomlist.ps1
@@ -237,7 +238,7 @@ function SNSUpdateExchangeDistributionGroups
     # Fetch all members and their mailaddresses.
     $allMailAddresses, $allMailAddressesHash = Get-SNSUserEmail -CredentialMemberlist $SNSConf.CredentialMemberlist
 
-    $MailListSettingsHash = ("{0:X8}" -f (($MailListSettings | ConvertTo-Json).GetHashCode()))
+    $MailListSettingsHash = Get-SNSStableHash -InputObject $MailListSettings
 
     $OutValidationHash = $ValidationHash
     $NewValidationHash = "0x{0}{1}{2}" -f ($CustomListsHash, $allMailAddressesHash, $MailListSettingsHash)

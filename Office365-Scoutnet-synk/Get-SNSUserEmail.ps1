@@ -79,6 +79,5 @@
         $allMailAddresses.Add($member.member_no.value, $memberData)
     }
 
-    $str = $allMailAddresses | ConvertTo-Json
-    return $allMailAddresses, ("{0:X8}" -f ($str.GetHashCode()))
+    return $allMailAddresses, (Get-SNSStableHash -InputObject $allMailAddresses)
 }

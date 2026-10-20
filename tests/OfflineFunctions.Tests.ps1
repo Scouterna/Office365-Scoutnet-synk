@@ -3,6 +3,7 @@ BeforeAll {
 
     . (Join-Path $modulePath 'SNSConfiguration.ps1')
     . (Join-Path $modulePath 'Write-SNSLog.ps1')
+    . (Join-Path $modulePath 'Get-SNSStableHash.ps1')
     . (Join-Path $modulePath 'Receive-SNSApiJson.ps1')
     . (Join-Path $modulePath 'Get-SNSApiGroupMemberlist.ps1')
     . (Join-Path $modulePath 'Get-SNSApiGroupCustomlist.ps1')
@@ -11,6 +12,31 @@ BeforeAll {
     . (Join-Path $modulePath 'Invoke-SNSUppdateOffice365User.ps1')
 
     $credential = [pscredential]::new('test', (ConvertTo-SecureString 'test' -AsPlainText -Force))
+}
+
+Describe 'Get-SNSStableHash' {
+    It 'returns the same hash when hashtable and collection ordering differs' {
+        $first = @{
+            members = @('member-2', 'member-1')
+            settings = @{
+                enabled = $true
+                name = 'Scoutnet'
+            }
+        }
+        $second = @{
+            settings = @{
+                name = 'Scoutnet'
+                enabled = $true
+            }
+            members = @('member-1', 'member-2')
+        }
+
+        $firstHash = Get-SNSStableHash -InputObject $first
+        $secondHash = Get-SNSStableHash -InputObject $second
+
+        $firstHash | Should -Be $secondHash
+        $firstHash | Should -Match '^[0-9A-F]{64}$'
+    }
 }
 
 Describe 'New-SNSConfiguration' {
@@ -180,7 +206,7 @@ Describe 'Get-SNSUserEmail' {
         $mailData['1002'].contacts_addresses | Should -BeNullOrEmpty
         $mailData['1002'].ContainsKey('primary_email') | Should -Be $false
         $mailData['1002'].ContainsKey('alt_email') | Should -Be $false
-        $hash | Should -Match '^[0-9A-F]{8}$'
+        $hash | Should -Match '^[0-9A-F]{64}$'
     }
 
     It 'handles parent-only, alternate-only, and duplicate primary and alternate addresses' {
@@ -285,7 +311,7 @@ Describe 'Get-SNSMaillistInfo' {
         $lists['list-1'].title | Should -Be 'Scout list'
         @($lists['list-1'].ledare) | Should -Be @('leader-1')
         @($lists['list-1'].scouter) | Should -Be @('scout-1', 'scout-2')
-        $hash | Should -Match '^[0-9A-F]{8}$'
+        $hash | Should -Match '^[0-9A-F]{64}$'
     }
 
     It 'puts static-list members in the leader collection without fetching rules' {
