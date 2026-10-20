@@ -333,9 +333,11 @@ Describe 'Receive-SNSApiJson' {
                 return '{"data":{"id":"member-list"}}'
             }
 
+            $script:SNSConf.JsonFileDirectory = Join-Path $TestDrive 'api-json'
             $result = Receive-SNSApiJson -Uri 'https://example.org/api/memberlist' -Credential $credential
 
             $result.data.id | Should -Be 'member-list'
+            Test-Path -LiteralPath (Join-Path $script:SNSConf.JsonFileDirectory 'memberlist.json') | Should -BeFalse
             Should -Invoke Invoke-WebRequest -Times 1 -Exactly -ParameterFilter {
                 $Uri -eq 'https://example.org/api/memberlist' -and
                 $Headers.Authorization -eq ('Basic ' + [Convert]::ToBase64String(
@@ -345,6 +347,29 @@ Describe 'Receive-SNSApiJson' {
                 )) -and
                 $UseBasicParsing -and $ErrorAction -eq 'Stop'
             }
+        }
+    }
+
+    It 'saves the downloaded JSON when requested' {
+        InModuleScope Office365-Scoutnet-synk {
+            $securePassword = [System.Security.SecureString]::new()
+            $securePassword.AppendChar('x')
+            $securePassword.MakeReadOnly()
+            $credential = [pscredential]::new('scout-user', $securePassword)
+            $script:SNSConf.JsonFileDirectory = Join-Path $TestDrive 'api-json'
+            Mock Invoke-WebRequest {
+                return '{"data":{"id":"saved-list"}}'
+            }
+
+            $result = Receive-SNSApiJson `
+                -Uri 'https://example.org/api/memberlist' `
+                -Credential $credential `
+                -FileName 'memberlist.json' `
+                -SaveFile $true
+
+            $result.data.id | Should -Be 'saved-list'
+            Get-Content -LiteralPath (Join-Path $script:SNSConf.JsonFileDirectory 'memberlist.json') -Raw |
+                Should -Be '{"data":{"id":"saved-list"}}'
         }
     }
 

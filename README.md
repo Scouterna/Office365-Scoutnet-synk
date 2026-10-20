@@ -500,6 +500,11 @@ Samma tester körs automatiskt i GitHub Actions vid push och pull request mot
 `pester-coverage` för varje körning. Ladda ner och packa upp artifactet från
 GitHub Actions-körningen och öppna `coverage-report/index.html` i en webbläsare.
 
+## Anonymisera nedladdade JSON-filer
+
+Skriptet [anonymize_json.py](anonymize_json.py) skapar anonymiserade kopior av
+nerladdad json data.
+
 ## Tekniska förtydliganden
 
 ### Uppdatering av distributions listor med hjälp av SNSUpdateExchangeDistributionGroups

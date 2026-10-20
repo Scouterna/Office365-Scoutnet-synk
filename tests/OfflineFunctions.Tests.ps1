@@ -17,12 +17,15 @@ Describe 'New-SNSConfiguration' {
     It 'creates a configuration with defaults and supplied values' {
         $configuration = New-SNSConfiguration -LicenseAssignment @{} `
             -DomainName 'example.org' -LogFilePath 'test.log' `
-            -AllUsersGroupName 'all-users'
+            -AllUsersGroupName 'all-users' `
+            -JsonFileDirectory 'json-output' -SaveJsonFiles $true
 
         $configuration.GetType().Name | Should -Be 'SNSConfiguration'
         $configuration.DomainName | Should -Be 'example.org'
         $configuration.LogFilePath | Should -Be 'test.log'
         $configuration.AllUsersGroupName | Should -Be 'all-users'
+        $configuration.JsonFileDirectory | Should -Be 'json-output'
+        $configuration.SaveJsonFiles | Should -BeTrue
         $configuration.PreferredLanguage | Should -Be 'sv-SE'
         $configuration.UsageLocation | Should -Be 'SE'
     }
@@ -115,8 +118,11 @@ Describe 'Get-SNSApiGroupMemberlist cache' {
     BeforeEach {
         $script:SNSConf = [SNSConfiguration]::new()
         $script:SNSConf.ApiGroupMemberlistCache = $null
+        $script:SNSConf.SaveJsonFiles = $true
 
         Mock Receive-SNSApiJson {
+            $script:receivedMemberlistFileName = $FileName
+            $script:receivedMemberlistSaveFile = $SaveFile
             return @{ data = @{ id = 'member-list' } }
         }
     }
@@ -127,6 +133,8 @@ Describe 'Get-SNSApiGroupMemberlist cache' {
 
         $first.data.id | Should -Be 'member-list'
         $second.data.id | Should -Be 'member-list'
+        $script:receivedMemberlistFileName | Should -Be 'memberlist.json'
+        $script:receivedMemberlistSaveFile | Should -BeTrue
         Should -Invoke Receive-SNSApiJson -Times 1 -Exactly
     }
 }
@@ -226,8 +234,12 @@ Describe 'Get-SNSUserEmail' {
 
 Describe 'Get-SNSApiGroupCustomlist' {
     It 'builds the list and rule query parameters' {
+        $script:SNSConf = [SNSConfiguration]::new()
+        $script:SNSConf.SaveJsonFiles = $true
         Mock Receive-SNSApiJson {
             $script:receivedUri = $Uri
+            $script:receivedFileName = $FileName
+            $script:receivedSaveFile = $SaveFile
             return @{ success = $true }
         }
 
@@ -236,6 +248,8 @@ Describe 'Get-SNSApiGroupCustomlist' {
 
         $result.success | Should -Be $true
         $script:receivedUri | Should -Be 'https://example.org/customlists?list_id=list-1&rule_id=rule-2'
+        $script:receivedFileName | Should -Be 'customlist_list-1_rule-2.json'
+        $script:receivedSaveFile | Should -BeTrue
     }
 }
 

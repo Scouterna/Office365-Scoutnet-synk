@@ -22,6 +22,12 @@
     .PARAMETER Credential
         Scoutnet Credentials for the selected API.
 
+    .PARAMETER FileName
+        Optional name of the JSON file to save.
+
+    .PARAMETER SaveFile
+        Save the downloaded JSON to the configured directory.
+
     .LINK
         https://www.scoutnet.se
 
@@ -40,7 +46,13 @@
 
         [Parameter(Mandatory=$True, HelpMessage="Credentials for api/group/memberlist")]
         [ValidateNotNull()]
-        [pscredential]$Credential
+        [pscredential]$Credential,
+
+        [Parameter(Mandatory=$False, HelpMessage="Name of the JSON file to save.")]
+        [string]$FileName,
+
+        [Parameter(Mandatory=$False, HelpMessage="Save the downloaded JSON file.")]
+        [bool]$SaveFile = $false
         )
 
     # Powershell version 5 do not support basic auth.
@@ -54,6 +66,38 @@
     $Headers = @{ Authorization = $Authorization }
 
     # Recuest the data and convert the result to a hash table. Basic parsing is mandatory on Azure automation.
-    $JsonHashTable = Invoke-WebRequest -Uri $Uri -Headers $Headers -UseBasicParsing -ErrorAction "Stop" | ConvertFrom-Json -ErrorAction "Stop" | ConvertTo-SNSJSONHash
+    $Response = Invoke-WebRequest -Uri $Uri -Headers $Headers -UseBasicParsing -ErrorAction "Stop"
+    $JsonContent = if ($Response -is [string]) { $Response } else { $Response.Content }
+
+    if ($SaveFile)
+    {
+        if ([string]::IsNullOrWhiteSpace($FileName) -or
+            [System.IO.Path]::GetFileName($FileName) -ne $FileName -or
+            [System.IO.Path]::IsPathRooted($FileName) -or
+            $FileName -in @('.', '..'))
+        {
+            throw "FileName must be a file name without a directory path when SaveFile is enabled."
+        }
+
+        $Directory = $script:SNSConf.JsonFileDirectory
+        if ([string]::IsNullOrWhiteSpace($Directory))
+        {
+            throw "SNSConfiguration.JsonFileDirectory must be set when saving API JSON files."
+        }
+
+        if (-not (Test-Path -LiteralPath $Directory -PathType Container))
+        {
+            New-Item -Path $Directory -ItemType Directory -Force -ErrorAction Stop | Out-Null
+        }
+
+        $FilePath = Join-Path -Path $Directory -ChildPath $FileName
+        [System.IO.File]::WriteAllText(
+            $FilePath,
+            $JsonContent,
+            [System.Text.UTF8Encoding]::new($false)
+        )
+    }
+
+    $JsonHashTable = $JsonContent | ConvertFrom-Json -ErrorAction "Stop" | ConvertTo-SNSJSONHash
     return $JsonHashTable
 }

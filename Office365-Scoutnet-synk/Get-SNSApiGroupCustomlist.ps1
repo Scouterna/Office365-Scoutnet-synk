@@ -58,6 +58,21 @@
         $ApiUri += "&rule_id=" + $ruleid
     }
 
-    $JsonHashTable = Receive-SNSApiJson -Uri $ApiUri -Credential $Credential
+    $FileName = 'customlist'
+    if (![string]::IsNullOrWhiteSpace($listid))
+    {
+        $FileName += "_$listid"
+    }
+    if (![string]::IsNullOrWhiteSpace($ruleid))
+    {
+        $FileName += "_$ruleid"
+    }
+    $FileName += '.json'
+
+    $JsonHashTable = Receive-SNSApiJson `
+        -Uri $ApiUri `
+        -Credential $Credential `
+        -FileName $FileName `
+        -SaveFile $Script:SNSConf.SaveJsonFiles
     return $JsonHashTable
 }

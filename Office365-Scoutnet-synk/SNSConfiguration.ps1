@@ -1,6 +1,8 @@
 ﻿class SNSConfiguration
 {
     [string]$LogFilePath='scoutnetSync.log'
+    [string]$JsonFileDirectory='ScoutnetJson'
+    [bool]$SaveJsonFiles=$false
     [string]$SyncGroupName='scoutnet'
     [string]$SyncGroupDescription="Säkerhetsgrupp som används vid synkronisering med Scoutnet. Användare i gruppen avaktiveras om de inte är kvar i Scoutnet."
     [string]$SyncGroupDisabledUsersName='scoutnetDisabledUsers'
@@ -75,6 +77,12 @@ function New-SNSConfiguration
     .PARAMETER LogFilePath
         Logfile name and path. Used to override the default value.
 
+    .PARAMETER JsonFileDirectory
+        Directory for downloaded Scoutnet API JSON files.
+
+    .PARAMETER SaveJsonFiles
+        Save downloaded Scoutnet API JSON files.
+
     .PARAMETER AllUsersGroupName
         Name of distribution group to add all new accounts to. The distribution group must exist.
 
@@ -138,6 +146,12 @@ function New-SNSConfiguration
 
         [Parameter(HelpMessage="Logfile name and path.")]
         [string]$LogFilePath,
+
+        [Parameter(HelpMessage="Directory for downloaded Scoutnet API JSON files.")]
+        [string]$JsonFileDirectory,
+
+        [Parameter(HelpMessage="Save downloaded Scoutnet API JSON files.")]
+        [bool]$SaveJsonFiles,
 
         [Parameter(HelpMessage="Name of distribution group to add all new accounts to.")]
         [string]$AllUsersGroupName,
@@ -225,6 +239,16 @@ function New-SNSConfiguration
     if ($LogFilePath)
     {
         $conf.LogFilePath = $LogFilePath
+    }
+
+    if ($PSBoundParameters.ContainsKey('JsonFileDirectory'))
+    {
+        $conf.JsonFileDirectory = $JsonFileDirectory
+    }
+
+    if ($PSBoundParameters.ContainsKey('SaveJsonFiles'))
+    {
+        $conf.SaveJsonFiles = $SaveJsonFiles
     }
 
     if ($CredentialMemberlist)

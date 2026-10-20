@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '3.0.0'
+ModuleVersion = '3.0.1'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -148,6 +148,7 @@ Justerade utmatningen av samlingsobjekt så att de returneras utan enumerering v
 Löste linting problem med att använda Write-Output utan -NoEnumerate i en pipeline.
 Alla lintvarningar är nu lösta.
 Unittester tillagda för att öka kvaliteten och säkerställa att funktioner fungerar som förväntat.
+Stöd för att spara nerladdaade JSON-objekt i en fil för att kunna felsöka problem med Scoutnet API-anrop.
 
 ## 2.0.8
 Fixade så att när en användare skapas i Office 365 så kopplas licenser till kontot direkt efter skapandet.

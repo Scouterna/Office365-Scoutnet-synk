@@ -45,7 +45,11 @@
     }
     else
     {
-        $Script:SNSConf.ApiGroupMemberlistCache = Receive-SNSApiJson -Uri $Uri -Credential $Credential
+        $Script:SNSConf.ApiGroupMemberlistCache = Receive-SNSApiJson `
+            -Uri $Uri `
+            -Credential $Credential `
+            -FileName 'memberlist.json' `
+            -SaveFile $Script:SNSConf.SaveJsonFiles
         return $Script:SNSConf.ApiGroupMemberlistCache
     }
 }
