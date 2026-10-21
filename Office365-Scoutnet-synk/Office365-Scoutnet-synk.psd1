@@ -116,7 +116,7 @@ PrivateData = @{
 
     PSData = @{
 
-        Prerelease = "beta2"
+        Prerelease = "beta3"
 
         # Tags applied to this module. These help with module discovery in online galleries.
         Tags = @('scoutnet',
