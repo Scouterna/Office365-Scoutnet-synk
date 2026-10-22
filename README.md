@@ -395,6 +395,39 @@ Exempel:
 "statisk_lista" = "Ja";
 ```
 
+### Rapport över obligatoriska moment
+
+Modulen stödjer att skicka en HTML-rapport till de adresser som anges i
+`$conf.MandatoryMomentReportRecipients` i `MaillistSynk.ps1`. Rapporten innehåller
+separata avsnitt för **Trygga möten** (`pc_course_89`) och **Registerutdrag**
+(`latest_police_check`). Varje avsnitt visar en konfigurerbar beskrivning,
+efternamn, förnamn, senaste datum samt roller i kåren och på avdelning.
+Beskrivningarna ställs in med `$conf.MandatoryMomentCourseDescription` och
+`$conf.MandatoryMomentPoliceCheckDescription`.
+Före varje tabell anges varför medlemmar tas med: åldersgränsen, kravet på en
+ej exkluderad roll samt att momentet saknas eller behöver förnyas enligt
+giltighetstiden.
+Roller som inte i sig ska göra att en medlem tas med kan anges i
+`$conf.MandatoryMomentExcludedRoles` som en lista med rollnamn. En medlem med
+minst en annan, ej exkluderad roll tas fortfarande med; rapporten visar då alla
+medlemmens roller. Exkluderingen matchar Scoutnets namn på rollen.
+T.ex om rollen `Övrig ledare` inte ska generera rapport så sätt
+`MandatoryMomentExcludedRoles = @("Övrig ledare")`.
+
+Som standard omfattar rapporten medlemmar som är äldre än 15 år, har minst en
+roll i kåren eller på en avdelning och inte har utfört momentet inom de senaste
+tre åren. Saknat datum räknas som att momentet aldrig utförts. Dessa regler kan
+ändras med `$conf.MandatoryMomentMinimumAge` och
+`$conf.MandatoryMomentValidityYears`. Lämna mottagarlistan tom för att inte
+skicka rapporten. Medlemmar utan födelsedatum kan inte ålderskontrolleras och
+tas inte med.
+
+Rapporten skickas en gång per period enligt
+`$conf.MandatoryMomentReportFrequency`: `Monthly` (standard, endast den 1:a),
+`Weekly` (måndagar) eller `Daily`. För att hålla koll på om rapporten ska göras
+igen så behöver info om när senaste körningen sparas.  `MaillistSynk.ps1` har
+exempel på hur den informationen kan sparas.
+
 ## Ny version
 
 - Uppdatering av modulen sker genom att ladda ner en ny version och installera modulen.

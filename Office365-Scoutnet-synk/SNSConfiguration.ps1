@@ -22,6 +22,13 @@
     [string]$NewUserInfoEmailText=""
     [string]$NewUserInfoEmailContentType="Text"
     [string]$EmailFromAddress = ""
+    [string[]]$MandatoryMomentReportRecipients = @()
+    [string]$MandatoryMomentReportFrequency = 'Monthly'
+    [int]$MandatoryMomentMinimumAge = 15
+    [int]$MandatoryMomentValidityYears = 3
+    [string]$MandatoryMomentCourseDescription = 'Lista över medlemmar som behöver göra om kursen Trygga möten'
+    [string]$MandatoryMomentPoliceCheckDescription = 'Lista över medlemmar som behöver förnya registerutdraget'
+    [string[]]$MandatoryMomentExcludedRoles = @()
     [string]$UserSyncMailListId
     [pscredential]$CredentialCustomlists
     [pscredential]$CredentialMemberlist

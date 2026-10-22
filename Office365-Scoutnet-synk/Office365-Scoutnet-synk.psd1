@@ -85,6 +85,7 @@ FunctionsToExport = @(
     'Get-SNSMaillistInfo',
     'SNSUpdateExchangeDistributionGroups',
     'Get-SNSApiGroupMemberlist',
+    'Send-SNSMandatoryMomentReport',
     'Invoke-SNSUppdateOffice365User',
     'New-SNSConfiguration',
     'Get-SNSConfiguration',

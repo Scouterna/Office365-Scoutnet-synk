@@ -10,6 +10,7 @@ BeforeAll {
     . (Join-Path $modulePath 'Get-SNSMaillistInfo.ps1')
     . (Join-Path $modulePath 'Get-SNSUserEmail.ps1')
     . (Join-Path $modulePath 'Invoke-SNSUppdateOffice365User.ps1')
+    . (Join-Path $modulePath 'Send-SNSMandatoryMomentReport.ps1')
 
     $credential = [pscredential]::new('test', (ConvertTo-SecureString 'test' -AsPlainText -Force))
 }
@@ -54,6 +55,12 @@ Describe 'New-SNSConfiguration' {
         $configuration.SaveJsonFiles | Should -BeTrue
         $configuration.PreferredLanguage | Should -Be 'sv-SE'
         $configuration.UsageLocation | Should -Be 'SE'
+        $configuration.MandatoryMomentReportFrequency | Should -Be 'Monthly'
+        $configuration.MandatoryMomentExcludedRoles | Should -BeNullOrEmpty
+        $configuration.MandatoryMomentCourseDescription |
+            Should -Be 'Lista över medlemmar som behöver göra om kursen Trygga möten'
+        $configuration.MandatoryMomentPoliceCheckDescription |
+            Should -Be 'Lista över medlemmar som behöver förnya registerutdraget'
     }
 
     It 'stores supplied credentials, mailing lists, account email templates, and settings' {
@@ -162,6 +169,206 @@ Describe 'Get-SNSApiGroupMemberlist cache' {
         $script:receivedMemberlistFileName | Should -Be 'memberlist.json'
         $script:receivedMemberlistSaveFile | Should -BeTrue
         Should -Invoke Receive-SNSApiJson -Times 1 -Exactly
+    }
+}
+
+Describe 'Mandatory moment report' {
+    BeforeEach {
+        $script:SNSConf = [SNSConfiguration]::new()
+        $script:SNSConf.EmailFromAddress = 'reports@example.org'
+        $script:SNSConf.MandatoryMomentReportRecipients = @('responsible@example.org', 'other@example.org')
+        $script:SNSConf.MandatoryMomentReportFrequency = 'Monthly'
+        $script:SNSConf.MandatoryMomentMinimumAge = 15
+        $script:SNSConf.MandatoryMomentValidityYears = 3
+        $script:SNSConf.MandatoryMomentCourseDescription = 'Kursbeskrivning för rapporten'
+        $script:SNSConf.MandatoryMomentPoliceCheckDescription = 'Registerkontrollbeskrivning för rapporten'
+        Mock Write-SNSLog {}
+    }
+
+    It 'filters by age, roles, and validity and renders separate filterable tables' {
+        $memberlist = @{
+            data = @{
+                member1 = @{
+                    first_name = @{ value = 'Ada' }
+                    last_name = @{ value = 'Lovelace' }
+                    date_of_birth = @{ value = '2000-01-01' }
+                    unit = @{ raw_value = '3'; value = 'Test patrull3' }
+                    pc_course_89 = @{ value = '2020-01-01' }
+                    latest_police_check = @{ value = '2024-01-01' }
+                    roles = @{
+                        value = @{
+                            group = @{ group1 = @{ role1 = @{ role_name = 'Kårledare' } } }
+                            troop = @{ '2' = @{ unit1 = @{ role2 = @{ role_name = 'Avdelningsledare' } } } }
+                        }
+                    }
+                }
+                member2 = @{
+                    first_name = @{ value = 'Grace' }
+                    last_name = @{ value = 'Hopper' }
+                    date_of_birth = @{ value = '2000-01-01' }
+                    pc_course_89 = @{ value = '' }
+                    latest_police_check = @{ value = '2020-01-01' }
+                    roles = @{
+                        value = @{
+                            group = @{}
+                            troop = @{ '2' = @{ unit1 = @{ role2 = @{ role_name = 'Ledare' } } } }
+                        }
+                    }
+                }
+                member3 = @{
+                    first_name = @{ value = 'Too' }
+                    last_name = @{ value = 'Young' }
+                    date_of_birth = @{ value = '2010-02-01' }
+                    pc_course_89 = @{ value = '2020-01-01' }
+                    latest_police_check = @{ value = '2020-01-01' }
+                    roles = @{ value = @{ group = @{ group1 = @{ role1 = @{ role_name = 'Kårledare' } } }; troop = @{} } }
+                }
+                member4 = @{
+                    first_name = @{ value = 'Boundary' }
+                    last_name = @{ value = 'Date' }
+                    date_of_birth = @{ value = '1990-01-01' }
+                    unit = @{ raw_value = '2'; value = 'Äventyrarna' }
+                    pc_course_89 = @{ value = '2022-02-01' }
+                    latest_police_check = @{ value = '2022-02-01' }
+                    roles = @{ value = @{ group = @{ group1 = @{ role1 = @{ role_name = 'Kårledare' } } }; troop = @{} } }
+                }
+                member5 = @{
+                    first_name = @{ value = 'No' }
+                    last_name = @{ value = 'Role' }
+                    date_of_birth = @{ value = '1990-01-01' }
+                    pc_course_89 = @{ value = '2020-01-01' }
+                    latest_police_check = @{ value = '2020-01-01' }
+                    roles = @{ value = @{ group = @{}; troop = @{} } }
+                }
+                member6 = @{
+                    first_name = @{ value = 'Excluded' }
+                    last_name = @{ value = 'Role' }
+                    date_of_birth = @{ value = '1990-01-01' }
+                    pc_course_89 = @{ value = '2020-01-01' }
+                    latest_police_check = @{ value = '2020-01-01' }
+                    roles = @{ value = @{ group = @{}; troop = @{ '2' = @{ unit1 = @{ role1 = @{ role_name = 'Scout' } } } } } }
+                }
+                member7 = @{
+                    first_name = @{ value = 'Mixed' }
+                    last_name = @{ value = 'Roles' }
+                    date_of_birth = @{ value = '1990-01-01' }
+                    pc_course_89 = @{ value = '2020-01-01' }
+                    latest_police_check = @{ value = '2020-01-01' }
+                    roles = @{
+                        value = @{
+                            group = @{ group1 = @{ role1 = @{ role_name = 'Kårledare' } } }
+                            troop = @{ '2' = @{ unit1 = @{ role2 = @{ role_name = 'Scout' } } } }
+                        }
+                    }
+                }
+            }
+        }
+
+        $html = ConvertTo-SNSMandatoryMomentReportHtml -Memberlist $memberlist `
+            -MinimumAge 15 -ValidityYears 3 `
+            -CourseDescription $script:SNSConf.MandatoryMomentCourseDescription `
+            -PoliceCheckDescription $script:SNSConf.MandatoryMomentPoliceCheckDescription `
+            -ExcludedRoles @('Scout') `
+            -AsOfDate ([datetime]'2025-02-01')
+
+        $html | Should -Match '<h2>Trygga möten</h2>'
+        $html | Should -Match '<h2>Registerutdrag</h2>'
+        $html | Should -Match '<p>Kursbeskrivning f&#246;r rapporten</p>'
+        $html | Should -Match '<p>Registerkontrollbeskrivning f&#246;r rapporten</p>'
+        $reason = '<p>En medlem &#228;r med i listan om medlemmen &#228;r &#228;ldre &#228;n 15 &#229;r, har minst en k&#229;r- eller avdelningsroll och det var minst 3 &#229;r sedan momentet gjordes.</p>'
+        ([regex]::Matches($html, [regex]::Escape($reason))).Count | Should -Be 1
+        $html.IndexOf($reason) | Should -BeLessThan $html.IndexOf('<h2>Trygga möten</h2>')
+        $html | Should -Not -Match 'Filtrera listan'
+        $html | Should -Not -Match '<script|<input|oninput=|filterMomentReport'
+        $html | Should -Match 'Efternamn</th><th>Förnamn</th><th>Datum när momentet gjordes</th><th>Roller i kåren</th><th>Roller på avdelning'
+        $html | Should -Match '<td>Lovelace</td><td>Ada</td><td>2020-01-01</td><td>K&#229;rledare</td><td>&#196;ventyrarna: Avdelningsledare</td>'
+        $html | Should -Match '<td>Hopper</td><td>Grace</td><td>Aldrig utf&#246;rt</td>'
+        $html | Should -Match '<td>Date</td><td>Boundary</td><td>2022-02-01</td>'
+        $html | Should -Match '<td>Date</td><td>Boundary</td><td>2022-02-01</td><td>K&#229;rledare</td><td></td>'
+        $html | Should -Not -Match '2024-01-01'
+        $html | Should -Not -Match 'Young'
+        $html | Should -Not -Match 'No</td><td>Role'
+        $html | Should -Not -Match 'Excluded'
+        $html | Should -Match '<td>Roles</td><td>Mixed</td><td>2020-01-01</td><td>K&#229;rledare</td><td>&#196;ventyrarna: Scout</td>'
+    }
+
+    It 'sends the HTML report to the configured recipients' {
+        $memberlist = @{ data = @{} }
+        Mock Get-SNSApiGroupMemberlist { return $memberlist }
+        Mock Send-MgUserMail { $script:sentReportParameters = $BodyParameter }
+
+        Send-SNSMandatoryMomentReport -Memberlist $memberlist -AsOfDate ([datetime]'2025-02-01')
+
+        Should -Invoke Send-MgUserMail -Times 1 -Exactly -ParameterFilter {
+            $UserId -eq 'reports@example.org' -and
+            $BodyParameter.Message.ToRecipients.Count -eq 2 -and
+            $BodyParameter.Message.Body.ContentType -eq 'HTML'
+        }
+        $script:sentReportParameters.Message.Body.Content | Should -Match '<h2>Trygga möten</h2>'
+        $script:sentReportParameters.Message.Body.Content | Should -Match '<h2>Registerutdrag</h2>'
+    }
+
+    It 'sends only on the configured cadence and only once per period' {
+        Test-SNSMandatoryMomentReportDue -Frequency Monthly -AsOfDate ([datetime]'2025-03-01') |
+            Should -BeTrue
+        Test-SNSMandatoryMomentReportDue -Frequency Monthly -AsOfDate ([datetime]'2025-03-02') |
+            Should -BeFalse
+        Test-SNSMandatoryMomentReportDue -Frequency Monthly -LastSentDate ([datetime]'2025-03-01') `
+            -AsOfDate ([datetime]'2025-03-01') | Should -BeFalse
+        Test-SNSMandatoryMomentReportDue -Frequency Weekly -AsOfDate ([datetime]'2025-03-03') |
+            Should -BeTrue
+        Test-SNSMandatoryMomentReportDue -Frequency Weekly -LastSentDate ([datetime]'2025-03-03') `
+            -AsOfDate ([datetime]'2025-03-03') | Should -BeFalse
+        Test-SNSMandatoryMomentReportDue -Frequency Weekly -LastSentDate ([datetime]'2025-03-03') `
+            -AsOfDate ([datetime]'2025-03-10') | Should -BeTrue
+        Test-SNSMandatoryMomentReportDue -Frequency Daily -AsOfDate ([datetime]'2025-03-02') |
+            Should -BeTrue
+        Test-SNSMandatoryMomentReportDue -Frequency Daily -LastSentDate ([datetime]'2025-03-02T08:00:00') `
+            -AsOfDate ([datetime]'2025-03-02') | Should -BeFalse
+        Test-SNSMandatoryMomentReportDue -Frequency Daily -LastSentDate ([datetime]'2025-03-02T08:00:00') `
+            -AsOfDate ([datetime]'2025-03-03') | Should -BeTrue
+    }
+
+    It 'skips member retrieval and mail when the report is not due' {
+        $script:SNSConf.MandatoryMomentReportFrequency = 'Monthly'
+        Mock Get-SNSApiGroupMemberlist { throw 'Memberlist must not be requested' }
+        Mock Send-MgUserMail {}
+
+        $result = Send-SNSMandatoryMomentReport -LastSentValue '2025-03-01T00:00:00.0000000' `
+            -AsOfDate ([datetime]'2025-03-02')
+
+        $result | Should -BeFalse
+        Should -Invoke Get-SNSApiGroupMemberlist -Times 0 -Exactly
+        Should -Invoke Send-MgUserMail -Times 0 -Exactly
+    }
+
+    It 'logs a warning and skips the report for an invalid last-sent automation variable value' {
+        Mock Get-SNSApiGroupMemberlist { throw 'Memberlist must not be requested' }
+        Mock Send-MgUserMail {}
+
+        $result = Send-SNSMandatoryMomentReport -LastSentValue 'not-a-date' `
+            -AsOfDate ([datetime]'2025-03-01')
+
+        $result | Should -BeFalse
+        Should -Invoke Get-SNSApiGroupMemberlist -Times 0 -Exactly
+        Should -Invoke Send-MgUserMail -Times 0 -Exactly
+        Should -Invoke Write-SNSLog -Times 1 -Exactly -ParameterFilter {
+            $Level -eq 'Warn' -and $Message -like '*MandatoryMomentReportLastSent*valid date*'
+        }
+    }
+
+    It 'does not fetch members or send when no recipients are configured' {
+        $script:SNSConf.MandatoryMomentReportRecipients = @()
+        Mock Get-SNSApiGroupMemberlist { throw 'Memberlist must not be requested' }
+        Mock Send-MgUserMail {}
+
+        Send-SNSMandatoryMomentReport -AsOfDate ([datetime]'2025-03-01')
+
+        Should -Invoke Get-SNSApiGroupMemberlist -Times 0 -Exactly
+        Should -Invoke Send-MgUserMail -Times 0 -Exactly
+        Should -Invoke Write-SNSLog -Times 1 -Exactly -ParameterFilter {
+            $Message -like '*no recipients are configured*'
+        }
     }
 }
 

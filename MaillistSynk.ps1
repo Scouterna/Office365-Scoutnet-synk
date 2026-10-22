@@ -35,6 +35,15 @@ $conf = New-SNSConfiguration -LicenseAssignment $LicenseAssignment -UserSyncMail
 # Vem ska mailet till nya användare skickas ifrån. Byt ut till en adress som du har i din domän.
 $conf.EmailFromAddress = "info@scoutkåren"
 
+# Roller som inte i sig ska göra att medlemmen tas med i rapporten.
+$conf.MandatoryMomentExcludedRoles = @()
+
+# Mottagare av rapporten över obligatoriska moment. Lämna listan tom för att inte skicka rapporten.
+$conf.MandatoryMomentReportRecipients = @("ansvarig@scoutkåren")
+$conf.MandatoryMomentReportFrequency = 'Monthly' # Monthly (den 1:a), Weekly (måndag) eller Daily.
+$conf.MandatoryMomentMinimumAge = 15
+$conf.MandatoryMomentValidityYears = 3
+
 # Domännam för scoutkårens office 365.
 $conf.DomainName = "scoutkåren.se"
 
@@ -271,6 +280,24 @@ if (![string]::IsNullOrWhiteSpace($ValidationHash))
     {
         Write-SNSLog -Level "Error" "Kunde inte spara variabeln ScoutnetMailListsHash. Error $_"
     }
+}
+
+# Skicka rapporten över obligatoriska moment till de konfigurerade mottagarna.
+try
+{
+    $lastReportSentValue = Get-AutomationVariable -Name 'MandatoryMomentReportLastSent' -ErrorAction "Stop"
+    $reportSent = Send-SNSMandatoryMomentReport -Configuration $conf `
+        -LastSentValue $lastReportSentValue -ErrorAction "Stop"
+    if ($reportSent)
+    {
+        Set-AutomationVariable -Name 'MandatoryMomentReportLastSent' `
+            -Value (Get-Date -Format 'o') -ErrorAction "Stop"
+    }
+}
+Catch
+{
+    Write-SNSLog -Level "Error" "Kunde inte skapa eller skicka rapporten över obligatoriska moment. Fel: $_"
+    throw
 }
 
 # Skapa ett mail med loggen och skicka till admin.
