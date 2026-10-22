@@ -117,7 +117,7 @@ PrivateData = @{
 
     PSData = @{
 
-        Prerelease = "beta3"
+        #Prerelease = "rc1"
 
         # Tags applied to this module. These help with module discovery in online galleries.
         Tags = @('scoutnet',
@@ -150,6 +150,7 @@ Löste linting problem med att använda Write-Output utan -NoEnumerate i en pipe
 Alla lintvarningar är nu lösta.
 Unittester tillagda för att öka kvaliteten och säkerställa att funktioner fungerar som förväntat.
 Stöd för att spara nerladdaade JSON-objekt i en fil för att kunna felsöka problem med Scoutnet API-anrop.
+Stöd för att rapportera obligatoriska moment i Scoutnet via e-post. Funktionen Send-SNSMandatoryMomentReport kan användas för att skicka rapporter om obligatoriska moment till en eller flera e-postadresser.
 
 ## 2.0.8
 Fixade så att när en användare skapas i Office 365 så kopplas licenser till kontot direkt efter skapandet.

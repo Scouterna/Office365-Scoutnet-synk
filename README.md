@@ -70,94 +70,8 @@ skapa Runtime Environment och installera dess paket. Graph-modulerna,
 `ExchangeOnlineManagement` och `Office365-Scoutnet-synk` läggs i miljön.
 Standardpaketen anges uttryckligen till Az `15.1.0` och Azure CLI `2.77.0`.
 
-När skriptet är klart kan instruktionerna i [Synkronisera grupper](#Synkronisera-grupper)
+När skriptet är klart kan instruktionerna i [Synkronisera grupper](#synkronisera-grupper)
 användas för att sätta upp synkronisering.
-
-### Uppgradera modulen i en Runtime Environment
-
-Skriptet [updateraAzureOffice365ScoutnetSync.ps1](updateraAzureOffice365ScoutnetSync.ps1)
-uppgraderar Runtime Environment `PowerShell-7.6-Office365-Scoutnet-synk` med
-`Office365-Scoutnet-synk` version `3.0.0-beta2` från PowerShell Gallery.
-Standardvärdena för Automation-kontot och resursgruppen är `Scoutnet-sync`.
-Ange andra värden om Automation-kontot eller resursgruppen har andra namn.
-
-Skriptet läser `RequiredModules` från modulmanifestet för den valda versionen
-och använder dess exakta `RequiredVersion` för varje beroende. Alla beroenden
-importeras före synkroniseringsmodulen i Runtime Environment för PowerShell
-`7.6`. Skriptet avbryts om manifestet saknar exakta beroendeversioner, en import
-misslyckas eller slutkontrollen hittar fel version eller status.
-
-Installera Az-modulerna vid behov, anslut till rätt Azure-prenumeration och kör:
-
-```powershell
-Install-Module -Name Az.Accounts, Az.Automation -Repository PSGallery -Scope CurrentUser
-Connect-AzAccount
-.\updateraAzureOffice365ScoutnetSync.ps1
-```
-
-En annan modulversion kan anges med `-ModuleVersion`. Ange Automation-kontot och
-resursgruppen med respektive parameter om de har andra namn:
-
-```powershell
-.\updateraAzureOffice365ScoutnetSync.ps1 `
-    -AutomationAccountName '<Automation-konto>' `
-    -ResourceGroupName '<resursgrupp>' `
-    -ModuleVersion '<modulversion>'
-```
-
-### Uppgradera Microsoft Graph i en befintlig Azure-installation
-
-Den här instruktionen gäller en befintlig Azure Automation-installation där
-Microsoft Graph-modulerna är installerade i version `1.28.0`. Uppgradera inte
-Graph-modulerna innan den installerade versionen av `Office365-Scoutnet-synk`
-stöder den nya Graph-versionen. I projektets [modulmanifest](Office365-Scoutnet-synk/Office365-Scoutnet-synk.psd1)
-är Graph-modulerna för närvarande låsta till exakt `2.41.2`. En nyare Graph-version
-kan därför göra att synkroniseringsmodulen inte går att importera. Använd en
-uppdaterad utgåva av `Office365-Scoutnet-synk` där `RequiredVersion` för samtliga
-Graph-moduler har ändrats till den version du ska installera.
-
-1. Pausa schemat för runbooken `MaillistSynk` och kontrollera att inga jobb körs.
-    Anteckna de installerade modulversionerna så att du kan återställa dem vid behov.
-2. Gå till Azure-portalen och öppna ditt `Automation Account`.
-3. Under **Shared Resources** välj **Modules** (eller **Modules** i den runtime-miljö
-    som runbooken använder). Uppgradera följande moduler från PowerShell Gallery
-    till samma senaste version:
-    - `Microsoft.Graph.Authentication`
-    - `Microsoft.Graph.Users`
-    - `Microsoft.Graph.Users.Actions`
-    - `Microsoft.Graph.Groups`
-    - `Microsoft.Graph.Identity.DirectoryManagement`
-4. Vänta tills varje modul har status **Available** och kontrollera att alla fem
-    har samma version. Importen kan ta en stund.
-5. Importera/uppgradera `Office365-Scoutnet-synk` till den utgåva som kräver just
-    den Graph-versionen. Testkör runbooken manuellt innan schemat aktiveras igen.
-
-Om du använder PowerShell i stället för portalen kan du importera en bestämd,
-gemensam version från PowerShell Gallery med `New-AzAutomationModule`. Ersätt
-platshållaren med den senaste version som finns tillgänglig för samtliga fem
-moduler. Anslut först till rätt Azure-prenumeration och ange namnet på det
-befintliga Automation Accountet och resursgruppen i `$accountName` respektive
-`$rgName`:
-
-```powershell
-$GraphModuleVersion = '<Graph-version>'
-$GraphModules = @(
-     'Microsoft.Graph.Authentication',
-     'Microsoft.Graph.Users',
-     'Microsoft.Graph.Users.Actions',
-     'Microsoft.Graph.Groups',
-     'Microsoft.Graph.Identity.DirectoryManagement'
-)
-
-foreach ($moduleName in $GraphModules) {
-     New-AzAutomationModule `
-          -AutomationAccountName $accountName `
-          -ResourceGroupName $rgName `
-          -Name $moduleName `
-          -ContentLinkUri "https://www.powershellgallery.com/api/v2/package/$moduleName/$GraphModuleVersion" `
-          -ErrorAction Stop
-}
-```
 
 Att skapa och sätta upp kontot manuellt går till ungefär så här:
 
@@ -425,7 +339,7 @@ tas inte med.
 Rapporten skickas en gång per period enligt
 `$conf.MandatoryMomentReportFrequency`: `Monthly` (standard, endast den 1:a),
 `Weekly` (måndagar) eller `Daily`. För att hålla koll på om rapporten ska göras
-igen så behöver info om när senaste körningen sparas.  `MaillistSynk.ps1` har
+igen så behöver info om när senaste körningen sparas. `MaillistSynk.ps1` har
 exempel på hur den informationen kan sparas.
 
 ## Ny version
@@ -444,6 +358,20 @@ Update-Module -Name Office365-Scoutnet-synk -Scope CurrentUser
 - Du kan hålla dig uppdaterad med nya versioner genom att om du är inloggad
     på Github trycka på knappen **Watch** uppe till höger på sidan för att då
     kunna bli notifierad vid ny version.
+
+### Uppgradering till version 3
+
+Version 3 av `Office365-Scoutnet-synk` kräver att den körs i en Azure Automation
+Runtime Environment för PowerShell `7.6` och att beroende moduler uppdateras i
+samråd med projektets modulmanifest. Om du redan använder en äldre installation
+bör du först kontrollera att Microsoft Graph-modulerna och `Office365-Scoutnet-synk`
+är kompatibla med varandra innan du uppgraderar. Det finns en separat
+uppgraderingsskript för Azure Runtime Environment och ett separat avsnitt för
+att uppgradera Graph-moduler i befintliga installationer.
+
+Enklast är att använda `MaillistSynk.ps1` för att skapa en ny
+`Azure Automation Account` med ett nytt namn. Då behöver inte den nuvarande
+installationen påverkas alls.
 
 ### Uppgradera till version 2.0
 
