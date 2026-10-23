@@ -11,6 +11,8 @@ $ErrorActionPreference = 'Stop'
 $ModuleName = 'Office365-Scoutnet-synk'
 $RuntimeEnvironmentName = 'PowerShell-7.6-Office365-Scoutnet-synk'
 $RuntimeVersion = '7.6'
+$AzRuntimePackageVersion = '15.1.0'
+$AzureCliRuntimePackageVersion = '2.77.0'
 $PowerShellGalleryPackageUri = 'https://www.powershellgallery.com/api/v2/package'
 
 function Invoke-SNSAutomationRestMethod
@@ -394,15 +396,68 @@ if ($null -eq $azContext)
 }
 
 Write-Host "Använder Azure-prenumerationen '$($azContext.Subscription.Name)'."
-Get-AzAutomationAccount `
+$automationAccount = Get-AzAutomationAccount `
     -Name $AutomationAccountName `
     -ResourceGroupName $ResourceGroupName `
-    -ErrorAction Stop | Out-Null
+    -ErrorAction Stop
 
 $automationResourcePath = "/subscriptions/$($azContext.Subscription.Id)/resourceGroups/$([uri]::EscapeDataString($ResourceGroupName))/providers/Microsoft.Automation/automationAccounts/$([uri]::EscapeDataString($AutomationAccountName))"
 $runtimeEnvironmentResourceId = "$automationResourcePath/runtimeEnvironments/$([uri]::EscapeDataString($RuntimeEnvironmentName))"
 $packagesResourceId = "$runtimeEnvironmentResourceId/packages"
 $runtimeEnvironmentResponse = Invoke-SNSAutomationRestMethod -ResourceId $runtimeEnvironmentResourceId -Method GET
+if ($runtimeEnvironmentResponse.StatusCode -eq 404)
+{
+    if ([string]::IsNullOrWhiteSpace([string]$automationAccount.Location))
+    {
+        throw "Automation-kontot '$AutomationAccountName' saknar platsinformation; Runtime Environment '$RuntimeEnvironmentName' kan inte skapas."
+    }
+
+    $runtimeEnvironmentPayload = @{
+        location = $automationAccount.Location
+        properties = @{
+            description = 'PowerShell 7.6 runtime for Office365-Scoutnet-synk'
+            defaultPackages = @{
+                Az = $AzRuntimePackageVersion
+                'Azure CLI' = $AzureCliRuntimePackageVersion
+            }
+            runtime = @{
+                language = 'PowerShell'
+                version = $RuntimeVersion
+            }
+        }
+    } | ConvertTo-Json -Depth 10
+
+    $createResponse = Invoke-SNSAutomationRestMethod `
+        -ResourceId $runtimeEnvironmentResourceId `
+        -Method PUT `
+        -Payload $runtimeEnvironmentPayload
+    if ($createResponse.StatusCode -notin @(200, 201, 202))
+    {
+        throw "Skapandet av Runtime Environment '$RuntimeEnvironmentName' misslyckades. HTTP $($createResponse.StatusCode): $($createResponse.Content)"
+    }
+
+    Write-Host "Azure accepterade skapandet av Runtime Environment '$RuntimeEnvironmentName' (HTTP $($createResponse.StatusCode))."
+    $timeout = [TimeSpan]::FromMinutes(20)
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    do
+    {
+        Start-Sleep -Seconds 10
+        $runtimeEnvironmentResponse = Invoke-SNSAutomationRestMethod -ResourceId $runtimeEnvironmentResourceId -Method GET
+        if ($runtimeEnvironmentResponse.StatusCode -eq 200)
+        {
+            break
+        }
+        if ($runtimeEnvironmentResponse.StatusCode -ne 404)
+        {
+            throw "Kunde inte läsa Runtime Environment '$RuntimeEnvironmentName' efter skapandet. HTTP $($runtimeEnvironmentResponse.StatusCode): $($runtimeEnvironmentResponse.Content)"
+        }
+        if ($stopwatch.Elapsed -ge $timeout)
+        {
+            throw "Runtime Environment '$RuntimeEnvironmentName' blev inte tillgänglig inom 20 minuter. Senaste svar från Azure: $($runtimeEnvironmentResponse.Content)"
+        }
+        Write-Host "Väntar på att Runtime Environment '$RuntimeEnvironmentName' ska bli tillgänglig..."
+    } while ($true)
+}
 if ($runtimeEnvironmentResponse.StatusCode -ne 200)
 {
     throw "Runtime Environment '$RuntimeEnvironmentName' kunde inte hittas eller läsas. HTTP $($runtimeEnvironmentResponse.StatusCode): $($runtimeEnvironmentResponse.Content)"
