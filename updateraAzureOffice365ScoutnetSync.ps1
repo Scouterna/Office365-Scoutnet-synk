@@ -3,7 +3,7 @@
 param(
     [string]$AutomationAccountName = 'Scoutnet-sync',
     [string]$ResourceGroupName = 'Scoutnet-sync',
-    [string]$ModuleVersion = '3.0.0-beta2'
+    [string]$ModuleVersion = '3.0.0'
 )
 
 $ErrorActionPreference = 'Stop'

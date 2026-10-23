@@ -365,13 +365,13 @@ Version 3 av `Office365-Scoutnet-synk` kräver att den körs i en Azure Automati
 Runtime Environment för PowerShell `7.6` och att beroende moduler uppdateras i
 samråd med projektets modulmanifest. Om du redan använder en äldre installation
 bör du först kontrollera att Microsoft Graph-modulerna och `Office365-Scoutnet-synk`
-är kompatibla med varandra innan du uppgraderar. Det finns en separat
-uppgraderingsskript för Azure Runtime Environment och ett separat avsnitt för
-att uppgradera Graph-moduler i befintliga installationer.
+är kompatibla med varandra innan du uppgraderar.
 
-Enklast är att använda `MaillistSynk.ps1` för att skapa en ny
-`Azure Automation Account` med ett nytt namn. Då behöver inte den nuvarande
-installationen påverkas alls.
+Enklast är att använda `updateraAzureOffice365ScoutnetSync.ps1` för att lägga till
+en ny `RuntimeEnvironment` i existerande `AutomationAccount`. Skriptet skapar
+`RuntimeEnvironment` `PowerShell-7.6-Office365-Scoutnet-synk` som sen kan väljas
+för att köra runbooken i. Det här påverkar inte nuvarande miljö och om en ny runbook
+skapas så går det att växla mellan den gamla och det nya versionen.
 
 ### Uppgradera till version 2.0
 
