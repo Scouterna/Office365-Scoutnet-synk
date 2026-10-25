@@ -6,7 +6,7 @@ param(
 
 $GraphDesiredVersion = "2.41.2"
 $ExchangeOnlineManagementVersion = "3.10.1"
-$ScoutnetModuleVersion = "3.0.0"
+$ScoutnetModuleVersion = "3.0.1"
 $AzRuntimePackageVersion = '15.1.0'
 $AzureCliRuntimePackageVersion = '2.77.0'
 $AutomationRuntimeVersion = '7.6'

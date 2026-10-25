@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '3.0.0'
+ModuleVersion = '3.0.1'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -135,6 +135,12 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
+## 3.0.1
+Flyttade dokumentationen till en separat wiki. Den finns på https://github.com/Scouterna/Office365-Scoutnet-synk/wiki
+Uppdaterade dokumentationen och skripten för att installera en ny version av modulen i Azure Automation, och på en lokal dator. Se dokumentationen på wikin.
+Rättade buggar i skripten som installerar modulen i Azure Automation.
+Exemplen i dokumentationen har uppdaterats för att använda de nya funktionerna i modulen.
+
 ## 3.0.0
 Rättade hanteringen av maillistor så att konfigurerade Scoutnet-listor väljs utifrån scoutnet_list_id.
 Förhindrade att samma e-postadress läggs till flera gånger i OtherMails när användarkontot uppdateras.
