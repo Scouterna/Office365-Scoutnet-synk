@@ -40,6 +40,15 @@ $conf.EmailFromAddress = "admin@scoutkåren"
 # Domännam för scoutkårens office 365.
 $conf.DomainName = "scoutkåren.se"
 
+# Roller som inte i sig ska göra att medlemmen tas med i rapporten.
+$conf.MandatoryMomentExcludedRoles = @()
+
+# Mottagare av rapporten över obligatoriska moment. Lämna listan tom för att inte skicka rapporten.
+$conf.MandatoryMomentReportRecipients = @("ansvarig@scoutkåren")
+$conf.MandatoryMomentReportFrequency = 'Daily' # Monthly (den 1:a), Weekly (måndag) eller Daily.
+$conf.MandatoryMomentMinimumAge = 15
+$conf.MandatoryMomentValidityYears = 3
+
 # Hashtable med id på Office 365 distributionsgruppen som nyckel.
 # Distributions grupper som är med här kommer att synkroniseras.
 $conf.MailListSettings = @{
@@ -216,6 +225,16 @@ try
 Catch
 {
     Write-SNSLog -Level "Error" "Kunde inte köra uppdateringen av distributionsgrupper. Fel: $_"
+}
+
+# Skicka rapporten över obligatoriska moment till de konfigurerade mottagarna.
+try
+{
+    $reportSent = Send-SNSMandatoryMomentReport -Configuration $conf -LastSentValue "0001-01-01T00:00:00" -ErrorAction "Stop"
+}
+Catch
+{
+    Write-SNSLog -Level "Error" "Kunde inte skapa eller skicka rapporten över obligatoriska moment. Fel: $_"
 }
 
 $bodyData = Get-Content -Path $conf.LogFilePath -Raw -Encoding UTF8 -ErrorAction "Continue"

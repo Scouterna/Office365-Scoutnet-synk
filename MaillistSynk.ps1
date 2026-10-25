@@ -1,5 +1,5 @@
-﻿#Requires -Version 7.1
-#Requires -Modules @{ ModuleName="Office365-Scoutnet-synk"; ModuleVersion="2.0" }
+﻿#Requires -Version 7.6
+#Requires -Modules @{ ModuleName="Office365-Scoutnet-synk"; ModuleVersion="3.0" }
 
 # Lämplig inställning i Azure automation.
 $ProgressPreference = "silentlyContinue"
@@ -297,7 +297,6 @@ try
 Catch
 {
     Write-SNSLog -Level "Error" "Kunde inte skapa eller skicka rapporten över obligatoriska moment. Fel: $_"
-    throw
 }
 
 # Skapa ett mail med loggen och skicka till admin.
