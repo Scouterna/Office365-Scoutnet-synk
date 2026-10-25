@@ -1,6 +1,6 @@
 ﻿#Requires -Version 7.6
 
-[Net.ServicePointManager]::SecurityProtocol = "tls13, tls12"
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls13
 
 #region import everything we need
 
@@ -49,8 +49,7 @@ function Add-Office365UserToList
         [switch] $doWarn
         )
 
-    $memberSearchStr = "*$member"
-    $recipient = $allOffice365Users | Where-Object {$_.CustomAttribute1 -like $memberSearchStr}
+    $recipient = $allOffice365Users | Where-Object { $_.CustomAttribute1 -eq $member }
 
     $userAdded = $False
     $PrimarySmtpAddress = ""
