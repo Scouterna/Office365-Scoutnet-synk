@@ -8,7 +8,9 @@ Du kan med dessa program göra följande
    i Scoutnet för att använda som e-postlistor i [Microsoft365][Microsoft365].
 
 - Vid problem, fel, frågor eller tips på förbättringar eller fler funktioner
-  som du saknar; lägg ett ärende under [Issues][issues] eller <karl.thoren@scouterna.se>.
+  som du saknar
+    - Lägg ett ärende under [Issues][issues]
+    - eller skicka ett mail till <karl.thoren@scouterna.se>.
     - Titta även under [wiki/Support][support] sidan.
 
 - I bland kommer det ny funktionalitet, så håll utkik på en ny version genom att
