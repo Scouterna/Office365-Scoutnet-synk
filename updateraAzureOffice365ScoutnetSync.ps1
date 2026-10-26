@@ -1,12 +1,27 @@
-#Requires -Modules Az.Accounts, Az.Automation
+#Requires -Modules Az.Accounts, Az.Automation, Microsoft.Graph.Authentication, Microsoft.Graph.Applications
 
 param(
     [string]$AutomationAccountName = 'Scoutnet-sync',
     [string]$ResourceGroupName = 'Scoutnet-sync',
-    [string]$ModuleVersion = '3.0.1'
+    [string]$ModuleVersion = '3.1.0',
+    [switch]$SkipPermissionUpdate
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Graph application permissions the managed identity needs. Keep in sync with setupAzure.ps1.
+$RequiredGraphPermissions = @(
+    'Directory.ReadWrite.All',
+    'Directory.Read.All',
+    'GroupMember.Read.All',
+    'GroupMember.ReadWrite.All',
+    'Group.ReadWrite.All',
+    'Group.Read.All',
+    'Team.Create',
+    'User.ReadWrite.All',
+    'User.Read.All',
+    'Mail.Send'
+)
 
 $ModuleName = 'Office365-Scoutnet-synk'
 $RuntimeEnvironmentName = 'PowerShell-7.6-Office365-Scoutnet-synk'
@@ -388,6 +403,50 @@ function Install-SNSRuntimeEnvironmentPackage
     } while ($provisioningState -ne 'Succeeded' -or ($versionMustMatch -and -not $versionMatches))
 }
 
+function Update-SNSManagedIdentityGraphPermission
+{
+    param(
+        [Parameter(Mandatory)]
+        [string]$PrincipalId,
+        [Parameter(Mandatory)]
+        [string[]]$Permission
+    )
+
+    Connect-MgGraph -Scopes 'Application.Read.All', 'AppRoleAssignment.ReadWrite.All' -ErrorAction Stop | Out-Null
+
+    $graphApp = Get-MgServicePrincipal -Filter "AppId eq '00000003-0000-0000-c000-000000000000'" -ErrorAction Stop
+    $assignedRoleIds = @(
+        Get-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $PrincipalId -All -ErrorAction Stop |
+            Where-Object { $_.ResourceId -eq $graphApp.Id } |
+            ForEach-Object { [string]$_.AppRoleId }
+    )
+
+    foreach ($permissionName in $Permission)
+    {
+        $role = $graphApp.AppRoles | Where-Object { $_.Value -eq $permissionName } | Select-Object -First 1
+        if ($null -eq $role)
+        {
+            Write-Warning "Microsoft Graph har ingen applikationsbehörighet med namnet '$permissionName'. Hoppar över."
+            continue
+        }
+        if ($assignedRoleIds -contains [string]$role.Id)
+        {
+            Write-Host "Behörigheten $permissionName finns redan."
+            continue
+        }
+
+        New-MgServicePrincipalAppRoleAssignment `
+            -ServicePrincipalId $PrincipalId `
+            -BodyParameter @{
+                PrincipalId = $PrincipalId
+                ResourceId = $graphApp.Id
+                AppRoleId = $role.Id
+            } `
+            -ErrorAction Stop | Out-Null
+        Write-Host "Lade till behörigheten $permissionName."
+    }
+}
+
 Write-Host "Kontrollerar Azure-inloggning och Automation-kontot '$AutomationAccountName' i resursgruppen '$ResourceGroupName'..."
 $azContext = Get-AzContext
 if ($null -eq $azContext)
@@ -545,3 +604,19 @@ foreach ($package in $RequiredPackages)
 }
 
 Write-Host "Alla beroenden och $ModuleName $ModuleVersion är verifierade i Runtime Environment '$RuntimeEnvironmentName' under Automation-kontot '$AutomationAccountName'."
+
+if ($SkipPermissionUpdate)
+{
+    Write-Host 'Hoppar över uppdatering av behörigheter (-SkipPermissionUpdate).'
+}
+else
+{
+    $managedIdentityId = [string]$automationAccount.Identity.PrincipalId
+    if ([string]::IsNullOrWhiteSpace($managedIdentityId))
+    {
+        throw "Automation-kontot '$AutomationAccountName' saknar en systemtilldelad hanterad identitet. Behörigheter kan inte uppdateras."
+    }
+
+    Write-Host 'Kontrollerar Microsoft Graph-behörigheter för den hanterade identiteten...'
+    Update-SNSManagedIdentityGraphPermission -PrincipalId $managedIdentityId -Permission $RequiredGraphPermissions
+}

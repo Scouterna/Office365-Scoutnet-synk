@@ -22,12 +22,14 @@ jobs:
       shell: pwsh
       run: |
             Set-PSRepository PSGallery -InstallationPolicy Trusted
-            Install-Module PSScriptAnalyzer -ErrorAction Stop
-            Install-Module Microsoft.Graph.Authentication -ErrorAction Stop
-            Install-Module Microsoft.Graph.Users -ErrorAction Stop
-            Install-Module Microsoft.Graph.Users.Actions -ErrorAction Stop
-            Install-Module Microsoft.Graph.Groups -ErrorAction Stop
-            Install-Module ExchangeOnlineManagement -ErrorAction Stop
+            Install-Module PSScriptAnalyzer -Force -ErrorAction Stop
+            Install-Module Microsoft.Graph.Authentication -RequiredVersion 2.41.2 -Force -ErrorAction Stop
+            Install-Module Microsoft.Graph.Users -RequiredVersion 2.41.2 -Force -ErrorAction Stop
+            Install-Module Microsoft.Graph.Users.Actions -RequiredVersion 2.41.2 -Force -ErrorAction Stop
+            Install-Module Microsoft.Graph.Groups -RequiredVersion 2.41.2 -Force -ErrorAction Stop
+            Install-Module Microsoft.Graph.Teams -RequiredVersion 2.41.2 -Force -ErrorAction Stop
+            Install-Module Microsoft.Graph.Identity.DirectoryManagement -RequiredVersion 2.41.2 -Force -ErrorAction Stop
+            Install-Module ExchangeOnlineManagement -RequiredVersion 3.10.1 -Force -ErrorAction Stop
 
     - name: Test-ModuleManifest
       shell: pwsh

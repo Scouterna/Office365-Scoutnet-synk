@@ -227,6 +227,15 @@ Catch
     Write-SNSLog -Level "Error" "Kunde inte köra uppdateringen av distributionsgrupper. Fel: $_"
 }
 
+try
+{
+    Update-SNMicrosoft365Group -Configuration $conf -ErrorAction Stop
+}
+Catch
+{
+    Write-SNSLog -Level "Error" "Kunde inte uppdatera Microsoft 365-grupper. Fel: $_"
+}
+
 # Skicka rapporten över obligatoriska moment till de konfigurerade mottagarna.
 try
 {
