@@ -244,6 +244,69 @@ Describe 'Update-SNMicrosoft365Group' {
         }
     }
 
+    It 'creates and synchronizes a security group, and rejects mismatching existing groups and teams' {
+        InModuleScope Office365-Scoutnet-synk {
+            function Get-EXOMailbox {}
+            function Get-MgGroup { param($Filter, $Property, $All, $ErrorAction) }
+            function Get-MgGroupMember { param($GroupId, $All, $ErrorAction) }
+            function New-MgGroup { param($BodyParameter, $ErrorAction) }
+            function New-MgGroupMember { param($GroupId, $DirectoryObjectId, $ErrorAction) }
+            function Remove-MgGroupMemberDirectoryObjectByRef { param($GroupId, $DirectoryObjectId, $ErrorAction) }
+
+            $configuration = [SNSConfiguration]::new()
+            $configuration.CredentialMemberlist = [pscredential]::new('test', (ConvertTo-SecureString 'test' -AsPlainText -Force))
+            $configuration.Microsoft365GroupSettings = @{
+                'Säkerhet Spårarledare' = @{
+                    source = 'troop_roles'
+                    group_type = 'security'
+                    mail_nickname = 'sakerhet-sparar-ledare'
+                    troops = @(@{ name = 'Spårarna'; roles = '*' })
+                }
+            }
+            $memberlist = @{
+                data = @{
+                    member1 = @{
+                        member_no = @{ value = 'member-1' }
+                        unit = @{ raw_value = '3'; value = 'Spårarna' }
+                        roles = @{ value = @{ group = @{}; troop = @{ '3' = @{ '1' = @{ role_name = 'Ledare' } } } } }
+                    }
+                }
+            }
+            $createdGroup = [pscustomobject]@{ Id = 'sec-group'; GroupTypes = @(); MailEnabled = $false; SecurityEnabled = $true }
+
+            Mock Get-SNSApiGroupMemberlist { return $memberlist }
+            Mock Get-EXOMailbox { return @([pscustomobject]@{ CustomAttribute1 = 'member-1'; ExternalDirectoryObjectId = 'user-1' }) }
+            Mock Get-MgGroup { return @() }
+            Mock New-MgGroup { return $createdGroup }
+            Mock Get-MgGroupMember { return @() }
+            Mock New-MgGroupMember {}
+            Mock Write-SNSLog {}
+
+            Update-SNMicrosoft365Group -Configuration $configuration
+
+            Should -Invoke New-MgGroup -Times 1 -Exactly -ParameterFilter {
+                @($BodyParameter.GroupTypes).Count -eq 0 -and
+                $BodyParameter.MailEnabled -eq $false -and
+                $BodyParameter.SecurityEnabled -eq $true
+            }
+            Should -Invoke New-MgGroupMember -Times 1 -Exactly -ParameterFilter {
+                $GroupId -eq 'sec-group' -and $DirectoryObjectId -eq 'user-1'
+            }
+
+            # A Microsoft 365 group with the same name must not be treated as a security group.
+            Mock Get-MgGroup {
+                return @([pscustomobject]@{
+                    Id = 'm365'; DisplayName = 'Säkerhet Spårarledare'
+                    GroupTypes = @('Unified'); MailEnabled = $true; SecurityEnabled = $false
+                })
+            }
+            { Update-SNMicrosoft365Group -Configuration $configuration } | Should -Throw '*not an assigned security group*'
+
+            $configuration.Microsoft365GroupSettings['Säkerhet Spårarledare'].create_team = $true
+            { Update-SNMicrosoft365Group -Configuration $configuration } | Should -Throw '*cannot be a Teams team*'
+        }
+    }
+
     It 'includes unit members when unit_members is set on a troop rule' {
         InModuleScope Office365-Scoutnet-synk {
             $unitNames = @{ '2' = 'Äventyrarna' }

@@ -131,6 +131,46 @@ Describe 'SNSUpdateExchangeDistributionGroups role based rules' {
         }
     }
 
+    It 'creates a missing mail-enabled security group and leaves other group types alone' {
+        InModuleScope Office365-Scoutnet-synk {
+            function Get-EXORecipient { param($Identity, $ErrorAction, $Verbose) }
+            function New-DistributionGroup { param($Name, $Type, $Alias, $DisplayName, $PrimarySmtpAddress, $ErrorAction, $Verbose, $Confirm) }
+            function Set-DistributionGroup { param($Identity, $RequireSenderAuthenticationEnabled, $ErrorAction, $Verbose, $Confirm) }
+            Mock Set-DistributionGroup {}
+            Mock Get-EXORecipient {
+                if ($Identity -eq 'wrongtype') { return [pscustomobject]@{ RecipientTypeDetails = 'MailUniversalDistributionGroup' } }
+                if ($Identity -eq 'existing') { return [pscustomobject]@{ RecipientTypeDetails = 'MailUniversalSecurityGroup' } }
+                return $null
+            }
+            Mock New-DistributionGroup {}
+
+            $configuration = [SNSConfiguration]::new()
+            $configuration.CredentialCustomlists = $script:credential
+            $configuration.CredentialMemberlist = $script:credential
+            $configuration.MailListSettings = @{
+                newgroup = @{ source = 'group_roles'; group_type = 'security'; mail_nickname = 'newgroup-alias'; display_name = 'Ny grupp'; allow_external_senders = $true; ledare_synk_option = '-'; roles = @('Ordforande') }
+                wrongtype = @{ source = 'group_roles'; group_type = 'security'; ledare_synk_option = '-'; roles = @('Ordforande') }
+                existing = @{ source = 'group_roles'; group_type = 'security'; ledare_synk_option = '-'; roles = @('Ordforande') }
+                plain = @{ source = 'group_roles'; ledare_synk_option = '-'; roles = @('Ordforande') }
+            }
+
+            SNSUpdateExchangeDistributionGroups -ValidationHash 'old' -Configuration $configuration | Out-Null
+
+            Should -Invoke New-DistributionGroup -Times 1 -Exactly -ParameterFilter {
+                $Name -eq 'newgroup' -and $Type -eq 'Security' -and $Alias -eq 'newgroup-alias' -and $DisplayName -eq 'Ny grupp'
+            }
+            Should -Invoke Set-DistributionGroup -Times 1 -Exactly -ParameterFilter {
+                $Identity -eq 'newgroup' -and $RequireSenderAuthenticationEnabled -eq $false
+            }
+            Should -Invoke Update-DistributionGroupMember -Times 3 -Exactly
+            Should -Invoke Update-DistributionGroupMember -Times 0 -Exactly -ParameterFilter { $Identity -eq 'wrongtype' }
+
+            $configuration.MailListSettings = @{ bad = @{ source = 'group_roles'; group_type = 'other'; roles = @('x') } }
+            { SNSUpdateExchangeDistributionGroups -ValidationHash 'old' -Configuration $configuration -WhatIf } |
+                Should -Throw '*Unsupported group_type*'
+        }
+    }
+
     It 'changes the validation hash when roles change and rejects invalid rules' {
         InModuleScope Office365-Scoutnet-synk {
             $configuration = [SNSConfiguration]::new()

@@ -184,6 +184,14 @@ function SNSUpdateExchangeDistributionGroups
         (troops = @(@{ name; id; roles })) or source = 'group_roles' (roles) the leaders are instead selected by their roles in
         Scoutnet, in the same way as for Update-SNMicrosoft365Group, and roles = '*' matches any role. Role based rules
         use ledare_synk_option to decide which address is added. scoutnet_list_id is not used.
+        group_type = 'security' (works for all sources) creates the group as a mail-enabled security group with
+        New-DistributionGroup when it does not exist. Optional display_name (the visible name, since the rule key is
+        normally the e-mail address), mail_nickname (alias) and primary_smtp_address are used when creating it. The
+        primary address defaults to the rule key when the key contains '@'. allow_external_senders = $true also
+        lets senders outside the organization mail the new group (RequireSenderAuthenticationEnabled = $false);
+        it is only applied when the group is created. An existing group of another type is not
+        changed. Without group_type the
+        group must already exist.
         A troop rule with unit_members = $true also adds the members of that unit (the 'unit' object of the member)
         using scouter_synk_option, so a list can hold the scouts of a troop plus its leaders. Roles are optional then.
 
@@ -246,6 +254,7 @@ function SNSUpdateExchangeDistributionGroups
     foreach ($distGroupName in $MailListSettings.Keys)
     {
         Test-SNSRoleListSetting -Name $distGroupName -Setting $MailListSettings[$distGroupName]
+        [void](Get-SNSMailListGroupType -Setting $MailListSettings[$distGroupName])
         if ((Get-SNSMailListSource -Setting $MailListSettings[$distGroupName]) -ne 'mail_list')
         {
             $roleListNames += $distGroupName
@@ -552,6 +561,84 @@ function SNSUpdateExchangeDistributionGroups
 #endregion
 
 #region Update maillist
+            # Create a missing mail-enabled security group when the rule asks for it.
+            if ((Get-SNSMailListGroupType -Setting $MailListSettings[$distGroupName]) -eq 'security')
+            {
+                $existingGroup = Get-EXORecipient -Identity $distGroupName -ErrorAction "SilentlyContinue" -Verbose:$false
+                if ($null -eq $existingGroup)
+                {
+                    $newGroup = @{
+                        Name = $distGroupName
+                        Type = "Security"
+                        ErrorAction = "stop"
+                        Verbose = $false
+                    }
+                    # The rule key is the e-mail address of the group, so the display name is configured separately.
+                    $displayName = [string]$MailListSettings[$distGroupName].display_name
+                    if (-not [string]::IsNullOrWhiteSpace($displayName))
+                    {
+                        $newGroup.DisplayName = $displayName
+                    }
+                    $alias = [string]$MailListSettings[$distGroupName].mail_nickname
+                    if (-not [string]::IsNullOrWhiteSpace($alias))
+                    {
+                        $newGroup.Alias = $alias
+                    }
+                    $smtpAddress = [string]$MailListSettings[$distGroupName].primary_smtp_address
+                    if ([string]::IsNullOrWhiteSpace($smtpAddress) -and $distGroupName.Contains('@'))
+                    {
+                        $smtpAddress = $distGroupName
+                    }
+                    if (-not [string]::IsNullOrWhiteSpace($smtpAddress))
+                    {
+                        $newGroup.PrimarySmtpAddress = $smtpAddress
+                    }
+                    try
+                    {
+                        if ($PSCmdlet.ShouldProcess($distGroupName, "New-DistributionGroup"))
+                        {
+                            Write-SNSLog "Creating mail-enabled security group $distGroupName"
+                            New-DistributionGroup @newGroup -Confirm:$false | Out-Null
+
+                            # Set-DistributionGroup is used since New-DistributionGroup has no parameter for this.
+                            if ((Get-SNMicrosoft365Value -Object $MailListSettings[$distGroupName] -Name 'allow_external_senders') -eq $true)
+                            {
+                                for ($attempt = 1; $attempt -le 5; $attempt++)
+                                {
+                                    try
+                                    {
+                                        Set-DistributionGroup -Identity $distGroupName -RequireSenderAuthenticationEnabled $false -ErrorAction "stop" -Verbose:$false -Confirm:$false
+                                        Write-SNSLog "Allowed external senders for $distGroupName"
+                                        break
+                                    }
+                                    catch
+                                    {
+                                        if ($attempt -eq 5)
+                                        {
+                                            Write-SNSLog -Level "Warn" "Could not allow external senders for $distGroupName. Error $_"
+                                        }
+                                        else
+                                        {
+                                            # A new group can take a while to be visible.
+                                            Start-Sleep -Seconds 3
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        Write-SNSLog -Level "Error" "Creation of mail-enabled security group $distGroupName failed! Error $_"
+                        continue
+                    }
+                }
+                elseif ($existingGroup.RecipientTypeDetails -ne "MailUniversalSecurityGroup")
+                {
+                    Write-SNSLog -Level "Error" "Group $distGroupName exists but is not a mail-enabled security group. It was not changed."
+                    continue
+                }
+            }
             $UpdateDistGroup = @{
                 Identity = $distGroupName
                 Members =  $AddressesToAdd.Values
