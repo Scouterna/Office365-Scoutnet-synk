@@ -152,17 +152,21 @@ Describe 'SNSUpdateExchangeDistributionGroups role based rules' {
                 wrongtype = @{ source = 'group_roles'; group_type = 'security'; ledare_synk_option = '-'; roles = @('Ordforande') }
                 existing = @{ source = 'group_roles'; group_type = 'security'; ledare_synk_option = '-'; roles = @('Ordforande') }
                 plain = @{ source = 'group_roles'; ledare_synk_option = '-'; roles = @('Ordforande') }
+                maillist = @{ source = 'group_roles'; group_type = 'distribution'; display_name = 'Maillista'; ledare_synk_option = '-'; roles = @('Ordforande') }
             }
 
             SNSUpdateExchangeDistributionGroups -ValidationHash 'old' -Configuration $configuration | Out-Null
 
+            Should -Invoke New-DistributionGroup -Times 1 -Exactly -ParameterFilter {
+                $Name -eq 'maillist' -and $Type -eq 'Distribution' -and $DisplayName -eq 'Maillista'
+            }
             Should -Invoke New-DistributionGroup -Times 1 -Exactly -ParameterFilter {
                 $Name -eq 'newgroup' -and $Type -eq 'Security' -and $Alias -eq 'newgroup-alias' -and $DisplayName -eq 'Ny grupp'
             }
             Should -Invoke Set-DistributionGroup -Times 1 -Exactly -ParameterFilter {
                 $Identity -eq 'newgroup' -and $RequireSenderAuthenticationEnabled -eq $false
             }
-            Should -Invoke Update-DistributionGroupMember -Times 3 -Exactly
+            Should -Invoke Update-DistributionGroupMember -Times 4 -Exactly
             Should -Invoke Update-DistributionGroupMember -Times 0 -Exactly -ParameterFilter { $Identity -eq 'wrongtype' }
 
             $configuration.MailListSettings = @{ bad = @{ source = 'group_roles'; group_type = 'other'; roles = @('x') } }
