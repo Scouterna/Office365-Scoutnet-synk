@@ -316,7 +316,9 @@ function Update-SNMicrosoft365Group
           mail_nickname  Unique mail nickname, used when the group is created.
         Optional for all rules
           description    Group description, used when the group is created.
-          create_team    Set to $true to also make the group a Microsoft Teams team.
+          group_type     'microsoft365' (default) for a Microsoft 365 group, or 'security' for a
+                         security group (not mail enabled). Security groups can be used to
+                         control access, for example to a SharePoint area. They cannot be teams.          create_team    Set to $true to also make the group a Microsoft Teams team.
           keep_members   Accounts (user principal names or object ids) that are never removed
                          from the group even if they do not match the rule.
           team_owners    Owners (user principal names or object ids) added to the group when
@@ -344,12 +346,13 @@ function Update-SNMicrosoft365Group
         A member matching a rule without an account, for example a leader too young for an
         own account, is written to the log and skipped.
 
-        For each rule the group is created as a Microsoft 365 (Unified) group if it does not
+        For each rule the group is created as a Microsoft 365 (Unified) group, or as a security
+        group when group_type is 'security', if it does not
         exist. Matching accounts missing in the group are added and members that no longer
         match, for example leaders whose account was closed or who left the troop, are removed.
         Owners of the group and accounts listed in keep_members are never removed, which also
         protects an existing team whose owners are not part of the rule.
-        Existing groups that are not Microsoft 365 groups, or display names that are not
+        Existing groups of another type than configured, or display names that are not
         unique, cause an error and the group is not changed.
 
         When create_team is $true the group is made a Teams team after its membership has been
@@ -402,6 +405,17 @@ function Update-SNMicrosoft365Group
             }
         }
         Update-SNMicrosoft365Group -Configuration $conf
+
+    .EXAMPLE
+        $conf.Microsoft365GroupSettings = @{
+            'Säkerhet Spårarledare' = @{
+                source        = 'troop_roles'
+                group_type    = 'security'
+                mail_nickname = 'sakerhet-sparar-ledare'
+                troops        = @(@{ name = 'Spårarna'; roles = '*' })
+            }
+        }
+        Update-SNMicrosoft365Group -Configuration $conf
     #>
     [CmdletBinding(SupportsShouldProcess = $true)]
     param (
@@ -445,6 +459,15 @@ function Update-SNMicrosoft365Group
         if ($source -notin @('mail_list', 'troop_roles', 'group_roles'))
         {
             throw "Microsoft 365 group '$groupName' has unsupported source '$source'. Use mail_list, troop_roles, or group_roles."
+        }
+        $groupType = ([string](Get-SNMicrosoft365Value -Object $setting -Name 'group_type')).Trim().ToLowerInvariant()
+        if (-not [string]::IsNullOrWhiteSpace($groupType) -and $groupType -notin @('microsoft365', 'security'))
+        {
+            throw "Microsoft 365 group '$groupName' has unsupported group_type '$groupType'. Use microsoft365 or security."
+        }
+        if ($groupType -eq 'security' -and (Get-SNMicrosoft365Value -Object $setting -Name 'create_team') -eq $true)
+        {
+            throw "Group '$groupName' is a security group and cannot be a Teams team. Remove create_team."
         }
         if ((Get-SNMicrosoft365Value -Object $setting -Name 'create_team') -eq $true)
         {
@@ -657,11 +680,20 @@ function Update-SNMicrosoft365Group
         }
 
         $group = $matchingGroups | Select-Object -First 1
-        # Never touch a group with the same name that is not a Microsoft 365 group.
-        if ($null -ne $group -and
-            ($group.MailEnabled -ne $true -or @($group.GroupTypes) -notcontains 'Unified'))
+        # Never touch a group with the same name that is not of the configured type.
+        $isSecurityGroup = ([string](Get-SNMicrosoft365Value -Object $setting -Name 'group_type')).Trim().ToLowerInvariant() -eq 'security'
+        if ($null -ne $group)
         {
-            throw "The configured display name '$groupName' belongs to a non-Microsoft 365 group. It was not changed."
+            $isUnified = $group.MailEnabled -eq $true -and @($group.GroupTypes) -contains 'Unified'
+            $isPlainSecurity = $group.MailEnabled -ne $true -and $group.SecurityEnabled -eq $true -and @($group.GroupTypes).Count -eq 0
+            if ($isSecurityGroup -and -not $isPlainSecurity)
+            {
+                throw "The configured display name '$groupName' belongs to a group that is not an assigned security group. It was not changed."
+            }
+            if (-not $isSecurityGroup -and -not $isUnified)
+            {
+                throw "The configured display name '$groupName' belongs to a non-Microsoft 365 group. It was not changed."
+            }
         }
 
         $groupChanged = $false
@@ -671,12 +703,12 @@ function Update-SNMicrosoft365Group
             $groupParameters = @{
                 Description = $description
                 DisplayName = [string]$groupName
-                GroupTypes = @('Unified')
-                MailEnabled = $true
+                GroupTypes = if ($isSecurityGroup) { @() } else { @('Unified') }
+                MailEnabled = -not $isSecurityGroup
                 MailNickname = [string](Get-SNMicrosoft365Value -Object $setting -Name 'mail_nickname')
-                SecurityEnabled = $false
+                SecurityEnabled = $isSecurityGroup
             }
-            if (-not $PSCmdlet.ShouldProcess([string]$groupName, 'Create Microsoft 365 group'))
+            if (-not $PSCmdlet.ShouldProcess([string]$groupName, $(if ($isSecurityGroup) { 'Create security group' } else { 'Create Microsoft 365 group' })))
             {
                 continue
             }

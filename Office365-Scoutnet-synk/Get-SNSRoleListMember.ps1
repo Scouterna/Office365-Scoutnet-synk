@@ -1,4 +1,34 @@
-﻿function Get-SNSMailListSource
+﻿function Get-SNSMailListGroupType
+{
+    <#
+    .SYNOPSIS
+        Returns the group_type of a distribution group rule in MailListSettings.
+
+    .DESCRIPTION
+        Without group_type the group must already exist in Exchange, which is the original behavior.
+        With group_type = 'security' a missing group is created as a mail-enabled security group.
+
+    .PARAMETER Setting
+        The rule from MailListSettings.
+
+    .OUTPUTS
+        System.String. Empty or 'security' (lower case). Throws for other values.
+    #>
+    [OutputType([string])]
+    param (
+        [Parameter()]
+        $Setting
+    )
+
+    $groupType = ([string](Get-SNMicrosoft365Value -Object $Setting -Name 'group_type')).Trim().ToLowerInvariant()
+    if ($groupType -notin @('', 'security'))
+    {
+        throw "Unsupported group_type '$groupType' for a distribution group rule. Use security or omit group_type."
+    }
+    return $groupType
+}
+
+function Get-SNSMailListSource
 {
     <#
     .SYNOPSIS
