@@ -6,13 +6,14 @@
 
     .DESCRIPTION
         Without group_type the group must already exist in Exchange, which is the original behavior.
-        With group_type = 'security' a missing group is created as a mail-enabled security group.
+        With group_type = 'security' a missing group is created as a mail-enabled security group, and with
+        'distribution' as a regular distribution list.
 
     .PARAMETER Setting
         The rule from MailListSettings.
 
     .OUTPUTS
-        System.String. Empty or 'security' (lower case). Throws for other values.
+        System.String. Empty, 'security' or 'distribution' (lower case). Throws for other values.
     #>
     [OutputType([string])]
     param (
@@ -21,9 +22,9 @@
     )
 
     $groupType = ([string](Get-SNMicrosoft365Value -Object $Setting -Name 'group_type')).Trim().ToLowerInvariant()
-    if ($groupType -notin @('', 'security'))
+    if ($groupType -notin @('', 'security', 'distribution'))
     {
-        throw "Unsupported group_type '$groupType' for a distribution group rule. Use security or omit group_type."
+        throw "Unsupported group_type '$groupType' for a distribution group rule. Use security, distribution or omit group_type."
     }
     return $groupType
 }

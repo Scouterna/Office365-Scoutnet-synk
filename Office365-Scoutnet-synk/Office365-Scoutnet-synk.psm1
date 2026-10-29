@@ -184,7 +184,8 @@ function SNSUpdateExchangeDistributionGroups
         (troops = @(@{ name; id; roles })) or source = 'group_roles' (roles) the leaders are instead selected by their roles in
         Scoutnet, in the same way as for Update-SNMicrosoft365Group, and roles = '*' matches any role. Role based rules
         use ledare_synk_option to decide which address is added. scoutnet_list_id is not used.
-        group_type = 'security' (works for all sources) creates the group as a mail-enabled security group with
+        group_type = 'security' or 'distribution' (works for all sources) creates the group as a mail-enabled security group
+        or a regular distribution list with
         New-DistributionGroup when it does not exist. Optional display_name (the visible name, since the rule key is
         normally the e-mail address), mail_nickname (alias) and primary_smtp_address are used when creating it. The
         primary address defaults to the rule key when the key contains '@'. allow_external_senders = $true also
@@ -561,15 +562,18 @@ function SNSUpdateExchangeDistributionGroups
 #endregion
 
 #region Update maillist
-            # Create a missing mail-enabled security group when the rule asks for it.
-            if ((Get-SNSMailListGroupType -Setting $MailListSettings[$distGroupName]) -eq 'security')
+            # Create a missing group when the rule asks for it: a mail-enabled security group or a regular distribution list.
+            $groupType = Get-SNSMailListGroupType -Setting $MailListSettings[$distGroupName]
+            if ($groupType -ne '')
             {
+                $exchangeType = if ($groupType -eq 'security') { 'Security' } else { 'Distribution' }
+                $exchangeTypeDetails = if ($groupType -eq 'security') { 'MailUniversalSecurityGroup' } else { 'MailUniversalDistributionGroup' }
                 $existingGroup = Get-EXORecipient -Identity $distGroupName -ErrorAction "SilentlyContinue" -Verbose:$false
                 if ($null -eq $existingGroup)
                 {
                     $newGroup = @{
                         Name = $distGroupName
-                        Type = "Security"
+                        Type = $exchangeType
                         ErrorAction = "stop"
                         Verbose = $false
                     }
@@ -597,7 +601,7 @@ function SNSUpdateExchangeDistributionGroups
                     {
                         if ($PSCmdlet.ShouldProcess($distGroupName, "New-DistributionGroup"))
                         {
-                            Write-SNSLog "Creating mail-enabled security group $distGroupName"
+                            Write-SNSLog "Creating $exchangeType group $distGroupName"
                             New-DistributionGroup @newGroup -Confirm:$false | Out-Null
 
                             # Set-DistributionGroup is used since New-DistributionGroup has no parameter for this.
@@ -629,13 +633,13 @@ function SNSUpdateExchangeDistributionGroups
                     }
                     catch
                     {
-                        Write-SNSLog -Level "Error" "Creation of mail-enabled security group $distGroupName failed! Error $_"
+                        Write-SNSLog -Level "Error" "Creation of $exchangeType group $distGroupName failed! Error $_"
                         continue
                     }
                 }
-                elseif ($existingGroup.RecipientTypeDetails -ne "MailUniversalSecurityGroup")
+                elseif ($existingGroup.RecipientTypeDetails -ne $exchangeTypeDetails)
                 {
-                    Write-SNSLog -Level "Error" "Group $distGroupName exists but is not a mail-enabled security group. It was not changed."
+                    Write-SNSLog -Level "Error" "Group $distGroupName exists but is not of type $exchangeTypeDetails. It was not changed."
                     continue
                 }
             }
