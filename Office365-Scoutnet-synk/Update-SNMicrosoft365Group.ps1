@@ -144,6 +144,58 @@ function Test-SNMicrosoft365ConfiguredRole
     return $false
 }
 
+function Test-SNMicrosoft365UnitMember
+{
+    <#
+    .SYNOPSIS
+        Tests whether a member belongs to a troop selected with unit_members in a troop rule.
+
+    .DESCRIPTION
+        Membership is read from the member's 'unit' object. A troop rule with unit_members = $true
+        selects the members whose unit has the configured name (unit.value), or else the
+        configured id (unit.raw_value).
+
+    .PARAMETER Member
+        Member record from Get-SNSApiGroupMemberlist.
+
+    .PARAMETER Setting
+        The rule with a 'troops' list.
+
+    .OUTPUTS
+        System.Boolean.
+    #>
+    param (
+        [Parameter(Mandatory)]
+        $Member,
+
+        [Parameter(Mandatory)]
+        $Setting
+    )
+
+    $unit = Get-SNMicrosoft365Value -Object $Member -Name 'unit'
+    $unitId = [string](Get-SNMicrosoft365Value -Object $unit -Name 'raw_value')
+    $unitName = [string](Get-SNMicrosoft365Value -Object $unit -Name 'value')
+
+    foreach ($troopSetting in @(Get-SNMicrosoft365Value -Object $Setting -Name 'troops'))
+    {
+        if ((Get-SNMicrosoft365Value -Object $troopSetting -Name 'unit_members') -ne $true)
+        {
+            continue
+        }
+        $configuredId = [string](Get-SNMicrosoft365Value -Object $troopSetting -Name 'id')
+        $configuredName = [string](Get-SNMicrosoft365Value -Object $troopSetting -Name 'name')
+        if (-not [string]::IsNullOrWhiteSpace($configuredName) -and $unitName -eq $configuredName)
+        {
+            return $true
+        }
+        if (-not [string]::IsNullOrWhiteSpace($configuredId) -and $unitId -eq $configuredId)
+        {
+            return $true
+        }
+    }
+    return $false
+}
+
 function Test-SNMicrosoft365RoleGroupMatch
 {
     <#
@@ -169,6 +221,9 @@ function Test-SNMicrosoft365RoleGroupMatch
     .PARAMETER UnitNamesById
         Troop names keyed by troop id, built from the 'unit' objects (raw_value and value).
 
+    .PARAMETER RolesOnly
+        Ignore unit_members and only test roles.
+
     .OUTPUTS
         System.Boolean.
     #>
@@ -183,7 +238,10 @@ function Test-SNMicrosoft365RoleGroupMatch
         $Setting,
 
         [Parameter(Mandatory)]
-        [hashtable]$UnitNamesById
+        [hashtable]$UnitNamesById,
+
+        [Parameter()]
+        [switch]$RolesOnly
     )
 
     $roleData = Get-SNMicrosoft365Value -Object $Member.roles -Name 'value'
@@ -193,6 +251,11 @@ function Test-SNMicrosoft365RoleGroupMatch
         $actualRoles = @(Get-SNMicrosoft365RoleName -RoleData $groupRoles)
         $configuredRoles = @((Get-SNMicrosoft365Value -Object $Setting -Name 'roles') | ForEach-Object { [string]$_ })
         return Test-SNMicrosoft365ConfiguredRole -ActualRoles $actualRoles -ConfiguredRoles $configuredRoles
+    }
+
+    if (-not $RolesOnly -and (Test-SNMicrosoft365UnitMember -Member $Member -Setting $Setting))
+    {
+        return $true
     }
 
     $troopRoles = Get-SNMicrosoft365Value -Object $roleData -Name 'troop'
@@ -205,7 +268,11 @@ function Test-SNMicrosoft365RoleGroupMatch
     {
         $configuredId = [string](Get-SNMicrosoft365Value -Object $troopSetting -Name 'id')
         $configuredName = [string](Get-SNMicrosoft365Value -Object $troopSetting -Name 'name')
-        $configuredRoles = @((Get-SNMicrosoft365Value -Object $troopSetting -Name 'roles') | ForEach-Object { [string]$_ })
+        $configuredRoles = @((Get-SNMicrosoft365Value -Object $troopSetting -Name 'roles') | Where-Object { $null -ne $_ } | ForEach-Object { [string]$_ })
+        if ($configuredRoles.Count -eq 0)
+        {
+            continue
+        }
 
         foreach ($troopEntry in $troopRoles.GetEnumerator())
         {
@@ -265,7 +332,9 @@ function Update-SNMicrosoft365Group
                  Use '*' to match every member with any role on the scout group.
 
         source = 'troop_roles' (roles in one or more troops)
-          troops  Required. A list of rules, each with 'roles' and 'name' and/or 'id'.
+          troops  Required. A list of rules, each with 'roles' and 'name' and/or 'id'. Add
+                  unit_members = $true to also include the members of that troop (the member's
+                  'unit'); 'roles' is then optional.
                   The troop name is matched first and the troop id is the fallback.
                   Use roles = '*' to match every member with any role in that troop.
 
@@ -426,14 +495,16 @@ function Update-SNMicrosoft365Group
             {
                 $troopId = [string](Get-SNMicrosoft365Value -Object $troopSetting -Name 'id')
                 $troopName = [string](Get-SNMicrosoft365Value -Object $troopSetting -Name 'name')
-                $roles = @(Get-SNMicrosoft365Value -Object $troopSetting -Name 'roles')
+                $roles = @(Get-SNMicrosoft365Value -Object $troopSetting -Name 'roles').Where({ $null -ne $_ })
                 if ([string]::IsNullOrWhiteSpace($troopId) -and [string]::IsNullOrWhiteSpace($troopName))
                 {
                     throw "Each troop rule for Microsoft 365 group '$groupName' must configure name or id."
                 }
-                if ($roles.Count -eq 0 -or @($roles | Where-Object { [string]::IsNullOrWhiteSpace([string]$_) }).Count -gt 0)
+                $unitMembers = (Get-SNMicrosoft365Value -Object $troopSetting -Name 'unit_members') -eq $true
+                if (($roles.Count -eq 0 -and -not $unitMembers) -or
+                    @($roles | Where-Object { [string]::IsNullOrWhiteSpace([string]$_) }).Count -gt 0)
                 {
-                    throw "Each troop rule for Microsoft 365 group '$groupName' must configure one or more non-empty roles."
+                    throw "Each troop rule for Microsoft 365 group '$groupName' must configure one or more non-empty roles, or unit_members = `$true."
                 }
             }
         }
