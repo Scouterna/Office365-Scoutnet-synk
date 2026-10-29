@@ -342,16 +342,29 @@ Describe 'Mandatory moment report' {
         Should -Invoke Send-MgUserMail -Times 0 -Exactly
     }
 
-    It 'logs a warning and skips the report for an invalid last-sent automation variable value' {
-        Mock Get-SNSApiGroupMemberlist { throw 'Memberlist must not be requested' }
+    It 'sends the report regardless of cadence when the last-sent value is empty or missing' {
+        $memberlist = @{ data = @{} }
+        Mock Get-SNSApiGroupMemberlist { return $memberlist }
         Mock Send-MgUserMail {}
 
-        $result = Send-SNSMandatoryMomentReport -LastSentValue 'not-a-date' `
-            -AsOfDate ([datetime]'2025-03-01')
+        Send-SNSMandatoryMomentReport -Memberlist $memberlist -AsOfDate ([datetime]'2025-03-02') |
+            Should -BeTrue
+        Send-SNSMandatoryMomentReport -Memberlist $memberlist -LastSentValue '' `
+            -AsOfDate ([datetime]'2025-03-02') | Should -BeTrue
 
-        $result | Should -BeFalse
-        Should -Invoke Get-SNSApiGroupMemberlist -Times 0 -Exactly
-        Should -Invoke Send-MgUserMail -Times 0 -Exactly
+        Should -Invoke Send-MgUserMail -Times 2 -Exactly
+    }
+
+    It 'logs a warning and sends the report regardless of cadence for an invalid last-sent automation variable value' {
+        $memberlist = @{ data = @{} }
+        Mock Get-SNSApiGroupMemberlist { return $memberlist }
+        Mock Send-MgUserMail {}
+
+        $result = Send-SNSMandatoryMomentReport -Memberlist $memberlist -LastSentValue 'not-a-date' `
+            -AsOfDate ([datetime]'2025-03-02')
+
+        $result | Should -BeTrue
+        Should -Invoke Send-MgUserMail -Times 1 -Exactly
         Should -Invoke Write-SNSLog -Times 1 -Exactly -ParameterFilter {
             $Level -eq 'Warn' -and $Message -like '*MandatoryMomentReportLastSent*valid date*'
         }

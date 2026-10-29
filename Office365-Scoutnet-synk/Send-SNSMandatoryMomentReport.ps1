@@ -406,8 +406,9 @@ function Test-SNSMandatoryMomentReportDue
     the configured member-list credential.
 
 .PARAMETER LastSentValue
-    Raw value of the MandatoryMomentReportLastSent Automation variable. Empty
-    means that no prior report date is available.
+    Raw value of the MandatoryMomentReportLastSent Automation variable. An empty,
+    missing or invalid (not a date) value makes the report run regardless of the
+    configured cadence.
 
 .PARAMETER AsOfDate
     Date used for reporting cadence, member ages, and moment validity. Defaults
@@ -444,8 +445,13 @@ function Send-SNSMandatoryMomentReport
     )
 
     $lastSentDate = [datetime]::MinValue
-    if ($null -ne $LastSentValue -and
-        -not [string]::IsNullOrWhiteSpace([string]$LastSentValue))
+    $forceSend = $false
+    if ($null -eq $LastSentValue -or [string]::IsNullOrWhiteSpace([string]$LastSentValue))
+    {
+        Write-SNSLog "No previous report date available; the report is sent regardless of the configured cadence."
+        $forceSend = $true
+    }
+    else
     {
         $parsedLastSentDate = [datetime]::MinValue
         if (-not [datetime]::TryParse(
@@ -455,8 +461,8 @@ function Send-SNSMandatoryMomentReport
             [ref]$parsedLastSentDate
         ))
         {
-            Write-SNSLog -Level "Warn" "Automation variable 'MandatoryMomentReportLastSent' does not contain a valid date; using today's date instead."
-            $lastSentDate = $AsOfDate.Date
+            Write-SNSLog -Level "Warn" "Automation variable 'MandatoryMomentReportLastSent' does not contain a valid date; the report is sent regardless of the configured cadence."
+            $forceSend = $true
         }
         else
         {
@@ -477,7 +483,7 @@ function Send-SNSMandatoryMomentReport
         throw 'MandatoryMomentValidityYears must be at least one.'
     }
 
-    if (-not (Test-SNSMandatoryMomentReportDue `
+    if (-not $forceSend -and -not (Test-SNSMandatoryMomentReportDue `
         -Frequency $Configuration.MandatoryMomentReportFrequency `
         -LastSentDate $lastSentDate `
         -AsOfDate $AsOfDate))
