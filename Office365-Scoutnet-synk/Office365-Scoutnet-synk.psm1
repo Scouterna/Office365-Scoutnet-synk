@@ -16,6 +16,7 @@
 . $PSScriptRoot\Get-SNSApiGroupMemberlist.ps1
 . $PSScriptRoot\Send-SNSMandatoryMomentReport.ps1
 . $PSScriptRoot\Update-SNMicrosoft365Group.ps1
+. $PSScriptRoot\Get-SNSRoleListMember.ps1
 . $PSScriptRoot\Invoke-SNSUppdateOffice365User.ps1
 . $PSScriptRoot\Connect-SnSOffice365.ps1
 . $PSScriptRoot\Disconnect-SnSOffice365.ps1
@@ -179,6 +180,13 @@ function SNSUpdateExchangeDistributionGroups
         Fetches the distribution groups members and updates corressponding distribution groups based on the info from scoutnet.
         As all members of an distribution group must be present in exchange as user or contact, contacts will be created for external addresses.
 
+        A rule in MailListSettings without 'source' uses a Scoutnet maillist (scoutnet_list_id). With source = 'troop_roles'
+        (troops = @(@{ name; id; roles })) or source = 'group_roles' (roles) the leaders are instead selected by their roles in
+        Scoutnet, in the same way as for Update-SNMicrosoft365Group, and roles = '*' matches any role. Role based rules
+        use ledare_synk_option to decide which address is added. scoutnet_list_id is not used.
+        A troop rule with unit_members = $true also adds the members of that unit (the 'unit' object of the member)
+        using scouter_synk_option, so a list can hold the scouts of a troop plus its leaders. Roles are optional then.
+
     .INPUTS
         None. You cannot pipe objects to SNSUpdateExchangeDistributionGroups.
 
@@ -233,8 +241,20 @@ function SNSUpdateExchangeDistributionGroups
 
     $MailListSettings = $SNSConf.MailListSettings
 
+    # Rules without source are driven by Scoutnet maillists. Rules with source troop_roles or group_roles are driven by roles.
+    $roleListNames = @()
+    foreach ($distGroupName in $MailListSettings.Keys)
+    {
+        Test-SNSRoleListSetting -Name $distGroupName -Setting $MailListSettings[$distGroupName]
+        if ((Get-SNSMailListSource -Setting $MailListSettings[$distGroupName]) -ne 'mail_list')
+        {
+            $roleListNames += $distGroupName
+        }
+    }
+
     # Fetch maillist info from scoutnet.
-    $CustomLists, $CustomListsHash = Get-SNSMaillistInfo -CredentialCustomlists $SNSConf.CredentialCustomlists -MaillistsIds $MailListSettings.values
+    $maillistRules = @($MailListSettings.Keys | Where-Object { $roleListNames -notcontains $_ } | ForEach-Object { $MailListSettings[$_] })
+    $CustomLists, $CustomListsHash = Get-SNSMaillistInfo -CredentialCustomlists $SNSConf.CredentialCustomlists -MaillistsIds $maillistRules
 
     # Fetch all members and their mailaddresses.
     $allMailAddresses, $allMailAddressesHash = Get-SNSUserEmail -CredentialMemberlist $SNSConf.CredentialMemberlist
@@ -243,6 +263,15 @@ function SNSUpdateExchangeDistributionGroups
 
     $OutValidationHash = $ValidationHash
     $NewValidationHash = "0x{0}{1}{2}" -f ($CustomListsHash, $allMailAddressesHash, $MailListSettingsHash)
+
+    # Roles are not part of the mail address hash, so the matched members of role based rules are added to the validation hash.
+    $roleListMembers = @{}
+    if ($roleListNames.Count -gt 0)
+    {
+        $memberlist = Get-SNSApiGroupMemberlist -Credential $SNSConf.CredentialMemberlist
+        $roleListMembers = Get-SNSRoleListMember -MailListSettings $MailListSettings -MemberList $memberlist
+        $NewValidationHash += Get-SNSStableHash -InputObject $roleListMembers
+    }
 
     Write-SNSLog "Saved validation hash: $ValidationHash new value $NewValidationHash"
 
@@ -265,13 +294,21 @@ function SNSUpdateExchangeDistributionGroups
             Write-SNSLog " "
             Write-SNSLog "Adding Contacts in distribution group $($distGroupName)"
 
-            $scouter_synk_option = $MailListSettings[$distGroupName].scouter_synk_option
+            $isRoleList = $roleListNames -contains $distGroupName
+
+            $scouter_synk_option = [string]$MailListSettings[$distGroupName].scouter_synk_option
             $scouter_synk_option = $scouter_synk_option.ToLower()
 
+            # Fetch the mail addresses to add for scouter. Role based rules only contain leaders.
             Write-SNSLog "Scouter synk option is '$scouter_synk_option' for distribution group $distGroupName"
-
-            # Fetch the mail addresses to add for scouter.
-            $listData = $CustomLists[$distGroupId].scouter
+            if ($isRoleList)
+            {
+                $listData = $roleListMembers[$distGroupName].scouter
+            }
+            else
+            {
+                $listData = $CustomLists[$distGroupId].scouter
+            }
             foreach ($member in $listData)
             {
                 if ($null -eq $member)
@@ -389,7 +426,7 @@ function SNSUpdateExchangeDistributionGroups
 #endregion
 
 #region Synch e-mail addresses from rule list 'ledare' using ledare_synk_option.
-            $ledare_synk_option = $MailListSettings[$distGroupName].ledare_synk_option
+            $ledare_synk_option = [string]$MailListSettings[$distGroupName].ledare_synk_option
             $ledare_synk_option = $ledare_synk_option.ToLower()
 
             Write-SNSLog "Ledare synk option is '$ledare_synk_option' for distribution group $distGroupName"
@@ -415,7 +452,14 @@ function SNSUpdateExchangeDistributionGroups
                 $AddLedareOffice365Address = $True
             }
 
-            $listData = $CustomLists[$distGroupId].ledare
+            if ($isRoleList)
+            {
+                $listData = $roleListMembers[$distGroupName].ledare
+            }
+            else
+            {
+                $listData = $CustomLists[$distGroupId].ledare
+            }
             foreach ($member in $listData)
             {
                 if ($null -eq $member)

@@ -244,6 +244,22 @@ Describe 'Update-SNMicrosoft365Group' {
         }
     }
 
+    It 'includes unit members when unit_members is set on a troop rule' {
+        InModuleScope Office365-Scoutnet-synk {
+            $unitNames = @{ '2' = 'Äventyrarna' }
+            $scout = @{ unit = @{ raw_value = '2'; value = 'Äventyrarna' }; roles = @{ value = @{ group = @{}; troop = @{} } } }
+            $other = @{ unit = @{ raw_value = '3'; value = 'Spårarna' }; roles = @{ value = @{ group = @{}; troop = @{} } } }
+            $rule = @{ troops = @(@{ name = 'Fel namn'; id = '2'; unit_members = $true }) }
+
+            Test-SNMicrosoft365RoleGroupMatch -Member $scout -Source 'troop_roles' -Setting $rule -UnitNamesById $unitNames |
+                Should -BeTrue
+            Test-SNMicrosoft365RoleGroupMatch -Member $other -Source 'troop_roles' -Setting $rule -UnitNamesById $unitNames |
+                Should -BeFalse
+            Test-SNMicrosoft365RoleGroupMatch -Member $scout -Source 'troop_roles' -Setting $rule -UnitNamesById $unitNames -RolesOnly |
+                Should -BeFalse
+        }
+    }
+
     It 'never removes group owners or keep_members accounts even if they do not match the rule' {
         InModuleScope Office365-Scoutnet-synk {
             function Get-EXOMailbox {}
