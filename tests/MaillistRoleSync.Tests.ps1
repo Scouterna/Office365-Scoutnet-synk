@@ -148,18 +148,25 @@ Describe 'SNSUpdateExchangeDistributionGroups role based rules' {
             $configuration.CredentialCustomlists = $script:credential
             $configuration.CredentialMemberlist = $script:credential
             $configuration.MailListSettings = @{
-                newgroup = @{ source = 'group_roles'; group_type = 'security'; mail_nickname = 'newgroup-alias'; display_name = 'Ny grupp'; allow_external_senders = $true; ledare_synk_option = '-'; roles = @('Ordforande') }
+                newgroup = @{ source = 'group_roles'; group_type = 'security'; mail_nickname = 'newgroup-alias'; display_name = 'Ny grupp'; primary_smtp_address = 'newgroup@example.org'; allow_external_senders = $true; ledare_synk_option = '-'; roles = @('Ordforande') }
                 wrongtype = @{ source = 'group_roles'; group_type = 'security'; ledare_synk_option = '-'; roles = @('Ordforande') }
                 existing = @{ source = 'group_roles'; group_type = 'security'; ledare_synk_option = '-'; roles = @('Ordforande') }
                 plain = @{ source = 'group_roles'; ledare_synk_option = '-'; roles = @('Ordforande') }
-                maillist = @{ source = 'group_roles'; group_type = 'distribution'; display_name = 'Maillista'; ledare_synk_option = '-'; roles = @('Ordforande') }
+                maillist = @{ source = 'group_roles'; group_type = 'distribution'; display_name = 'Maillista'; mail_nickname = 'maillista'; primary_smtp_address = 'maillista@example.org'; ledare_synk_option = '-'; roles = @('Ordforande') }
+                incomplete = @{ source = 'group_roles'; group_type = 'distribution'; display_name = 'Ofullständig'; ledare_synk_option = '-'; roles = @('Ordforande') }
             }
 
             SNSUpdateExchangeDistributionGroups -ValidationHash 'old' -Configuration $configuration | Out-Null
 
             Should -Invoke New-DistributionGroup -Times 1 -Exactly -ParameterFilter {
-                $Name -eq 'maillist' -and $Type -eq 'Distribution' -and $DisplayName -eq 'Maillista'
+                $Name -eq 'maillist' -and $Type -eq 'Distribution' -and $DisplayName -eq 'Maillista' -and
+                $Alias -eq 'maillista' -and $PrimarySmtpAddress -eq 'maillista@example.org'
             }
+            Should -Invoke New-DistributionGroup -Times 0 -Exactly -ParameterFilter { $Name -eq 'incomplete' }
+            Should -Invoke Write-SNSLog -Times 1 -Exactly -ParameterFilter {
+                $Level -eq 'Warn' -and $Message -like '*incomplete*mail_nickname, primary_smtp_address*'
+            }
+            Should -Invoke Update-DistributionGroupMember -Times 0 -Exactly -ParameterFilter { $Identity -eq 'incomplete' }
             Should -Invoke New-DistributionGroup -Times 1 -Exactly -ParameterFilter {
                 $Name -eq 'newgroup' -and $Type -eq 'Security' -and $Alias -eq 'newgroup-alias' -and $DisplayName -eq 'Ny grupp'
             }

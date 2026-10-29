@@ -186,9 +186,10 @@ function SNSUpdateExchangeDistributionGroups
         use ledare_synk_option to decide which address is added. scoutnet_list_id is not used.
         group_type = 'security' or 'distribution' (works for all sources) creates the group as a mail-enabled security group
         or a regular distribution list with
-        New-DistributionGroup when it does not exist. Optional display_name (the visible name, since the rule key is
-        normally the e-mail address), mail_nickname (alias) and primary_smtp_address are used when creating it. The
-        primary address defaults to the rule key when the key contains '@'. allow_external_senders = $true also
+        New-DistributionGroup when it does not exist. display_name (the visible name, since the rule key is
+        normally the e-mail address), mail_nickname (alias) and primary_smtp_address must all be specified to create
+        a group; otherwise a warning is logged and the group is skipped while the other lists continue.
+        allow_external_senders = $true also
         lets senders outside the organization mail the new group (RequireSenderAuthenticationEnabled = $false);
         it is only applied when the group is created. An existing group of another type is not
         changed. Without group_type the
@@ -579,24 +580,21 @@ function SNSUpdateExchangeDistributionGroups
                     }
                     # The rule key is the e-mail address of the group, so the display name is configured separately.
                     $displayName = [string]$MailListSettings[$distGroupName].display_name
-                    if (-not [string]::IsNullOrWhiteSpace($displayName))
-                    {
-                        $newGroup.DisplayName = $displayName
-                    }
                     $alias = [string]$MailListSettings[$distGroupName].mail_nickname
-                    if (-not [string]::IsNullOrWhiteSpace($alias))
-                    {
-                        $newGroup.Alias = $alias
-                    }
                     $smtpAddress = [string]$MailListSettings[$distGroupName].primary_smtp_address
-                    if ([string]::IsNullOrWhiteSpace($smtpAddress) -and $distGroupName.Contains('@'))
+                    $missingFields = @(
+                        if ([string]::IsNullOrWhiteSpace($displayName)) { 'display_name' }
+                        if ([string]::IsNullOrWhiteSpace($alias)) { 'mail_nickname' }
+                        if ([string]::IsNullOrWhiteSpace($smtpAddress)) { 'primary_smtp_address' }
+                    )
+                    if ($missingFields.Count -gt 0)
                     {
-                        $smtpAddress = $distGroupName
+                        Write-SNSLog -Level "Warn" "Group $distGroupName does not exist and cannot be created because $($missingFields -join ', ') is not specified. The group is skipped."
+                        continue
                     }
-                    if (-not [string]::IsNullOrWhiteSpace($smtpAddress))
-                    {
-                        $newGroup.PrimarySmtpAddress = $smtpAddress
-                    }
+                    $newGroup.DisplayName = $displayName
+                    $newGroup.Alias = $alias
+                    $newGroup.PrimarySmtpAddress = $smtpAddress
                     try
                     {
                         if ($PSCmdlet.ShouldProcess($distGroupName, "New-DistributionGroup"))
