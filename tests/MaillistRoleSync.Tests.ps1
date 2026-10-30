@@ -182,6 +182,69 @@ Describe 'SNSUpdateExchangeDistributionGroups role based rules' {
         }
     }
 
+    It 'creates and updates subject prefix mail flow rules only when add_prefix is true' {
+        InModuleScope Office365-Scoutnet-synk {
+            function Get-EXORecipient { param($Identity, $ErrorAction, $Verbose) }
+            function Get-TransportRule { param($Identity, $ErrorAction, $Verbose) }
+            function New-TransportRule { param($Name, $AnyOfToCCHeader, $PrependSubject, $ExceptIfSubjectContainsWords, $AuditSeverity, $SenderAddressLocation, $RuleErrorAction, $Mode, $ErrorAction, $Verbose, $Confirm) }
+            function Set-TransportRule { param($Identity, $PrependSubject, $ExceptIfSubjectContainsWords, $ErrorAction, $Verbose, $Confirm) }
+            Mock Get-EXORecipient { return [pscustomobject]@{ PrimarySmtpAddress = 'lookup@example.org' } }
+            Mock Get-TransportRule {
+                if ($Identity -eq 'Subject prefix for old@example.org') {
+                    return [pscustomobject]@{ PrependSubject = '[Gammal] '; ExceptIfSubjectContainsWords = @('[Gammal]') }
+                }
+                if ($Identity -eq 'Subject prefix for same@example.org') {
+                    return [pscustomobject]@{ PrependSubject = '[Samma] '; ExceptIfSubjectContainsWords = @('[Samma]') }
+                }
+                return $null
+            }
+            Mock New-TransportRule {}
+            Mock Set-TransportRule {}
+
+            $configuration = [SNSConfiguration]::new()
+            $configuration.CredentialCustomlists = $script:credential
+            $configuration.CredentialMemberlist = $script:credential
+            $base = @{ source = 'group_roles'; ledare_synk_option = '-'; roles = @('Ordforande') }
+            $configuration.MailListSettings = @{
+                'derived@example.org' = $base + @{ add_prefix = $true; display_name = 'Krypen' }
+                'text@example.org' = $base + @{ add_prefix = $true; display_name = 'Utmanarledare'; prefix_text = ' [Utm] ' }
+                'old@example.org' = $base + @{ add_prefix = $true; prefix_text = '[Ny]' }
+                'same@example.org' = $base + @{ add_prefix = $true; prefix_text = '[Samma]' }
+                'Alias namn' = $base + @{ add_prefix = $true; display_name = 'Alias' }
+                'off@example.org' = $base + @{ add_prefix = $false; display_name = 'Av' }
+                'unset@example.org' = $base + @{ display_name = 'Osatt' }
+                'noprefix@example.org' = $base + @{ add_prefix = $true }
+            }
+
+            SNSUpdateExchangeDistributionGroups -ValidationHash 'old' -Configuration $configuration | Out-Null
+
+            Should -Invoke New-TransportRule -Times 3 -Exactly
+            Should -Invoke New-TransportRule -Times 1 -Exactly -ParameterFilter {
+                $Name -eq 'Subject prefix for derived@example.org' -and $AnyOfToCCHeader -eq 'derived@example.org' -and
+                $PrependSubject -eq '[Krypen] ' -and $ExceptIfSubjectContainsWords -eq '[Krypen]' -and
+                $AuditSeverity -eq 'DoNotAudit' -and $SenderAddressLocation -eq 'Header' -and $Mode -eq 'Enforce'
+            }
+            Should -Invoke New-TransportRule -Times 1 -Exactly -ParameterFilter {
+                $AnyOfToCCHeader -eq 'text@example.org' -and $PrependSubject -eq '[Utm] ' -and $ExceptIfSubjectContainsWords -eq '[Utm]'
+            }
+            Should -Invoke New-TransportRule -Times 1 -Exactly -ParameterFilter {
+                $AnyOfToCCHeader -eq 'lookup@example.org' -and $PrependSubject -eq '[Alias] '
+            }
+            Should -Invoke Set-TransportRule -Times 1 -Exactly -ParameterFilter {
+                $Identity -eq 'Subject prefix for old@example.org' -and $PrependSubject -eq '[Ny] ' -and $ExceptIfSubjectContainsWords -eq '[Ny]'
+            }
+            Should -Invoke New-TransportRule -Times 0 -Exactly -ParameterFilter { $AnyOfToCCHeader -in @('off@example.org', 'unset@example.org', 'same@example.org') }
+            Should -Invoke Write-SNSLog -Times 1 -Exactly -ParameterFilter {
+                $Level -eq 'Warn' -and $Message -like '*noprefix@example.org*neither prefix_text nor display_name*'
+            }
+
+            Should -Invoke New-TransportRule -Times 3 -Exactly
+            SNSUpdateExchangeDistributionGroups -ValidationHash 'old' -Configuration $configuration -WhatIf | Out-Null
+            Should -Invoke New-TransportRule -Times 3 -Exactly
+            Should -Invoke Set-TransportRule -Times 1 -Exactly
+        }
+    }
+
     It 'changes the validation hash when roles change and rejects invalid rules' {
         InModuleScope Office365-Scoutnet-synk {
             $configuration = [SNSConfiguration]::new()
