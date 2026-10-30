@@ -170,6 +170,123 @@ function New-SNSMailContact
 }
 
 
+function Get-SNSMailListSubjectPrefix
+{
+    <#
+    .SYNOPSIS
+        Returns the subject prefix for a distribution group rule in MailListSettings.
+
+    .DESCRIPTION
+        prefix_text is used as it is (trimmed). Without prefix_text the prefix is the display_name in square
+        brackets, for example [Krypen].
+
+    .PARAMETER Setting
+        The rule from MailListSettings.
+
+    .OUTPUTS
+        System.String. The prefix without trailing space, or an empty string when neither prefix_text nor display_name is specified.
+    #>
+    [OutputType([string])]
+    param (
+        [Parameter()]
+        $Setting
+    )
+
+    $prefixText = ([string](Get-SNMicrosoft365Value -Object $Setting -Name 'prefix_text')).Trim()
+    if ($prefixText -ne '')
+    {
+        return $prefixText
+    }
+
+    $displayName = ([string](Get-SNMicrosoft365Value -Object $Setting -Name 'display_name')).Trim()
+    if ($displayName -ne '')
+    {
+        return "[$displayName]"
+    }
+    return ''
+}
+
+
+function Set-SNSMailListPrefixRule
+{
+    <#
+    .SYNOPSIS
+        Creates or updates the Exchange mail flow rule that prefixes the subject of mail sent to a distribution group.
+
+    .DESCRIPTION
+        The rule matches the group address in the To or Cc header, which is evaluated before Exchange expands the
+        group, and prepends the prefix to the subject. A subject that already contains the prefix is left as it is.
+        The rule is named 'Subject prefix for <address>'. An existing rule with that name gets its prefix updated.
+
+    .PARAMETER GroupName
+        The key of the rule in MailListSettings (name or e-mail address of the group).
+
+    .PARAMETER Setting
+        The rule from MailListSettings.
+    #>
+    [CmdletBinding(SupportsShouldProcess = $True)]
+    param (
+        [Parameter(Mandatory = $True)]
+        [string]$GroupName,
+
+        [Parameter()]
+        $Setting
+    )
+
+    $prefix = Get-SNSMailListSubjectPrefix -Setting $Setting
+    if ($prefix -eq '')
+    {
+        Write-SNSLog -Level "Warn" "add_prefix is set for $GroupName but neither prefix_text nor display_name is specified. No subject prefix rule is created."
+        return
+    }
+
+    $address = ([string](Get-SNMicrosoft365Value -Object $Setting -Name 'primary_smtp_address')).Trim()
+    if ($address -eq '' -and $GroupName -like '*@*')
+    {
+        $address = $GroupName
+    }
+    if ($address -eq '')
+    {
+        $address = [string](Get-EXORecipient -Identity $GroupName -ErrorAction "SilentlyContinue" -Verbose:$false).PrimarySmtpAddress
+    }
+    if ($address -eq '')
+    {
+        Write-SNSLog -Level "Warn" "The e-mail address of $GroupName is not known. No subject prefix rule is created."
+        return
+    }
+
+    $ruleName = "Subject prefix for $address"
+    $prependText = "$prefix "
+    try
+    {
+        $rule = Get-TransportRule -Identity $ruleName -ErrorAction "SilentlyContinue" -Verbose:$false
+        if ($null -eq $rule)
+        {
+            if ($PSCmdlet.ShouldProcess($ruleName, "New-TransportRule"))
+            {
+                Write-SNSLog "Creating mail flow rule '$ruleName' with prefix $prefix"
+                New-TransportRule -Name $ruleName -AnyOfToCCHeader $address -PrependSubject $prependText `
+                    -ExceptIfSubjectContainsWords $prefix -AuditSeverity "DoNotAudit" -SenderAddressLocation "Header" `
+                    -RuleErrorAction "Ignore" -Mode "Enforce" -ErrorAction "stop" -Verbose:$false -Confirm:$false | Out-Null
+            }
+        }
+        elseif ($rule.PrependSubject -ne $prependText -or (@($rule.ExceptIfSubjectContainsWords) -join '|') -ne $prefix)
+        {
+            if ($PSCmdlet.ShouldProcess($ruleName, "Set-TransportRule"))
+            {
+                Write-SNSLog "Updating mail flow rule '$ruleName' to prefix $prefix"
+                Set-TransportRule -Identity $ruleName -PrependSubject $prependText -ExceptIfSubjectContainsWords $prefix `
+                    -ErrorAction "stop" -Verbose:$false -Confirm:$false | Out-Null
+            }
+        }
+    }
+    catch
+    {
+        Write-SNSLog -Level "Error" "Creation or update of mail flow rule '$ruleName' failed! Error $_"
+    }
+}
+
+
 function SNSUpdateExchangeDistributionGroups
 {
     <#
@@ -194,6 +311,8 @@ function SNSUpdateExchangeDistributionGroups
         it is only applied when the group is created. An existing group of another type is not
         changed. Without group_type the
         group must already exist.
+        add_prefix = $true creates (or updates) an Exchange mail flow rule that prepends a prefix to the subject
+        of mail sent to the group. The prefix is prefix_text, or [display_name] when prefix_text is not specified.
         A troop rule with unit_members = $true also adds the members of that unit (the 'unit' object of the member)
         using scouter_synk_option, so a list can hold the scouts of a troop plus its leaders. Roles are optional then.
 
@@ -640,6 +759,10 @@ function SNSUpdateExchangeDistributionGroups
                     Write-SNSLog -Level "Error" "Group $distGroupName exists but is not of type $exchangeTypeDetails. It was not changed."
                     continue
                 }
+            }
+            if ((Get-SNMicrosoft365Value -Object $MailListSettings[$distGroupName] -Name 'add_prefix') -eq $true)
+            {
+                Set-SNSMailListPrefixRule -GroupName $distGroupName -Setting $MailListSettings[$distGroupName]
             }
             $UpdateDistGroup = @{
                 Identity = $distGroupName
