@@ -6,7 +6,7 @@ param(
 
 $GraphDesiredVersion = "2.41.2"
 $ExchangeOnlineManagementVersion = "3.10.1"
-$ScoutnetModuleVersion = "3.0.1"
+$ScoutnetModuleVersion = "3.1.0"
 $AzRuntimePackageVersion = '15.1.0'
 $AzureCliRuntimePackageVersion = '2.77.0'
 $AutomationRuntimeVersion = '7.6'
@@ -220,6 +220,7 @@ $RequiredScopes = @("Directory.AccessAsUser.All",
     "GroupMember.ReadWrite.All",
     "Group.ReadWrite.All",
     "Group.Read.All",
+    "Team.Create",
     "User.ReadWrite.All",
     "User.Read.All",
     "Mail.Send")
@@ -276,6 +277,7 @@ $runtimePackages = @(
     @{ Name = 'Microsoft.Graph.Users'; Version = $GraphDesiredVersion },
     @{ Name = 'Microsoft.Graph.Users.Actions'; Version = $GraphDesiredVersion },
     @{ Name = 'Microsoft.Graph.Groups'; Version = $GraphDesiredVersion },
+    @{ Name = 'Microsoft.Graph.Teams'; Version = $GraphDesiredVersion },
     @{ Name = 'Microsoft.Graph.Identity.DirectoryManagement'; Version = $GraphDesiredVersion },
     @{ Name = 'ExchangeOnlineManagement'; Version = $ExchangeOnlineManagementVersion },
     @{ Name = 'Office365-Scoutnet-synk'; Version = $ScoutnetModuleVersion }

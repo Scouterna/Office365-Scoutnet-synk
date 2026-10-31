@@ -33,6 +33,7 @@
     [pscredential]$CredentialCustomlists
     [pscredential]$CredentialMemberlist
     [System.Collections.Hashtable]$MailListSettings
+    [System.Collections.Hashtable]$Microsoft365GroupSettings
     [string]$DomainName
     [string]$DisabledAccountsAutoReplyText
     [System.Collections.Hashtable]$ApiGroupMemberlistCache
@@ -44,6 +45,7 @@
     "GroupMember.ReadWrite.All",
     "Group.ReadWrite.All",
     "Group.Read.All",
+    "Team.Create",
     "User.ReadWrite.All",
     "User.Read.All",
     "Mail.Send",
@@ -71,6 +73,9 @@ function New-SNSConfiguration
 
     .PARAMETER MailListSettings
         Maillists to process for maillist syncronisation. A hashtable with maillist info.
+
+    .PARAMETER Microsoft365GroupSettings
+        Rules for Microsoft 365 groups synchronized from Scoutnet.
 
     .PARAMETER DomainName
         Domain name for office365 mail addresses.
@@ -141,6 +146,9 @@ function New-SNSConfiguration
         [Parameter(HelpMessage="Maillists to process.")]
         $MailListSettings,
 
+        [Parameter(HelpMessage="Rules for Microsoft 365 groups.")]
+        [System.Collections.Hashtable]$Microsoft365GroupSettings,
+
         [Parameter(HelpMessage="Domain name for office365 mail addresses.")]
         [string]$DomainName,
 
@@ -196,6 +204,11 @@ function New-SNSConfiguration
     if ($MailListSettings)
     {
         $conf.MailListSettings = $MailListSettings
+    }
+
+    if ($PSBoundParameters.ContainsKey('Microsoft365GroupSettings'))
+    {
+        $conf.Microsoft365GroupSettings = $Microsoft365GroupSettings
     }
 
     if ($NewUserInfoEmailText)
@@ -297,7 +310,8 @@ function New-SNSConfiguration
     $conf.commandNames += "Add-DistributionGroupMember,Get-DistributionGroupMember,"
     $conf.commandNames += "Get-DistributionGroup,Set-MailboxMessageConfiguration,"
     $conf.commandNames += "Set-MailboxAutoReplyConfiguration,"
-    $conf.commandNames += "Get-Contact"
+    $conf.commandNames += "Get-Contact,"
+    $conf.commandNames += "Get-TransportRule,New-TransportRule,Set-TransportRule"
 
     return $conf
 }

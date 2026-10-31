@@ -1,13 +1,12 @@
 ﻿#Requires -Version 7.6
 
-[Net.ServicePointManager]::SecurityProtocol = "tls13, tls12"
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls13
 
 #region import everything we need
 
 . $PSScriptRoot\SNSConfiguration.ps1
 . $PSScriptRoot\Write-SNSLog.ps1
 . $PSScriptRoot\Get-SNSStableHash.ps1
-. $PSScriptRoot\ConvertTo-SNSJSONHash.ps1
 . $PSScriptRoot\Receive-SNSApiJson.ps1
 . $PSScriptRoot\Get-SNSApiGroupCustomlist.ps1
 . $PSScriptRoot\Get-SNSMaillistInfo.ps1
@@ -15,6 +14,8 @@
 . $PSScriptRoot\Get-SNSExchangeMailListMember.ps1
 . $PSScriptRoot\Get-SNSApiGroupMemberlist.ps1
 . $PSScriptRoot\Send-SNSMandatoryMomentReport.ps1
+. $PSScriptRoot\Update-SNMicrosoft365Group.ps1
+. $PSScriptRoot\Get-SNSRoleListMember.ps1
 . $PSScriptRoot\Invoke-SNSUppdateOffice365User.ps1
 . $PSScriptRoot\Connect-SnSOffice365.ps1
 . $PSScriptRoot\Disconnect-SnSOffice365.ps1
@@ -49,8 +50,7 @@ function Add-Office365UserToList
         [switch] $doWarn
         )
 
-    $memberSearchStr = "*$member"
-    $recipient = $allOffice365Users | Where-Object {$_.CustomAttribute1 -like $memberSearchStr}
+    $recipient = $allOffice365Users | Where-Object { $_.CustomAttribute1 -eq $member }
 
     $userAdded = $False
     $PrimarySmtpAddress = ""
@@ -169,6 +169,123 @@ function New-SNSMailContact
 }
 
 
+function Get-SNSMailListSubjectPrefix
+{
+    <#
+    .SYNOPSIS
+        Returns the subject prefix for a distribution group rule in MailListSettings.
+
+    .DESCRIPTION
+        prefix_text is used as it is (trimmed). Without prefix_text the prefix is the display_name in square
+        brackets, for example [Krypen].
+
+    .PARAMETER Setting
+        The rule from MailListSettings.
+
+    .OUTPUTS
+        System.String. The prefix without trailing space, or an empty string when neither prefix_text nor display_name is specified.
+    #>
+    [OutputType([string])]
+    param (
+        [Parameter()]
+        $Setting
+    )
+
+    $prefixText = ([string](Get-SNMicrosoft365Value -Object $Setting -Name 'prefix_text')).Trim()
+    if ($prefixText -ne '')
+    {
+        return $prefixText
+    }
+
+    $displayName = ([string](Get-SNMicrosoft365Value -Object $Setting -Name 'display_name')).Trim()
+    if ($displayName -ne '')
+    {
+        return "[$displayName]"
+    }
+    return ''
+}
+
+
+function Set-SNSMailListPrefixRule
+{
+    <#
+    .SYNOPSIS
+        Creates or updates the Exchange mail flow rule that prefixes the subject of mail sent to a distribution group.
+
+    .DESCRIPTION
+        The rule matches the group address in the To or Cc header, which is evaluated before Exchange expands the
+        group, and prepends the prefix to the subject. A subject that already contains the prefix is left as it is.
+        The rule is named 'Subject prefix for <address>'. An existing rule with that name gets its prefix updated.
+
+    .PARAMETER GroupName
+        The key of the rule in MailListSettings (name or e-mail address of the group).
+
+    .PARAMETER Setting
+        The rule from MailListSettings.
+    #>
+    [CmdletBinding(SupportsShouldProcess = $True)]
+    param (
+        [Parameter(Mandatory = $True)]
+        [string]$GroupName,
+
+        [Parameter()]
+        $Setting
+    )
+
+    $prefix = Get-SNSMailListSubjectPrefix -Setting $Setting
+    if ($prefix -eq '')
+    {
+        Write-SNSLog -Level "Warn" "add_prefix is set for $GroupName but neither prefix_text nor display_name is specified. No subject prefix rule is created."
+        return
+    }
+
+    $address = ([string](Get-SNMicrosoft365Value -Object $Setting -Name 'primary_smtp_address')).Trim()
+    if ($address -eq '' -and $GroupName -like '*@*')
+    {
+        $address = $GroupName
+    }
+    if ($address -eq '')
+    {
+        $address = [string](Get-EXORecipient -Identity $GroupName -ErrorAction "SilentlyContinue" -Verbose:$false).PrimarySmtpAddress
+    }
+    if ($address -eq '')
+    {
+        Write-SNSLog -Level "Warn" "The e-mail address of $GroupName is not known. No subject prefix rule is created."
+        return
+    }
+
+    $ruleName = "Subject prefix for $address"
+    $prependText = "$prefix "
+    try
+    {
+        $rule = Get-TransportRule -Identity $ruleName -ErrorAction "SilentlyContinue" -Verbose:$false
+        if ($null -eq $rule)
+        {
+            if ($PSCmdlet.ShouldProcess($ruleName, "New-TransportRule"))
+            {
+                Write-SNSLog "Creating mail flow rule '$ruleName' with prefix $prefix"
+                New-TransportRule -Name $ruleName -AnyOfToCCHeader $address -PrependSubject $prependText `
+                    -ExceptIfSubjectContainsWords $prefix -AuditSeverity "DoNotAudit" -SenderAddressLocation "Header" `
+                    -RuleErrorAction "Ignore" -Mode "Enforce" -ErrorAction "stop" -Verbose:$false -Confirm:$false | Out-Null
+            }
+        }
+        elseif ($rule.PrependSubject -ne $prependText -or (@($rule.ExceptIfSubjectContainsWords) -join '|') -ne $prefix)
+        {
+            if ($PSCmdlet.ShouldProcess($ruleName, "Set-TransportRule"))
+            {
+                Write-SNSLog "Updating mail flow rule '$ruleName' to prefix $prefix"
+                Set-TransportRule -Identity $ruleName -PrependSubject $prependText -ExceptIfSubjectContainsWords $prefix `
+                    -ErrorAction "stop" -Verbose:$false -Confirm:$false | Out-Null
+            }
+        }
+    }
+    catch
+    {
+        Write-SNSLog -Level "Error" "Creation or update of mail flow rule '$ruleName' failed! Error $_"
+    }
+}
+
+
 function SNSUpdateExchangeDistributionGroups
 {
     <#
@@ -178,6 +295,25 @@ function SNSUpdateExchangeDistributionGroups
     .DESCRIPTION
         Fetches the distribution groups members and updates corressponding distribution groups based on the info from scoutnet.
         As all members of an distribution group must be present in exchange as user or contact, contacts will be created for external addresses.
+
+        A rule in MailListSettings without 'source' uses a Scoutnet maillist (scoutnet_list_id). With source = 'troop_roles'
+        (troops = @(@{ name; id; roles })) or source = 'group_roles' (roles) the leaders are instead selected by their roles in
+        Scoutnet, in the same way as for Update-SNMicrosoft365Group, and roles = '*' matches any role. Role based rules
+        use ledare_synk_option to decide which address is added. scoutnet_list_id is not used.
+        group_type = 'security' or 'distribution' (works for all sources) creates the group as a mail-enabled security group
+        or a regular distribution list with
+        New-DistributionGroup when it does not exist. display_name (the visible name, since the rule key is
+        normally the e-mail address), mail_nickname (alias) and primary_smtp_address must all be specified to create
+        a group; otherwise a warning is logged and the group is skipped while the other lists continue.
+        allow_external_senders = $true also
+        lets senders outside the organization mail the new group (RequireSenderAuthenticationEnabled = $false);
+        it is only applied when the group is created. An existing group of another type is not
+        changed. Without group_type the
+        group must already exist.
+        add_prefix = $true creates (or updates) an Exchange mail flow rule that prepends a prefix to the subject
+        of mail sent to the group. The prefix is prefix_text, or [display_name] when prefix_text is not specified.
+        A troop rule with unit_members = $true also adds the members of that unit (the 'unit' object of the member)
+        using scouter_synk_option, so a list can hold the scouts of a troop plus its leaders. Roles are optional then.
 
     .INPUTS
         None. You cannot pipe objects to SNSUpdateExchangeDistributionGroups.
@@ -233,8 +369,21 @@ function SNSUpdateExchangeDistributionGroups
 
     $MailListSettings = $SNSConf.MailListSettings
 
+    # Rules without source are driven by Scoutnet maillists. Rules with source troop_roles or group_roles are driven by roles.
+    $roleListNames = @()
+    foreach ($distGroupName in $MailListSettings.Keys)
+    {
+        Test-SNSRoleListSetting -Name $distGroupName -Setting $MailListSettings[$distGroupName]
+        [void](Get-SNSMailListGroupType -Setting $MailListSettings[$distGroupName])
+        if ((Get-SNSMailListSource -Setting $MailListSettings[$distGroupName]) -ne 'mail_list')
+        {
+            $roleListNames += $distGroupName
+        }
+    }
+
     # Fetch maillist info from scoutnet.
-    $CustomLists, $CustomListsHash = Get-SNSMaillistInfo -CredentialCustomlists $SNSConf.CredentialCustomlists -MaillistsIds $MailListSettings.values
+    $maillistRules = @($MailListSettings.Keys | Where-Object { $roleListNames -notcontains $_ } | ForEach-Object { $MailListSettings[$_] })
+    $CustomLists, $CustomListsHash = Get-SNSMaillistInfo -CredentialCustomlists $SNSConf.CredentialCustomlists -MaillistsIds $maillistRules
 
     # Fetch all members and their mailaddresses.
     $allMailAddresses, $allMailAddressesHash = Get-SNSUserEmail -CredentialMemberlist $SNSConf.CredentialMemberlist
@@ -243,6 +392,15 @@ function SNSUpdateExchangeDistributionGroups
 
     $OutValidationHash = $ValidationHash
     $NewValidationHash = "0x{0}{1}{2}" -f ($CustomListsHash, $allMailAddressesHash, $MailListSettingsHash)
+
+    # Roles are not part of the mail address hash, so the matched members of role based rules are added to the validation hash.
+    $roleListMembers = @{}
+    if ($roleListNames.Count -gt 0)
+    {
+        $memberlist = Get-SNSApiGroupMemberlist -Credential $SNSConf.CredentialMemberlist
+        $roleListMembers = Get-SNSRoleListMember -MailListSettings $MailListSettings -MemberList $memberlist
+        $NewValidationHash += Get-SNSStableHash -InputObject $roleListMembers
+    }
 
     Write-SNSLog "Saved validation hash: $ValidationHash new value $NewValidationHash"
 
@@ -265,13 +423,21 @@ function SNSUpdateExchangeDistributionGroups
             Write-SNSLog " "
             Write-SNSLog "Adding Contacts in distribution group $($distGroupName)"
 
-            $scouter_synk_option = $MailListSettings[$distGroupName].scouter_synk_option
+            $isRoleList = $roleListNames -contains $distGroupName
+
+            $scouter_synk_option = [string]$MailListSettings[$distGroupName].scouter_synk_option
             $scouter_synk_option = $scouter_synk_option.ToLower()
 
+            # Fetch the mail addresses to add for scouter. Role based rules only contain leaders.
             Write-SNSLog "Scouter synk option is '$scouter_synk_option' for distribution group $distGroupName"
-
-            # Fetch the mail addresses to add for scouter.
-            $listData = $CustomLists[$distGroupId].scouter
+            if ($isRoleList)
+            {
+                $listData = $roleListMembers[$distGroupName].scouter
+            }
+            else
+            {
+                $listData = $CustomLists[$distGroupId].scouter
+            }
             foreach ($member in $listData)
             {
                 if ($null -eq $member)
@@ -389,7 +555,7 @@ function SNSUpdateExchangeDistributionGroups
 #endregion
 
 #region Synch e-mail addresses from rule list 'ledare' using ledare_synk_option.
-            $ledare_synk_option = $MailListSettings[$distGroupName].ledare_synk_option
+            $ledare_synk_option = [string]$MailListSettings[$distGroupName].ledare_synk_option
             $ledare_synk_option = $ledare_synk_option.ToLower()
 
             Write-SNSLog "Ledare synk option is '$ledare_synk_option' for distribution group $distGroupName"
@@ -415,7 +581,14 @@ function SNSUpdateExchangeDistributionGroups
                 $AddLedareOffice365Address = $True
             }
 
-            $listData = $CustomLists[$distGroupId].ledare
+            if ($isRoleList)
+            {
+                $listData = $roleListMembers[$distGroupName].ledare
+            }
+            else
+            {
+                $listData = $CustomLists[$distGroupId].ledare
+            }
             foreach ($member in $listData)
             {
                 if ($null -eq $member)
@@ -508,6 +681,88 @@ function SNSUpdateExchangeDistributionGroups
 #endregion
 
 #region Update maillist
+            # Create a missing group when the rule asks for it: a mail-enabled security group or a regular distribution list.
+            $groupType = Get-SNSMailListGroupType -Setting $MailListSettings[$distGroupName]
+            if ($groupType -ne '')
+            {
+                $exchangeType = if ($groupType -eq 'security') { 'Security' } else { 'Distribution' }
+                $exchangeTypeDetails = if ($groupType -eq 'security') { 'MailUniversalSecurityGroup' } else { 'MailUniversalDistributionGroup' }
+                $existingGroup = Get-EXORecipient -Identity $distGroupName -ErrorAction "SilentlyContinue" -Verbose:$false
+                if ($null -eq $existingGroup)
+                {
+                    $newGroup = @{
+                        Name = $distGroupName
+                        Type = $exchangeType
+                        ErrorAction = "stop"
+                        Verbose = $false
+                    }
+                    # The rule key is the e-mail address of the group, so the display name is configured separately.
+                    $displayName = [string]$MailListSettings[$distGroupName].display_name
+                    $alias = [string]$MailListSettings[$distGroupName].mail_nickname
+                    $smtpAddress = [string]$MailListSettings[$distGroupName].primary_smtp_address
+                    $missingFields = @(
+                        if ([string]::IsNullOrWhiteSpace($displayName)) { 'display_name' }
+                        if ([string]::IsNullOrWhiteSpace($alias)) { 'mail_nickname' }
+                        if ([string]::IsNullOrWhiteSpace($smtpAddress)) { 'primary_smtp_address' }
+                    )
+                    if ($missingFields.Count -gt 0)
+                    {
+                        Write-SNSLog -Level "Warn" "Group $distGroupName does not exist and cannot be created because $($missingFields -join ', ') is not specified. The group is skipped."
+                        continue
+                    }
+                    $newGroup.DisplayName = $displayName
+                    $newGroup.Alias = $alias
+                    $newGroup.PrimarySmtpAddress = $smtpAddress
+                    try
+                    {
+                        if ($PSCmdlet.ShouldProcess($distGroupName, "New-DistributionGroup"))
+                        {
+                            Write-SNSLog "Creating $exchangeType group $distGroupName"
+                            New-DistributionGroup @newGroup -Confirm:$false | Out-Null
+
+                            # Set-DistributionGroup is used since New-DistributionGroup has no parameter for this.
+                            if ((Get-SNMicrosoft365Value -Object $MailListSettings[$distGroupName] -Name 'allow_external_senders') -eq $true)
+                            {
+                                for ($attempt = 1; $attempt -le 5; $attempt++)
+                                {
+                                    try
+                                    {
+                                        Set-DistributionGroup -Identity $distGroupName -RequireSenderAuthenticationEnabled $false -ErrorAction "stop" -Verbose:$false -Confirm:$false
+                                        Write-SNSLog "Allowed external senders for $distGroupName"
+                                        break
+                                    }
+                                    catch
+                                    {
+                                        if ($attempt -eq 5)
+                                        {
+                                            Write-SNSLog -Level "Warn" "Could not allow external senders for $distGroupName. Error $_"
+                                        }
+                                        else
+                                        {
+                                            # A new group can take a while to be visible.
+                                            Start-Sleep -Seconds 3
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        Write-SNSLog -Level "Error" "Creation of $exchangeType group $distGroupName failed! Error $_"
+                        continue
+                    }
+                }
+                elseif ($existingGroup.RecipientTypeDetails -ne $exchangeTypeDetails)
+                {
+                    Write-SNSLog -Level "Error" "Group $distGroupName exists but is not of type $exchangeTypeDetails. It was not changed."
+                    continue
+                }
+            }
+            if ((Get-SNMicrosoft365Value -Object $MailListSettings[$distGroupName] -Name 'add_prefix') -eq $true)
+            {
+                Set-SNSMailListPrefixRule -GroupName $distGroupName -Setting $MailListSettings[$distGroupName]
+            }
             $UpdateDistGroup = @{
                 Identity = $distGroupName
                 Members =  $AddressesToAdd.Values

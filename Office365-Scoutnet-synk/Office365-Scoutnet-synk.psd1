@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '3.0.1'
+ModuleVersion = '3.1.0'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -55,6 +55,8 @@ RequiredModules = @(@{ModuleName='Microsoft.Graph.Authentication';
                         RequiredVersion="2.41.2"; },
                     @{ModuleName='Microsoft.Graph.Groups';
                         RequiredVersion="2.41.2"; },
+                    @{ModuleName='Microsoft.Graph.Teams';
+                        RequiredVersion="2.41.2"; },
                     @{ModuleName='Microsoft.Graph.Identity.DirectoryManagement';
                         RequiredVersion="2.41.2"; },
                     @{ModuleName='ExchangeOnlineManagement';
@@ -78,7 +80,6 @@ RequiredModules = @(@{ModuleName='Microsoft.Graph.Authentication';
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = @(
     'Write-SNSLog',
-    'ConvertTo-SNSJSONHash',
     'Receive-SNSApiJson',
     'Get-SNSApiGroupCustomlist',
     'Get-SNSUserEmail',
@@ -86,6 +87,7 @@ FunctionsToExport = @(
     'SNSUpdateExchangeDistributionGroups',
     'Get-SNSApiGroupMemberlist',
     'Send-SNSMandatoryMomentReport',
+    'Update-SNMicrosoft365Group',
     'Invoke-SNSUppdateOffice365User',
     'New-SNSConfiguration',
     'Get-SNSConfiguration',
@@ -135,6 +137,12 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
+## 3.1.0
+Ny funktion Update-SNMicrosoft365Group som hanterar Microsoft 365-grupper utifrån regler i konfigurationen (Microsoft365GroupSettings). Grupper kan styras av Scoutnet-maillistor, roller på avdelningar eller roller på scoutkåren, och kan även göras till Teams-team.
+Microsoft.Graph.Teams 2.41.2 är nu ett beroende, och behörigheten Team.Create krävs för Teams-team.
+SetupAzure.ps1 installerar Microsoft.Graph.Teams och ger hanterad identitet behörigheten Team.Create.
+updateraAzureOffice365ScoutnetSync.ps1 lägger till behörigheter som saknas för den hanterade identiteten vid uppgradering.
+
 ## 3.0.1
 Flyttade dokumentationen till en separat wiki. Den finns på https://github.com/Scouterna/Office365-Scoutnet-synk/wiki
 Uppdaterade dokumentationen och skripten för att installera en ny version av modulen i Azure Automation, och på en lokal dator. Se dokumentationen på wikin.
