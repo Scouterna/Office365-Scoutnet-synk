@@ -11,6 +11,9 @@ Describe 'SNSUpdateExchangeDistributionGroups' {
     It 'returns computed mail data without updating or removing members when WhatIf is used' {
         InModuleScope Office365-Scoutnet-synk {
             function Get-EXOMailbox {}
+            function Get-EXORecipient {
+                param($Identity, $RecipientTypeDetails, $ResultSize, $Properties, $ErrorAction, $Verbose)
+            }
             function Update-DistributionGroupMember {}
             function Remove-MailContact {}
 
@@ -18,6 +21,7 @@ Describe 'SNSUpdateExchangeDistributionGroups' {
             $credential = [pscredential]::new('test', (ConvertTo-SecureString 'test' -AsPlainText -Force))
             $configuration.CredentialCustomlists = $credential
             $configuration.CredentialMemberlist = $credential
+            $configuration.EnableTimingLog = $true
             $configuration.MailListSettings = @{
                 scouts = @{
                     scoutnet_list_id = 'list-1'
@@ -61,6 +65,7 @@ Describe 'SNSUpdateExchangeDistributionGroups' {
             Mock Get-SNSUserEmail { return $memberData, 'member-hash' }
             Mock Get-SNSExchangeMailListMember { return @{}, $contactsToKeep }
             Mock Get-EXOMailbox { return @() }
+            Mock Get-EXORecipient { return @() }
             Mock New-SNSMailContact { return $true }
             Mock Update-DistributionGroupMember {}
             Mock Remove-MailContact {}
@@ -76,6 +81,27 @@ Describe 'SNSUpdateExchangeDistributionGroups' {
             Should -Invoke New-SNSMailContact -Times 3 -Exactly
             Should -Invoke Update-DistributionGroupMember -Times 0 -Exactly
             Should -Invoke Remove-MailContact -Times 0 -Exactly
+            Should -Invoke Write-SNSLog -ParameterFilter { $Message -like 'Timing: Fetch Scoutnet mail lists took * seconds' } -Times 1 -Exactly
+            Should -Invoke Write-SNSLog -ParameterFilter { $Message -like "Timing: Distribution group 'scouts' took * seconds" } -Times 1 -Exactly
+            Should -Invoke Write-SNSLog -ParameterFilter { $Message -like "Timing: Contact work for 'scouts': *" } -Times 1 -Exactly
+            Should -Invoke Write-SNSLog -ParameterFilter { $Message -like "Timing: Update Exchange group members for 'scouts' took * seconds" } -Times 1 -Exactly
+            Should -Invoke Write-SNSLog -ParameterFilter { $Message -like 'Timing: Build and synchronize distribution group addresses took * seconds' } -Times 1 -Exactly
+            Should -Invoke Write-SNSLog -ParameterFilter { $Message -like 'Timing: Total distribution group synchronization took * seconds' } -Times 1 -Exactly
+        }
+    }
+
+    It 'does not write timing logs unless EnableTimingLog is set' {
+        InModuleScope Office365-Scoutnet-synk {
+            Mock Write-SNSLog {}
+            $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+
+            Write-SNSTimingLog -Enabled $false -Phase 'Test phase' -Stopwatch $stopwatch
+            Should -Invoke Write-SNSLog -Times 0 -Exactly
+
+            Write-SNSTimingLog -Enabled $true -Phase 'Test phase' -Stopwatch $stopwatch
+            Should -Invoke Write-SNSLog -Times 1 -Exactly -ParameterFilter { $Message -like 'Timing: Test phase took * seconds' }
+
+            [SNSConfiguration]::new().EnableTimingLog | Should -BeFalse
         }
     }
 
@@ -112,6 +138,9 @@ Describe 'SNSUpdateExchangeDistributionGroups' {
     It 'omits missing primary and family addresses while retaining alternate addresses' {
         InModuleScope Office365-Scoutnet-synk {
             function Get-EXOMailbox {}
+            function Get-EXORecipient {
+                param($Identity, $RecipientTypeDetails, $ResultSize, $Properties, $ErrorAction, $Verbose)
+            }
             function Update-DistributionGroupMember {}
             function Remove-MailContact {}
 
@@ -166,6 +195,7 @@ Describe 'SNSUpdateExchangeDistributionGroups' {
             Mock Get-SNSUserEmail { return $memberData, 'member-hash' }
             Mock Get-SNSExchangeMailListMember { return @{}, @{} }
             Mock Get-EXOMailbox { return @() }
+            Mock Get-EXORecipient { return @() }
             Mock New-SNSMailContact { return $true }
             Mock Update-DistributionGroupMember {}
             Mock Remove-MailContact {}
@@ -186,6 +216,9 @@ Describe 'SNSUpdateExchangeDistributionGroups' {
     It 'handles Office 365 address options, ignored and unknown members, failed contacts, and obsolete contacts' {
         InModuleScope Office365-Scoutnet-synk {
             function Get-EXOMailbox {}
+            function Get-EXORecipient {
+                param($Identity, $RecipientTypeDetails, $ResultSize, $Properties, $ErrorAction, $Verbose)
+            }
             function Update-DistributionGroupMember {}
             function Remove-MailContact {}
 
@@ -305,6 +338,7 @@ Describe 'SNSUpdateExchangeDistributionGroups' {
             Mock Get-SNSUserEmail { return $memberData, 'member-hash' }
             Mock Get-SNSExchangeMailListMember { return $otherListContacts, $mailContacts }
             Mock Get-EXOMailbox { return @([pscustomobject]@{ Id = 'unused-user' }) }
+            Mock Get-EXORecipient { return @() }
             Mock Add-Office365UserToList {
                 if ($Member -in @('office', 'both')) {
                     return $true, "$Member@office.org"

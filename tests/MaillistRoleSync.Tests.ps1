@@ -11,6 +11,9 @@ Describe 'SNSUpdateExchangeDistributionGroups role based rules' {
     BeforeEach {
         InModuleScope Office365-Scoutnet-synk {
             function Get-EXOMailbox {}
+            function Get-EXORecipient {
+                param($Identity, $RecipientTypeDetails, $ResultSize, $Properties, $ErrorAction, $Verbose)
+            }
             function Update-DistributionGroupMember {}
             function Remove-MailContact {}
 
@@ -58,6 +61,7 @@ Describe 'SNSUpdateExchangeDistributionGroups role based rules' {
             Mock Get-SNSApiGroupMemberlist { return $script:memberlist }
             Mock Get-SNSExchangeMailListMember { return @{}, @{} }
             Mock Get-EXOMailbox { return @() }
+            Mock Get-EXORecipient { return @() }
             Mock New-SNSMailContact { return $true }
             Mock Update-DistributionGroupMember {}
             Mock Remove-MailContact {}

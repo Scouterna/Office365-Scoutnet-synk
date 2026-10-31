@@ -20,6 +20,7 @@ Describe 'Get-SNSExchangeMailListMember' {
             $synchronizedGroup = [pscustomobject]@{
                 ExchangeObjectId = 'synchronized-id'
                 DisplayName = 'Synchronized list'
+                PrimarySmtpAddress = 'synchronized@example.org'
             }
             $otherGroup = [pscustomobject]@{
                 ExchangeObjectId = 'other-id'
@@ -33,14 +34,7 @@ Describe 'Get-SNSExchangeMailListMember' {
                 Identity = 'external@example.org'
                 RecipientType = 'MailContact'
             }
-            Mock Get-DistributionGroup {
-                if ($script:distributionGroupCalls -eq 0) {
-                    $script:distributionGroupCalls++
-                    return $synchronizedGroup
-                }
-                $script:distributionGroupCalls++
-                return @($synchronizedGroup, $otherGroup)
-            }
+            Mock Get-DistributionGroup { return @($synchronizedGroup, $otherGroup) }
             Mock Get-DistributionGroupMember {
                 if ($Identity -eq 'synchronized-id') {
                     return @(
@@ -54,12 +48,11 @@ Describe 'Get-SNSExchangeMailListMember' {
                 return $otherContact
             }
             Mock Write-SNSLog {}
-            $script:distributionGroupCalls = 0
-
-            $otherMembers, $membersToProcess = Get-SNSExchangeMailListMember -Maillists @('Synchronized list')
+            $otherMembers, $membersToProcess = Get-SNSExchangeMailListMember -Maillists @('synchronized@example.org')
 
             $membersToProcess.Keys | Should -Be @('scout@example.org')
             $otherMembers.Keys | Should -Be @('external@example.org')
+            Should -Invoke Get-DistributionGroup -Times 1 -Exactly
             Should -Invoke Get-DistributionGroupMember -Times 2 -Exactly
             Should -Invoke Write-SNSLog -Times 1 -Exactly -ParameterFilter {
                 $Message -eq 'Done'
@@ -67,7 +60,7 @@ Describe 'Get-SNSExchangeMailListMember' {
         }
     }
 
-    It 'logs and rethrows errors while fetching a requested distribution group' {
+    It 'logs and rethrows errors while fetching all distribution groups' {
         InModuleScope Office365-Scoutnet-synk {
             function Get-DistributionGroup {
                 param($Verbose, $ErrorAction)
@@ -80,32 +73,7 @@ Describe 'Get-SNSExchangeMailListMember' {
                 Should -Throw '*requested group unavailable*'
 
             Should -Invoke Write-SNSLog -Times 1 -Exactly -ParameterFilter {
-                $Level -eq 'Error' -and $Message -like "*Missing list*requested group unavailable*"
-            }
-        }
-    }
-
-    It 'logs and rethrows errors while fetching all distribution groups' {
-        InModuleScope Office365-Scoutnet-synk {
-            function Get-DistributionGroup {
-                param($Verbose, $ErrorAction)
-            }
-
-            Mock Get-DistributionGroup {
-                if ($script:distributionGroupCalls -eq 1) {
-                    throw 'all groups unavailable'
-                }
-                $script:distributionGroupCalls++
-                return [pscustomobject]@{ ExchangeObjectId = 'requested-id' }
-            }
-            Mock Write-SNSLog {}
-            $script:distributionGroupCalls = 0
-
-            { Get-SNSExchangeMailListMember -Maillists @('Requested list') } |
-                Should -Throw '*all groups unavailable*'
-
-            Should -Invoke Write-SNSLog -Times 1 -Exactly -ParameterFilter {
-                $Level -eq 'Error' -and $Message -like '*all distribution groups*all groups unavailable*'
+                $Level -eq 'Error' -and $Message -like '*all distribution groups*requested group unavailable*'
             }
         }
     }

@@ -68,6 +68,175 @@ function Add-Office365UserToList
     return $userAdded, $PrimarySmtpAddress
 }
 
+function Add-SNSContactTiming
+{
+    param (
+        [Parameter(Mandatory)]
+        [hashtable]$TimingData,
+
+        [Parameter(Mandatory)]
+        [string]$GroupName,
+
+        [Parameter(Mandatory)]
+        [ValidateSet(
+            'RecipientLookupSeconds',
+            'ContactManagementSeconds',
+            'GetContactSeconds',
+            'NewMailContactSeconds',
+            'ProvisioningWaitSeconds',
+            'SetContactSeconds',
+            'SetMailContactSeconds',
+            'ContactCacheHits',
+            'RecipientIndexHits'
+        )]
+        [string]$Metric,
+
+        [Parameter()]
+        [double]$Seconds = 0
+    )
+
+    if (-not $TimingData.ContainsKey($GroupName))
+    {
+        $TimingData[$GroupName] = @{
+            RecipientLookupSeconds = 0.0
+            RecipientLookupCount = 0
+            ContactManagementSeconds = 0.0
+            ContactManagementCount = 0
+            GetContactSeconds = 0.0
+            GetContactCount = 0
+            NewMailContactSeconds = 0.0
+            NewMailContactCount = 0
+            ProvisioningWaitSeconds = 0.0
+            ProvisioningWaitCount = 0
+            SetContactSeconds = 0.0
+            SetContactCount = 0
+            SetMailContactSeconds = 0.0
+            SetMailContactCount = 0
+            ContactCacheHits = 0
+            RecipientIndexHits = 0
+        }
+    }
+
+    $groupTiming = $TimingData[$GroupName]
+    if ($Metric -eq 'ContactCacheHits' -or $Metric -eq 'RecipientIndexHits')
+    {
+        $groupTiming[$Metric]++
+    }
+    else
+    {
+        $groupTiming[$Metric] += $Seconds
+        $countName = $Metric -replace 'Seconds$', 'Count'
+        $groupTiming[$countName]++
+    }
+}
+
+function ConvertTo-SNSContactEmailKey
+{
+    param (
+        [Parameter()]
+        [AllowNull()]
+        [object]$Address
+    )
+
+    $emailAddress = ([string]$Address).Trim()
+    if ($emailAddress -match '^[^:]+:(.+)$')
+    {
+        $emailAddress = $Matches[1]
+    }
+    if ($emailAddress -notmatch '^[^@\s]+@[^@\s]+$')
+    {
+        return $null
+    }
+    return $emailAddress
+}
+
+function Get-SNSRecipientAddressKey
+{
+    param (
+        [Parameter()]
+        $Recipient,
+
+        [Parameter()]
+        [string[]]$AdditionalAddresses = @()
+    )
+
+    $addresses = [System.Collections.Generic.List[object]]::new()
+    foreach ($address in $AdditionalAddresses)
+    {
+        $addresses.Add($address)
+    }
+    foreach ($propertyName in @('PrimarySmtpAddress', 'ExternalEmailAddress', 'WindowsEmailAddress', 'EmailAddresses'))
+    {
+        foreach ($address in @(Get-SNMicrosoft365Value -Object $Recipient -Name $propertyName))
+        {
+            if ($null -ne $address)
+            {
+                $addresses.Add($address)
+            }
+        }
+    }
+
+    foreach ($address in $addresses)
+    {
+        $key = ConvertTo-SNSContactEmailKey -Address $address
+        if ($null -ne $key)
+        {
+            $key
+        }
+    }
+}
+
+function Add-SNSRecipientToIndex
+{
+    param (
+        [Parameter(Mandatory)]
+        [hashtable]$RecipientIndex,
+
+        [Parameter()]
+        $Recipient,
+
+        [Parameter()]
+        [string[]]$AdditionalAddresses = @()
+    )
+
+    foreach ($key in @(Get-SNSRecipientAddressKey -Recipient $Recipient -AdditionalAddresses $AdditionalAddresses))
+    {
+        $RecipientIndex[$key] = $Recipient
+    }
+}
+
+function Add-SNSContactInfoToCache
+{
+    param (
+        [Parameter(Mandatory)]
+        [hashtable]$ContactInfoCache,
+
+        [Parameter()]
+        $Contact,
+
+        [Parameter()]
+        [string[]]$AdditionalAddresses = @(),
+
+        [Parameter()]
+        [AllowNull()]
+        [string]$Company
+    )
+
+    $companyValue = if ($PSBoundParameters.ContainsKey('Company'))
+    {
+        $Company
+    }
+    else
+    {
+        [string](Get-SNMicrosoft365Value -Object $Contact -Name 'Company')
+    }
+    $contactInfo = @{ Company = $companyValue }
+    foreach ($key in @(Get-SNSRecipientAddressKey -Recipient $Contact -AdditionalAddresses $AdditionalAddresses))
+    {
+        $ContactInfoCache[$key] = $contactInfo
+    }
+    return ,$contactInfo
+}
 
 function New-SNSMailContact
 {
@@ -78,13 +247,73 @@ function New-SNSMailContact
         $Epost,
 
         [ValidateNotNull()]
-        $DisplayName
+        $DisplayName,
+
+        [Parameter()]
+        [hashtable]$ContactCache,
+
+        [Parameter()]
+        [hashtable]$ContactInfoCache,
+
+        [Parameter()]
+        [hashtable]$RecipientIndex,
+
+        [Parameter()]
+        [hashtable]$TimingData,
+
+        [Parameter()]
+        [string]$GroupName
         )
 
+    if ($ContactCache -and $ContactCache.ContainsKey([string]$Epost))
+    {
+        if ($TimingData -and $GroupName)
+        {
+            Add-SNSContactTiming -TimingData $TimingData -GroupName $GroupName -Metric ContactCacheHits
+        }
+        return $ContactCache[[string]$Epost]
+    }
+
     $contactCreated = $True
-    $ExistingMailContact = Get-EXORecipient $Epost -ErrorAction "SilentlyContinue" -Verbose:$false
+    $recipientKey = ConvertTo-SNSContactEmailKey -Address $Epost
+    if ($RecipientIndex -and $null -ne $recipientKey -and $RecipientIndex.ContainsKey($recipientKey))
+    {
+        $ExistingMailContact = $RecipientIndex[$recipientKey]
+        if ($TimingData -and $GroupName)
+        {
+            Add-SNSContactTiming -TimingData $TimingData -GroupName $GroupName -Metric RecipientIndexHits
+        }
+    }
+    else
+    {
+        $recipientLookupStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        $ExistingMailContact = Get-EXORecipient $Epost -ErrorAction "SilentlyContinue" -Verbose:$false
+        $recipientLookupStopwatch.Stop()
+        if ($TimingData -and $GroupName)
+        {
+            Add-SNSContactTiming -TimingData $TimingData -GroupName $GroupName `
+                -Metric RecipientLookupSeconds -Seconds $recipientLookupStopwatch.Elapsed.TotalSeconds
+        }
+        if ($RecipientIndex -and $null -ne $ExistingMailContact)
+        {
+            Add-SNSRecipientToIndex -RecipientIndex $RecipientIndex -Recipient $ExistingMailContact `
+                -AdditionalAddresses @($Epost)
+        }
+    }
+
+    $contactManagementStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     if (-not $PSCmdlet.ShouldProcess($Epost, "Create or update mail contact"))
     {
+        $contactManagementStopwatch.Stop()
+        if ($TimingData -and $GroupName)
+        {
+            Add-SNSContactTiming -TimingData $TimingData -GroupName $GroupName `
+                -Metric ContactManagementSeconds -Seconds $contactManagementStopwatch.Elapsed.TotalSeconds
+        }
+        if ($ContactCache)
+        {
+            $ContactCache[[string]$Epost] = $contactCreated
+        }
         return $contactCreated
     }
 
@@ -93,27 +322,112 @@ function New-SNSMailContact
         Write-SNSLog "Creating Contact $Epost for $DisplayName"
         try
         {
-            New-MailContact -Name $Epost -ExternalEmailAddress $Epost -ErrorAction "stop" -Verbose:$false
+            $commandStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+            try
+            {
+                $createdMailContact = New-MailContact -Name $Epost -ExternalEmailAddress $Epost -ErrorAction "stop" -Verbose:$false
+            }
+            finally
+            {
+                $commandStopwatch.Stop()
+                if ($TimingData -and $GroupName)
+                {
+                    Add-SNSContactTiming -TimingData $TimingData -GroupName $GroupName `
+                        -Metric NewMailContactSeconds -Seconds $commandStopwatch.Elapsed.TotalSeconds
+                }
+            }
+            if ($RecipientIndex)
+            {
+                Add-SNSRecipientToIndex -RecipientIndex $RecipientIndex -Recipient $createdMailContact `
+                    -AdditionalAddresses @($Epost)
+            }
+            if ($ContactInfoCache)
+            {
+                $mailContactInfo = Add-SNSContactInfoToCache -ContactInfoCache $ContactInfoCache `
+                    -Contact $createdMailContact -AdditionalAddresses @($Epost)
+            }
 
             for($i=1; $i -le 10; $i++)
             {
                 # It takes some time befor the new contact can be accessed. Wait and try to access it.
-                Start-Sleep -s 1.0
-                $ExistingMailContact = Get-Contact $Epost -ErrorAction "SilentlyContinue" -Verbose:$false
+                $waitStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+                try
+                {
+                    Start-Sleep -s 1.0
+                }
+                finally
+                {
+                    $waitStopwatch.Stop()
+                    if ($TimingData -and $GroupName)
+                    {
+                        Add-SNSContactTiming -TimingData $TimingData -GroupName $GroupName `
+                            -Metric ProvisioningWaitSeconds -Seconds $waitStopwatch.Elapsed.TotalSeconds
+                    }
+                }
+
+                $commandStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+                try
+                {
+                    $ExistingMailContact = Get-Contact $Epost -ErrorAction "SilentlyContinue" -Verbose:$false
+                }
+                finally
+                {
+                    $commandStopwatch.Stop()
+                    if ($TimingData -and $GroupName)
+                    {
+                        Add-SNSContactTiming -TimingData $TimingData -GroupName $GroupName `
+                            -Metric GetContactSeconds -Seconds $commandStopwatch.Elapsed.TotalSeconds
+                    }
+                }
                 if ($null -ne $ExistingMailContact)
                 {
                     $i = 10
                 }
             }
+            if ($ContactInfoCache -and $null -eq $mailContactInfo)
+            {
+                $mailContactInfo = Add-SNSContactInfoToCache -ContactInfoCache $ContactInfoCache `
+                    -Contact $ExistingMailContact -AdditionalAddresses @($Epost)
+            }
 
             try
             {
                 # Set the name of the member in the company field. This is visibel in Office 365 admin console.
-                Set-Contact -Identity $Epost -Company "$DisplayName" -ErrorAction "stop" -Verbose:$false
+                $commandStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+                try
+                {
+                    Set-Contact -Identity $Epost -Company "$DisplayName" -ErrorAction "stop" -Verbose:$false
+                    if ($ContactInfoCache -and $mailContactInfo)
+                    {
+                        $mailContactInfo.Company = [string]$DisplayName
+                    }
+                }
+                finally
+                {
+                    $commandStopwatch.Stop()
+                    if ($TimingData -and $GroupName)
+                    {
+                        Add-SNSContactTiming -TimingData $TimingData -GroupName $GroupName `
+                            -Metric SetContactSeconds -Seconds $commandStopwatch.Elapsed.TotalSeconds
+                    }
+                }
                 try
                 {
                     # Hide the contact from address lists.
-                    Set-MailContact -Identity $Epost -HiddenFromAddressListsEnabled $true -ErrorAction "stop" -Verbose:$false
+                    $commandStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+                    try
+                    {
+                        Set-MailContact -Identity $Epost -HiddenFromAddressListsEnabled $true -ErrorAction "stop" -Verbose:$false
+                    }
+                    finally
+                    {
+                        $commandStopwatch.Stop()
+                        if ($TimingData -and $GroupName)
+                        {
+                            Add-SNSContactTiming -TimingData $TimingData -GroupName $GroupName `
+                                -Metric SetMailContactSeconds -Seconds $commandStopwatch.Elapsed.TotalSeconds
+                        }
+                    }
                 }
                 Catch
                 {
@@ -135,18 +449,74 @@ function New-SNSMailContact
     {
         try
         {
-            $MailContactInfo = Get-Contact $Epost -ErrorAction "SilentlyContinue" -Verbose:$false
+            $contactKey = ConvertTo-SNSContactEmailKey -Address $Epost
+            if ($ContactInfoCache -and $null -ne $contactKey -and $ContactInfoCache.ContainsKey($contactKey))
+            {
+                $MailContactInfo = $ContactInfoCache[$contactKey]
+            }
+            else
+            {
+                $commandStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+                try
+                {
+                    $MailContactInfo = Get-Contact $Epost -ErrorAction "SilentlyContinue" -Verbose:$false
+                }
+                finally
+                {
+                    $commandStopwatch.Stop()
+                    if ($TimingData -and $GroupName)
+                    {
+                        Add-SNSContactTiming -TimingData $TimingData -GroupName $GroupName `
+                            -Metric GetContactSeconds -Seconds $commandStopwatch.Elapsed.TotalSeconds
+                    }
+                }
+                if ($ContactInfoCache -and $null -ne $MailContactInfo)
+                {
+                    $MailContactInfo = Add-SNSContactInfoToCache -ContactInfoCache $ContactInfoCache `
+                        -Contact $MailContactInfo -AdditionalAddresses @($Epost)
+                }
+            }
             # Set the company field for the existing contact and hide it from address lists if necessary.
             if ($MailContactInfo.Company -eq "")
             {
                 try
                 {
                     # Set the company field for the existing contact.
-                    Set-Contact -Identity $Epost -Company "$DisplayName" -ErrorAction "stop" -Verbose:$false
+                    $commandStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+                    try
+                    {
+                        Set-Contact -Identity $Epost -Company "$DisplayName" -ErrorAction "stop" -Verbose:$false
+                        if ($ContactInfoCache -and $MailContactInfo)
+                        {
+                            $MailContactInfo.Company = [string]$DisplayName
+                        }
+                    }
+                    finally
+                    {
+                        $commandStopwatch.Stop()
+                        if ($TimingData -and $GroupName)
+                        {
+                            Add-SNSContactTiming -TimingData $TimingData -GroupName $GroupName `
+                                -Metric SetContactSeconds -Seconds $commandStopwatch.Elapsed.TotalSeconds
+                        }
+                    }
                     try
                     {
                         # Hide the contact from address lists.
-                        Set-MailContact -Identity $Epost -HiddenFromAddressListsEnabled $true -ErrorAction "stop" -Verbose:$false
+                        $commandStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+                        try
+                        {
+                            Set-MailContact -Identity $Epost -HiddenFromAddressListsEnabled $true -ErrorAction "stop" -Verbose:$false
+                        }
+                        finally
+                        {
+                            $commandStopwatch.Stop()
+                            if ($TimingData -and $GroupName)
+                            {
+                                Add-SNSContactTiming -TimingData $TimingData -GroupName $GroupName `
+                                    -Metric SetMailContactSeconds -Seconds $commandStopwatch.Elapsed.TotalSeconds
+                            }
+                        }
                     }
                     Catch
                     {
@@ -163,6 +533,17 @@ function New-SNSMailContact
         {
             Write-SNSLog -Level "Warn" "Could not get mail contact info for $Epost, will try again next time the sync runs. Error $_"
         }
+    }
+
+    $contactManagementStopwatch.Stop()
+    if ($TimingData -and $GroupName)
+    {
+        Add-SNSContactTiming -TimingData $TimingData -GroupName $GroupName `
+            -Metric ContactManagementSeconds -Seconds $contactManagementStopwatch.Elapsed.TotalSeconds
+    }
+    if ($contactCreated -and $ContactCache)
+    {
+        $ContactCache[[string]$Epost] = $contactCreated
     }
 
     return $contactCreated
@@ -286,6 +667,26 @@ function Set-SNSMailListPrefixRule
 }
 
 
+function Write-SNSTimingLog
+{
+    param (
+        [Parameter()]
+        [bool]$Enabled,
+
+        [Parameter(Mandatory)]
+        [string]$Phase,
+
+        [Parameter(Mandatory)]
+        [System.Diagnostics.Stopwatch]$Stopwatch
+    )
+
+    $Stopwatch.Stop()
+    if ($Enabled)
+    {
+        Write-SNSLog ("Timing: {0} took {1:N2} seconds" -f $Phase, $Stopwatch.Elapsed.TotalSeconds)
+    }
+}
+
 function SNSUpdateExchangeDistributionGroups
 {
     <#
@@ -295,6 +696,7 @@ function SNSUpdateExchangeDistributionGroups
     .DESCRIPTION
         Fetches the distribution groups members and updates corressponding distribution groups based on the info from scoutnet.
         As all members of an distribution group must be present in exchange as user or contact, contacts will be created for external addresses.
+        Logs elapsed time for the main data-fetching and synchronization phases.
 
         A rule in MailListSettings without 'source' uses a Scoutnet maillist (scoutnet_list_id). With source = 'troop_roles'
         (troops = @(@{ name; id; roles })) or source = 'group_roles' (roles) the leaders are instead selected by their roles in
@@ -365,6 +767,8 @@ function SNSUpdateExchangeDistributionGroups
         throw "No configuration specified. Please provide a configuration!"
     }
 
+    $totalStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $phaseStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $AddressesInMailLists = @{}
 
     $MailListSettings = $SNSConf.MailListSettings
@@ -380,14 +784,20 @@ function SNSUpdateExchangeDistributionGroups
             $roleListNames += $distGroupName
         }
     }
+    Write-SNSTimingLog -Enabled $SNSConf.EnableTimingLog -Phase 'Validate distribution group settings' -Stopwatch $phaseStopwatch
 
     # Fetch maillist info from scoutnet.
     $maillistRules = @($MailListSettings.Keys | Where-Object { $roleListNames -notcontains $_ } | ForEach-Object { $MailListSettings[$_] })
+    $phaseStopwatch.Restart()
     $CustomLists, $CustomListsHash = Get-SNSMaillistInfo -CredentialCustomlists $SNSConf.CredentialCustomlists -MaillistsIds $maillistRules
+    Write-SNSTimingLog -Enabled $SNSConf.EnableTimingLog -Phase 'Fetch Scoutnet mail lists' -Stopwatch $phaseStopwatch
 
     # Fetch all members and their mailaddresses.
+    $phaseStopwatch.Restart()
     $allMailAddresses, $allMailAddressesHash = Get-SNSUserEmail -CredentialMemberlist $SNSConf.CredentialMemberlist
+    Write-SNSTimingLog -Enabled $SNSConf.EnableTimingLog -Phase 'Fetch and prepare member email addresses' -Stopwatch $phaseStopwatch
 
+    $phaseStopwatch.Restart()
     $MailListSettingsHash = Get-SNSStableHash -InputObject $MailListSettings
 
     $OutValidationHash = $ValidationHash
@@ -401,6 +811,7 @@ function SNSUpdateExchangeDistributionGroups
         $roleListMembers = Get-SNSRoleListMember -MailListSettings $MailListSettings -MemberList $memberlist
         $NewValidationHash += Get-SNSStableHash -InputObject $roleListMembers
     }
+    Write-SNSTimingLog -Enabled $SNSConf.EnableTimingLog -Phase 'Match role-based list members and calculate validation hash' -Stopwatch $phaseStopwatch
 
     Write-SNSLog "Saved validation hash: $ValidationHash new value $NewValidationHash"
 
@@ -411,12 +822,44 @@ function SNSUpdateExchangeDistributionGroups
     else
     {
         Write-SNSLog "Scoutnet is updated. Starting to update the distribution groups."
+        $phaseStopwatch.Restart()
         $otherMailListsMembers, $mailListsToProcessMembers = Get-SNSExchangeMailListMember -Maillists $MailListSettings.Keys
+        Write-SNSTimingLog -Enabled $SNSConf.EnableTimingLog -Phase 'Fetch Exchange distribution group members' -Stopwatch $phaseStopwatch
 
+        $phaseStopwatch.Restart()
         $allOffice365Users = Get-EXOMailbox -RecipientTypeDetails "UserMailbox" -Properties CustomAttribute1 -Verbose:$false
+        Write-SNSTimingLog -Enabled $SNSConf.EnableTimingLog -Phase 'Fetch Exchange mailboxes' -Stopwatch $phaseStopwatch
 
+        $phaseStopwatch.Restart()
+        try
+        {
+            $allRecipients = @(Get-EXORecipient -ResultSize Unlimited `
+                -Properties PrimarySmtpAddress, ExternalEmailAddress, EmailAddresses, Company `
+                -ErrorAction Stop -Verbose:$false)
+        }
+        catch
+        {
+            Write-SNSLog -Level "Error" "Could not fetch Exchange recipients for synchronization. Error $_"
+            throw
+        }
+        $recipientIndex = @{}
+        $mailContactInfoCache = @{}
+        foreach ($recipient in $allRecipients)
+        {
+            Add-SNSRecipientToIndex -RecipientIndex $recipientIndex -Recipient $recipient
+            if ((Get-SNMicrosoft365Value -Object $recipient -Name 'RecipientTypeDetails') -eq 'MailContact')
+            {
+                [void](Add-SNSContactInfoToCache -ContactInfoCache $mailContactInfoCache -Contact $recipient)
+            }
+        }
+        Write-SNSTimingLog -Enabled $SNSConf.EnableTimingLog -Phase 'Fetch and index Exchange recipients' -Stopwatch $phaseStopwatch
+
+        $mailContactCache = @{}
+        $contactTimingByGroup = @{}
+        $phaseStopwatch.Restart()
         foreach ($distGroupName in $MailListSettings.keys)
         {
+            $groupStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
             $AddressesToAdd = @{}
 #region Synch e-mail addresses from rule list 'scouter' using scouter_synk_option.
             $distGroupId = $MailListSettings[$distGroupName].scoutnet_list_id
@@ -540,7 +983,9 @@ function SNSUpdateExchangeDistributionGroups
                     $mailaddresses | ForEach-Object {
                         if (![string]::IsNullOrWhiteSpace($_))
                         {
-                            $ContactCreated = New-SNSMailContact -Epost $_ -DisplayName $displayName
+                            $ContactCreated = New-SNSMailContact -Epost $_ -DisplayName $displayName `
+                                -ContactCache $mailContactCache -ContactInfoCache $mailContactInfoCache -RecipientIndex $recipientIndex `
+                                -TimingData $contactTimingByGroup -GroupName $distGroupName
 
                             if ($ContactCreated)
                             {
@@ -646,7 +1091,9 @@ function SNSUpdateExchangeDistributionGroups
                     }
                     else
                     {
-                        $ContactCreated = New-SNSMailContact -Epost $MemberData.primary_email -DisplayName $displayName
+                        $ContactCreated = New-SNSMailContact -Epost $MemberData.primary_email -DisplayName $displayName `
+                            -ContactCache $mailContactCache -ContactInfoCache $mailContactInfoCache -RecipientIndex $recipientIndex `
+                            -TimingData $contactTimingByGroup -GroupName $distGroupName
 
                         if ($ContactCreated)
                         {
@@ -669,7 +1116,9 @@ function SNSUpdateExchangeDistributionGroups
                     continue
                 }
 
-                $ContactCreated = New-SNSMailContact -Epost $email -DisplayName $email
+                $ContactCreated = New-SNSMailContact -Epost $email -DisplayName $email `
+                    -ContactCache $mailContactCache -ContactInfoCache $mailContactInfoCache -RecipientIndex $recipientIndex `
+                    -TimingData $contactTimingByGroup -GroupName $distGroupName
 
                 if ($ContactCreated)
                 {
@@ -708,6 +1157,7 @@ function SNSUpdateExchangeDistributionGroups
                     if ($missingFields.Count -gt 0)
                     {
                         Write-SNSLog -Level "Warn" "Group $distGroupName does not exist and cannot be created because $($missingFields -join ', ') is not specified. The group is skipped."
+                        Write-SNSTimingLog -Enabled $SNSConf.EnableTimingLog -Phase "Distribution group '$distGroupName'" -Stopwatch $groupStopwatch
                         continue
                     }
                     $newGroup.DisplayName = $displayName
@@ -750,18 +1200,22 @@ function SNSUpdateExchangeDistributionGroups
                     catch
                     {
                         Write-SNSLog -Level "Error" "Creation of $exchangeType group $distGroupName failed! Error $_"
+                        Write-SNSTimingLog -Enabled $SNSConf.EnableTimingLog -Phase "Distribution group '$distGroupName'" -Stopwatch $groupStopwatch
                         continue
                     }
                 }
                 elseif ($existingGroup.RecipientTypeDetails -ne $exchangeTypeDetails)
                 {
                     Write-SNSLog -Level "Error" "Group $distGroupName exists but is not of type $exchangeTypeDetails. It was not changed."
+                    Write-SNSTimingLog -Enabled $SNSConf.EnableTimingLog -Phase "Distribution group '$distGroupName'" -Stopwatch $groupStopwatch
                     continue
                 }
             }
             if ((Get-SNMicrosoft365Value -Object $MailListSettings[$distGroupName] -Name 'add_prefix') -eq $true)
             {
+                $prefixRuleStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
                 Set-SNSMailListPrefixRule -GroupName $distGroupName -Setting $MailListSettings[$distGroupName]
+                Write-SNSTimingLog -Enabled $SNSConf.EnableTimingLog -Phase "Update mail flow rule for '$distGroupName'" -Stopwatch $prefixRuleStopwatch
             }
             $UpdateDistGroup = @{
                 Identity = $distGroupName
@@ -769,6 +1223,7 @@ function SNSUpdateExchangeDistributionGroups
                 ErrorAction = "stop"
                 Verbose = $false
             }
+            $groupMembershipStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
             try
             {
                 if ($PSCmdlet.ShouldProcess($distGroupName, "Update-DistributionGroupMember"))
@@ -780,10 +1235,49 @@ function SNSUpdateExchangeDistributionGroups
             {
                 Write-SNSLog -Level "Error" "Update of distribution group members in $distGroupName failed! Error $_"
             }
+            Write-SNSTimingLog -Enabled $SNSConf.EnableTimingLog -Phase "Update Exchange group members for '$distGroupName'" -Stopwatch $groupMembershipStopwatch
             $AddressesInMailLists[$distGroupName] = $AddressesToAdd.Values
+            $contactTiming = $contactTimingByGroup[$distGroupName]
+            if ($null -eq $contactTiming)
+            {
+                $contactTiming = @{
+                    RecipientLookupSeconds = 0.0
+                    RecipientLookupCount = 0
+                    ContactManagementSeconds = 0.0
+                    ContactManagementCount = 0
+                    GetContactSeconds = 0.0
+                    GetContactCount = 0
+                    NewMailContactSeconds = 0.0
+                    NewMailContactCount = 0
+                    ProvisioningWaitSeconds = 0.0
+                    ProvisioningWaitCount = 0
+                    SetContactSeconds = 0.0
+                    SetContactCount = 0
+                    SetMailContactSeconds = 0.0
+                    SetMailContactCount = 0
+                    ContactCacheHits = 0
+                    RecipientIndexHits = 0
+                }
+            }
+            if ($SNSConf.EnableTimingLog)
+            {
+                Write-SNSLog ("Timing: Contact work for '{0}': {1} uncached recipient lookups in {2:N2}s; {3} cache hits; {4} contact management operations in {5:N2}s; {6} recipient index hits" -f `
+                    $distGroupName, $contactTiming.RecipientLookupCount, $contactTiming.RecipientLookupSeconds, `
+                    $contactTiming.ContactCacheHits, $contactTiming.ContactManagementCount, $contactTiming.ContactManagementSeconds, `
+                    $contactTiming.RecipientIndexHits)
+                Write-SNSLog ("Timing: Contact commands for '{0}': Get-Contact {1} in {2:N2}s; New-MailContact {3} in {4:N2}s; provisioning waits {5} in {6:N2}s; Set-Contact {7} in {8:N2}s; Set-MailContact {9} in {10:N2}s" -f `
+                    $distGroupName, $contactTiming.GetContactCount, $contactTiming.GetContactSeconds, `
+                    $contactTiming.NewMailContactCount, $contactTiming.NewMailContactSeconds, `
+                    $contactTiming.ProvisioningWaitCount, $contactTiming.ProvisioningWaitSeconds, `
+                    $contactTiming.SetContactCount, $contactTiming.SetContactSeconds, `
+                    $contactTiming.SetMailContactCount, $contactTiming.SetMailContactSeconds)
+            }
+            Write-SNSTimingLog -Enabled $SNSConf.EnableTimingLog -Phase "Distribution group '$distGroupName'" -Stopwatch $groupStopwatch
 #endregion
         }
+        Write-SNSTimingLog -Enabled $SNSConf.EnableTimingLog -Phase 'Build and synchronize distribution group addresses' -Stopwatch $phaseStopwatch
 
+        $phaseStopwatch.Restart()
         Write-SNSLog " "
         Write-SNSLog "Removing old contacts"
         Write-SNSLog "Number of contacts to check for removal $($mailListsToProcessMembers.count)"
@@ -806,12 +1300,14 @@ function SNSUpdateExchangeDistributionGroups
                 }
             }
         }
+        Write-SNSTimingLog -Enabled $SNSConf.EnableTimingLog -Phase 'Check and remove unused contacts' -Stopwatch $phaseStopwatch
 
         Write-SNSLog " "
         Write-SNSLog "Update done new hash value is $NewValidationHash"
         $OutValidationHash = $NewValidationHash
     }
 
+    Write-SNSTimingLog -Enabled $SNSConf.EnableTimingLog -Phase 'Total distribution group synchronization' -Stopwatch $totalStopwatch
     if ($ReturnMaildata)
     {
         return $OutValidationHash, $AddressesInMailLists

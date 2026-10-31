@@ -342,6 +342,21 @@ Describe 'Mandatory moment report' {
         Should -Invoke Send-MgUserMail -Times 0 -Exactly
     }
 
+    It 'accepts a configuration object recreated after a forced module import' {
+        $configuration = [pscustomobject]@{
+            MandatoryMomentReportFrequency = 'Monthly'
+            MandatoryMomentMinimumAge = 15
+            MandatoryMomentValidityYears = 3
+            MandatoryMomentReportRecipients = @('responsible@example.org')
+            EmailFromAddress = 'reports@example.org'
+        }
+
+        $result = Send-SNSMandatoryMomentReport -Configuration $configuration `
+            -LastSentValue '2025-03-01T00:00:00.0000000' -AsOfDate ([datetime]'2025-03-02')
+
+        $result | Should -BeFalse
+    }
+
     It 'sends the report regardless of cadence when the last-sent value is empty or missing' {
         $memberlist = @{ data = @{} }
         Mock Get-SNSApiGroupMemberlist { return $memberlist }

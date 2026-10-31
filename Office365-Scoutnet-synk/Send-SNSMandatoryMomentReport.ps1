@@ -432,7 +432,7 @@ function Send-SNSMandatoryMomentReport
     [OutputType([bool])]
     param (
         [Parameter()]
-        [SNSConfiguration]$Configuration = (Get-SNSConfiguration),
+        $Configuration = (Get-SNSConfiguration),
 
         [Parameter()]
         [System.Collections.IDictionary]$Memberlist,

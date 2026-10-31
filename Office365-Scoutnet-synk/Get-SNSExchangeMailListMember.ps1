@@ -9,6 +9,7 @@
         The ArrayList is "other" distribution groups members that can be checked if a mailaddress can be reomoved or not.
         The hashtable is "other" distribution groups members
         Only contacts is returned. Users with mailboxes is not returned.
+        The distribution group list is fetched once; configured lists are matched by SMTP address, alias, name or identity.
 
     .INPUTS
         None. You cannot pipe objects to Get-SNSExchangeMailListMember.
@@ -31,20 +32,12 @@
     $otherMailListsMembers = @{}
     $mailListsToProcessMembers = @{}
 
-    $mailListGroups = @()
-    foreach($mailList in $Maillists)
+    $mailListGroups = @{}
+    $configuredGroupNames = @{}
+    foreach ($mailList in $Maillists)
     {
-        try
-        {
-            $mailListGroups += (Get-DistributionGroup -Verbose:$false -ErrorAction Stop).ExchangeObjectId
-        }
-        catch
-        {
-            Write-SNSLog -Level "Error" "Could not fetch data for distribution group '$mailList'. Error $_"
-            throw
-        }
+        $configuredGroupNames[[string]$mailList] = $true
     }
-
     try
     {
         $groups = Get-DistributionGroup -Verbose:$false -ErrorAction Stop
@@ -59,9 +52,27 @@
     {
         foreach($group in $groups)
         {
+            $groupNames = @(
+                [string]$group.PrimarySmtpAddress
+                [string]$group.Alias
+                [string]$group.Name
+                [string]$group.Identity
+            )
+            foreach ($groupName in $groupNames)
+            {
+                if (-not [string]::IsNullOrWhiteSpace($groupName) -and $configuredGroupNames.ContainsKey($groupName))
+                {
+                    if (-not [string]::IsNullOrWhiteSpace([string]$group.ExchangeObjectId))
+                    {
+                        $mailListGroups[[string]$group.ExchangeObjectId] = $true
+                    }
+                    break
+                }
+            }
+
             Write-SNSLog "Get distribution list $($group.DisplayName)"
             $data = Get-DistributionGroupMember -Verbose:$false -Identity "$($group.ExchangeObjectId)" -ErrorAction Stop
-            if ($mailListGroups.Contains($group.ExchangeObjectId))
+            if ($mailListGroups.ContainsKey([string]$group.ExchangeObjectId))
             {
                 $data | ForEach-Object {
                     if ($_.RecipientType -eq "MailContact")

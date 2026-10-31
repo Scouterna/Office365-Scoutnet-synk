@@ -3,6 +3,7 @@
     [string]$LogFilePath='scoutnetSync.log'
     [string]$JsonFileDirectory='ScoutnetJson'
     [bool]$SaveJsonFiles=$false
+    [bool]$EnableTimingLog=$false
     [string]$SyncGroupName='scoutnet'
     [string]$SyncGroupDescription="Säkerhetsgrupp som används vid synkronisering med Scoutnet. Användare i gruppen avaktiveras om de inte är kvar i Scoutnet."
     [string]$SyncGroupDisabledUsersName='scoutnetDisabledUsers'
@@ -95,6 +96,9 @@ function New-SNSConfiguration
     .PARAMETER SaveJsonFiles
         Save downloaded Scoutnet API JSON files.
 
+    .PARAMETER EnableTimingLog
+        Log elapsed time for the phases and contact commands of the distribution group synchronization. Default is off.
+
     .PARAMETER AllUsersGroupName
         Name of distribution group to add all new accounts to. The distribution group must exist.
 
@@ -167,6 +171,9 @@ function New-SNSConfiguration
 
         [Parameter(HelpMessage="Save downloaded Scoutnet API JSON files.")]
         [bool]$SaveJsonFiles,
+
+        [Parameter(HelpMessage="Log elapsed time for the distribution group synchronization.")]
+        [bool]$EnableTimingLog,
 
         [Parameter(HelpMessage="Name of distribution group to add all new accounts to.")]
         [string]$AllUsersGroupName,
@@ -269,6 +276,11 @@ function New-SNSConfiguration
     if ($PSBoundParameters.ContainsKey('SaveJsonFiles'))
     {
         $conf.SaveJsonFiles = $SaveJsonFiles
+    }
+
+    if ($PSBoundParameters.ContainsKey('EnableTimingLog'))
+    {
+        $conf.EnableTimingLog = $EnableTimingLog
     }
 
     if ($CredentialMemberlist)

@@ -25,10 +25,18 @@ Describe 'New-SNSMailContact' {
             Mock Set-Contact {}
             Mock Set-MailContact {}
             Mock Write-SNSLog {}
+            $timingData = @{}
 
-            $result = New-SNSMailContact -Epost 'ada@example.org' -DisplayName 'Ada Lovelace'
+            $result = New-SNSMailContact -Epost 'ada@example.org' -DisplayName 'Ada Lovelace' `
+                -TimingData $timingData -GroupName 'leaders'
 
             $result | Should -BeTrue
+            $timingData.leaders.RecipientLookupCount | Should -Be 1
+            $timingData.leaders.GetContactCount | Should -Be 1
+            $timingData.leaders.NewMailContactCount | Should -Be 1
+            $timingData.leaders.ProvisioningWaitCount | Should -Be 1
+            $timingData.leaders.SetContactCount | Should -Be 1
+            $timingData.leaders.SetMailContactCount | Should -Be 1
             Should -Invoke New-MailContact -Times 1 -Exactly -ParameterFilter {
                 $Name -eq 'ada@example.org' -and $ExternalEmailAddress -eq 'ada@example.org'
             }
@@ -91,6 +99,156 @@ Describe 'New-SNSMailContact' {
             Should -Invoke Get-Contact -Times 1 -Exactly
             Should -Invoke Set-Contact -Times 0 -Exactly
             Should -Invoke Set-MailContact -Times 0 -Exactly
+        }
+    }
+
+    It 'uses the bulk contact index instead of looking up a known contact again' {
+        InModuleScope Office365-Scoutnet-synk {
+            function Get-EXORecipient { param($Identity, $ErrorAction, $Verbose) }
+            function Get-Contact { param($Identity, $ErrorAction, $Verbose) }
+            function Set-Contact { param($Identity, $Company, $ErrorAction, $Verbose) }
+            function Set-MailContact { param($Identity, $HiddenFromAddressListsEnabled, $ErrorAction, $Verbose) }
+            function Write-SNSLog { param($Message, $Level) }
+
+            Mock Get-EXORecipient { return [pscustomobject]@{ RecipientTypeDetails = 'MailContact' } }
+            Mock Get-Contact { return $null }
+            Mock Set-Contact {}
+            Mock Set-MailContact {}
+            Mock Write-SNSLog {}
+            $contactInfoCache = @{
+                'ada@example.org' = @{ Company = 'Existing company' }
+            }
+
+            $result = New-SNSMailContact -Epost 'ada@example.org' -DisplayName 'Ada Lovelace' `
+                -ContactInfoCache $contactInfoCache
+
+            $result | Should -BeTrue
+            Should -Invoke Get-Contact -Times 0 -Exactly
+            Should -Invoke Set-Contact -Times 0 -Exactly
+        }
+    }
+
+    It 'adds a newly created contact and its proxy addresses to the shared index' {
+        InModuleScope Office365-Scoutnet-synk {
+            function Get-EXORecipient { param($Identity, $ErrorAction, $Verbose) }
+            function New-MailContact { param($Name, $ExternalEmailAddress, $ErrorAction, $Verbose) }
+            function Get-Contact { param($Identity, $ErrorAction, $Verbose) }
+            function Set-Contact { param($Identity, $Company, $ErrorAction, $Verbose) }
+            function Set-MailContact { param($Identity, $HiddenFromAddressListsEnabled, $ErrorAction, $Verbose) }
+            function Start-Sleep { param($Seconds) }
+            function Write-SNSLog { param($Message, $Level) }
+
+            Mock Get-EXORecipient {
+                if ($Identity -eq 'ada@example.org') { return $null }
+                return [pscustomobject]@{ RecipientTypeDetails = 'MailContact' }
+            }
+            Mock New-MailContact {
+                return [pscustomobject]@{
+                    Company = ''
+                    ExternalEmailAddress = 'SMTP:ada@example.org'
+                    EmailAddresses = @('SMTP:ada@example.org', 'smtp:ada.alias@example.org')
+                }
+            }
+            Mock Get-Contact { return [pscustomobject]@{ Identity = $Identity } }
+            Mock Start-Sleep {}
+            Mock Set-Contact {}
+            Mock Set-MailContact {}
+            Mock Write-SNSLog {}
+            $contactCache = @{}
+            $contactInfoCache = @{}
+
+            $firstResult = New-SNSMailContact -Epost 'ada@example.org' -DisplayName 'Ada Lovelace' `
+                -ContactCache $contactCache -ContactInfoCache $contactInfoCache
+            $aliasResult = New-SNSMailContact -Epost 'ada.alias@example.org' -DisplayName 'Ada Lovelace' `
+                -ContactCache $contactCache -ContactInfoCache $contactInfoCache
+
+            $firstResult | Should -BeTrue
+            $aliasResult | Should -BeTrue
+            $contactCache['ada@example.org'] | Should -BeTrue
+            $contactInfoCache['ada.alias@example.org'].Company | Should -Be 'Ada Lovelace'
+            Should -Invoke Get-EXORecipient -Times 2 -Exactly
+            Should -Invoke Get-Contact -Times 1 -Exactly
+            Should -Invoke New-MailContact -Times 1 -Exactly
+        }
+    }
+
+    It 'uses the recipient index instead of a per-address Get-EXORecipient lookup' {
+        InModuleScope Office365-Scoutnet-synk {
+            function Get-EXORecipient { param($Identity, $ErrorAction, $Verbose) }
+            function New-MailContact { param($Name, $ExternalEmailAddress, $ErrorAction, $Verbose) }
+            function Get-Contact { param($Identity, $ErrorAction, $Verbose) }
+            function Set-Contact { param($Identity, $Company, $ErrorAction, $Verbose) }
+            function Set-MailContact { param($Identity, $HiddenFromAddressListsEnabled, $ErrorAction, $Verbose) }
+            function Start-Sleep { param($Seconds) }
+            function Write-SNSLog { param($Message, $Level) }
+
+            Mock Get-EXORecipient { return $null }
+            Mock New-MailContact {
+                return [pscustomobject]@{
+                    Company = ''
+                    ExternalEmailAddress = 'SMTP:new@example.org'
+                    EmailAddresses = @('SMTP:new@example.org', 'smtp:new.alias@example.org')
+                }
+            }
+            Mock Get-Contact { return $null }
+            Mock Start-Sleep {}
+            Mock Set-Contact {}
+            Mock Set-MailContact {}
+            Mock Write-SNSLog {}
+            $recipientIndex = @{}
+            Add-SNSRecipientToIndex -RecipientIndex $recipientIndex -Recipient ([pscustomobject]@{
+                RecipientTypeDetails = 'MailContact'
+                PrimarySmtpAddress = 'known@example.org'
+                EmailAddresses = @('SMTP:known@example.org')
+            })
+            $contactInfoCache = @{ 'known@example.org' = @{ Company = 'Known' } }
+
+            $known = New-SNSMailContact -Epost 'known@example.org' -DisplayName 'Known' `
+                -ContactInfoCache $contactInfoCache -RecipientIndex $recipientIndex
+            Should -Invoke Get-EXORecipient -Times 0 -Exactly
+            Should -Invoke New-MailContact -Times 0 -Exactly
+
+            $created = New-SNSMailContact -Epost 'new@example.org' -DisplayName 'New' `
+                -ContactInfoCache $contactInfoCache -RecipientIndex $recipientIndex
+            $alias = New-SNSMailContact -Epost 'new.alias@example.org' -DisplayName 'New' `
+                -ContactInfoCache $contactInfoCache -RecipientIndex $recipientIndex
+
+            $known | Should -BeTrue
+            $created | Should -BeTrue
+            $alias | Should -BeTrue
+            Should -Invoke Get-EXORecipient -Times 1 -Exactly
+            Should -Invoke New-MailContact -Times 1 -Exactly
+        }
+    }
+
+    It 'reuses a successful contact lookup from the supplied cache' {
+        InModuleScope Office365-Scoutnet-synk {
+            function Get-EXORecipient { param($Identity, $ErrorAction, $Verbose) }
+            function Get-Contact { param($Identity, $ErrorAction, $Verbose) }
+            function Set-Contact { param($Identity, $Company, $ErrorAction, $Verbose) }
+            function Set-MailContact { param($Identity, $HiddenFromAddressListsEnabled, $ErrorAction, $Verbose) }
+            function Write-SNSLog { param($Message, $Level) }
+
+            Mock Get-EXORecipient { return [pscustomobject]@{ Identity = $Identity } }
+            Mock Get-Contact { return [pscustomobject]@{ Company = 'Existing company' } }
+            Mock Set-Contact {}
+            Mock Set-MailContact {}
+            Mock Write-SNSLog {}
+            $contactCache = @{}
+            $timingData = @{}
+
+            $firstResult = New-SNSMailContact -Epost 'ada@example.org' -DisplayName 'Ada Lovelace' `
+                -ContactCache $contactCache -TimingData $timingData -GroupName 'leaders'
+            $secondResult = New-SNSMailContact -Epost 'ada@example.org' -DisplayName 'Ada Lovelace' `
+                -ContactCache $contactCache -TimingData $timingData -GroupName 'leaders'
+
+            $firstResult | Should -BeTrue
+            $secondResult | Should -BeTrue
+            Should -Invoke Get-EXORecipient -Times 1 -Exactly
+            Should -Invoke Get-Contact -Times 1 -Exactly
+            $timingData.leaders.RecipientLookupCount | Should -Be 1
+            $timingData.leaders.ContactCacheHits | Should -Be 1
+            $timingData.leaders.ContactManagementCount | Should -Be 1
         }
     }
 
@@ -157,6 +315,9 @@ Describe 'SNSUpdateExchangeDistributionGroups changes' {
             function Get-EXOMailbox {
                 param($RecipientTypeDetails, $Properties, $Verbose)
             }
+            function Get-EXORecipient {
+                param($RecipientTypeDetails, $ResultSize, $Properties, $ErrorAction, $Verbose)
+            }
             function Update-DistributionGroupMember {
                 param($Identity, $Members, $ErrorAction, $Verbose, $Confirm)
             }
@@ -208,6 +369,14 @@ Describe 'SNSUpdateExchangeDistributionGroups changes' {
             Mock Get-SNSUserEmail { return $memberData, 'new-member-hash' }
             Mock Get-SNSExchangeMailListMember { return @{}, @{ $obsoleteContact.Identity = $obsoleteContact } }
             Mock Get-EXOMailbox { return @() }
+            Mock Get-EXORecipient {
+                return @([pscustomobject]@{
+                    RecipientTypeDetails = 'MailContact'
+                    PrimarySmtpAddress = 'ada@example.org'
+                    Company = 'Existing company'
+                    EmailAddresses = @('SMTP:ada@example.org', 'smtp:ada.alias@example.org')
+                })
+            }
             Mock New-SNSMailContact { return $true }
             Mock Update-DistributionGroupMember {}
             Mock Remove-MailContact {}
@@ -225,6 +394,19 @@ Describe 'SNSUpdateExchangeDistributionGroups changes' {
                 'grace@example.org' -in $Members -and
                 'extra@example.org' -in $Members
             }
+            Should -Invoke Get-EXORecipient -Times 1 -Exactly -ParameterFilter {
+                -not $RecipientTypeDetails -and
+                $ResultSize -eq 'Unlimited' -and
+                'EmailAddresses' -in $Properties -and
+                'WindowsEmailAddress' -notin $Properties -and
+                'Company' -in $Properties
+            }
+            Should -Invoke New-SNSMailContact -Times 1 -Exactly -ParameterFilter {
+                $Epost -eq 'ada@example.org' -and
+                $RecipientIndex.ContainsKey('ada.alias@example.org') -and
+                $ContactInfoCache.ContainsKey('ada@example.org') -and
+                $ContactInfoCache['ada@example.org'].Company -eq 'Existing company'
+            }
             Should -Invoke Remove-MailContact -Times 1 -Exactly -ParameterFilter {
                 $Identity -eq 'obsolete@example.org'
             }
@@ -235,6 +417,9 @@ Describe 'SNSUpdateExchangeDistributionGroups changes' {
         InModuleScope Office365-Scoutnet-synk {
             function Get-EXOMailbox {
                 param($RecipientTypeDetails, $Properties, $Verbose)
+            }
+            function Get-EXORecipient {
+                param($RecipientTypeDetails, $ResultSize, $Properties, $ErrorAction, $Verbose)
             }
             function Update-DistributionGroupMember {
                 param($Identity, $Members, $ErrorAction, $Verbose, $Confirm)
@@ -277,6 +462,7 @@ Describe 'SNSUpdateExchangeDistributionGroups changes' {
             Mock Get-SNSUserEmail { return $memberData, 'member-hash' }
             Mock Get-SNSExchangeMailListMember { return @{}, @{} }
             Mock Get-EXOMailbox { return @() }
+            Mock Get-EXORecipient { return @() }
             Mock New-SNSMailContact { return $true }
             Mock Update-DistributionGroupMember { throw 'group update failed' }
             Mock Remove-MailContact {}
@@ -295,6 +481,9 @@ Describe 'SNSUpdateExchangeDistributionGroups changes' {
         InModuleScope Office365-Scoutnet-synk {
             function Get-EXOMailbox {
                 param($RecipientTypeDetails, $Properties, $Verbose)
+            }
+            function Get-EXORecipient {
+                param($RecipientTypeDetails, $ResultSize, $Properties, $ErrorAction, $Verbose)
             }
             function Update-DistributionGroupMember {
                 param($Identity, $Members, $ErrorAction, $Verbose, $Confirm)
@@ -393,6 +582,7 @@ Describe 'SNSUpdateExchangeDistributionGroups changes' {
             Mock Get-EXOMailbox {
                 return @([pscustomobject]@{ CustomAttribute1 = 'unrelated-user' })
             }
+            Mock Get-EXORecipient { return @() }
             Mock Add-Office365UserToList {
                 if ($Member -eq 'empty-office-member') {
                     return $true, ''
