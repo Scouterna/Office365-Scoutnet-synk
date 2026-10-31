@@ -7,7 +7,6 @@
 . $PSScriptRoot\SNSConfiguration.ps1
 . $PSScriptRoot\Write-SNSLog.ps1
 . $PSScriptRoot\Get-SNSStableHash.ps1
-. $PSScriptRoot\ConvertTo-SNSJSONHash.ps1
 . $PSScriptRoot\Receive-SNSApiJson.ps1
 . $PSScriptRoot\Get-SNSApiGroupCustomlist.ps1
 . $PSScriptRoot\Get-SNSMaillistInfo.ps1

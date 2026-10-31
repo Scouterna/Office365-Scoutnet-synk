@@ -318,7 +318,7 @@ Describe 'Disconnect-SnSOffice365' {
 }
 
 Describe 'Receive-SNSApiJson' {
-    It 'sends Basic authentication and converts the Scoutnet JSON response' {
+    It 'sends Basic authentication and converts the Scoutnet JSON response to a hashtable' {
         InModuleScope Office365-Scoutnet-synk {
             $securePassword = [System.Security.SecureString]::new()
             foreach ($character in 'api-secret'.ToCharArray()) {
@@ -330,22 +330,24 @@ Describe 'Receive-SNSApiJson' {
                 $securePassword
             )
             Mock Invoke-WebRequest {
-                return '{"data":{"id":"member-list"}}'
+                return '{"data":{"id":"member-list","count":2,"active":true,"unused":null}}'
             }
 
             $script:SNSConf.JsonFileDirectory = Join-Path $TestDrive 'api-json'
             $result = Receive-SNSApiJson -Uri 'https://example.org/api/memberlist' -Credential $credential
 
+            $result | Should -BeOfType [System.Collections.IDictionary]
             $result.data.id | Should -Be 'member-list'
+            $result.data.count | Should -Be 2
+            $result.data.active | Should -BeTrue
+            $result.data.Contains('unused') | Should -BeTrue
+            $result.data.unused | Should -BeNullOrEmpty
             Test-Path -LiteralPath (Join-Path $script:SNSConf.JsonFileDirectory 'memberlist.json') | Should -BeFalse
             Should -Invoke Invoke-WebRequest -Times 1 -Exactly -ParameterFilter {
                 $Uri -eq 'https://example.org/api/memberlist' -and
-                $Headers.Authorization -eq ('Basic ' + [Convert]::ToBase64String(
-                    [System.Text.Encoding]::UTF8.GetBytes(
-                        'scout-user:' + $credential.GetNetworkCredential().Password
-                    )
-                )) -and
-                $UseBasicParsing -and $ErrorAction -eq 'Stop'
+                $Authentication -eq 'Basic' -and
+                $Credential.UserName -eq 'scout-user' -and
+                $ErrorAction -eq 'Stop'
             }
         }
     }
