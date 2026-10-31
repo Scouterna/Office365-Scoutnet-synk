@@ -105,6 +105,31 @@ Describe 'SNSUpdateExchangeDistributionGroups' {
         }
     }
 
+    It 'skips Update-DistributionGroupMember only when the members are unchanged' {
+        InModuleScope Office365-Scoutnet-synk {
+            $current = @(
+                , @('ada@example.org')
+                , @('grace@landvetterscout.se', 'grace.alias@example.org')
+            )
+
+            Test-SNSGroupMembersUnchanged -CurrentMemberKeys $current `
+                -DesiredAddresses @('ADA@example.org', 'grace.alias@example.org') | Should -BeTrue
+            Test-SNSGroupMembersUnchanged -CurrentMemberKeys $current `
+                -DesiredAddresses @('ada@example.org') | Should -BeFalse
+            Test-SNSGroupMembersUnchanged -CurrentMemberKeys $current `
+                -DesiredAddresses @('ada@example.org', 'grace@landvetterscout.se', 'new@example.org') | Should -BeFalse
+            Test-SNSGroupMembersUnchanged -CurrentMemberKeys $null `
+                -DesiredAddresses @('ada@example.org') | Should -BeFalse
+            Test-SNSGroupMembersUnchanged -CurrentMemberKeys @() -DesiredAddresses @() | Should -BeTrue
+
+            $differences = [System.Collections.Generic.List[string]]::new()
+            Test-SNSGroupMembersUnchanged -CurrentMemberKeys $current `
+                -DesiredAddresses @('ada@example.org', 'new@example.org') -Differences $differences | Should -BeFalse
+            $differences -join '|' | Should -BeLike "*missing member 'new@example.org'*"
+            $differences -join '|' | Should -BeLike '*unwanted member*grace@landvetterscout.se*'
+        }
+    }
+
     It 'skips Exchange synchronization when the validation hash is unchanged' {
         InModuleScope Office365-Scoutnet-synk {
             $credential = [pscredential]::new('test', (ConvertTo-SecureString 'test' -AsPlainText -Force))

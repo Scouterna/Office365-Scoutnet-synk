@@ -10,14 +10,17 @@
         The hashtable is "other" distribution groups members
         Only contacts is returned. Users with mailboxes is not returned.
         The distribution group list is fetched once; configured lists are matched by SMTP address, alias, name or identity.
+        A third value is returned with the addresses of all current members (any recipient type) of each configured list,
+        keyed by the configured name. It is used to skip updates of lists that already have the wanted members.
 
     .INPUTS
         None. You cannot pipe objects to Get-SNSExchangeMailListMember.
 
     .OUTPUTS
-        Two parts is returned.
+        Three parts is returned.
         The first part is the otherMailListsMembers ArrayList.
         The second part is the mailListsToProcessMembers ArrayList.
+        The third part is a hashtable with the current member addresses per configured list.
 
     .PARAMETER Maillists
         Distribution groups that will be part of mailListsToProcessMembers.
@@ -33,6 +36,8 @@
     $mailListsToProcessMembers = @{}
 
     $mailListGroups = @{}
+    $groupMemberKeys = @{}
+    $matchedConfiguredNames = @{}
     $configuredGroupNames = @{}
     foreach ($mailList in $Maillists)
     {
@@ -52,6 +57,7 @@
     {
         foreach($group in $groups)
         {
+            $matchedGroupName = $null
             $groupNames = @(
                 [string]$group.PrimarySmtpAddress
                 [string]$group.Alias
@@ -66,12 +72,24 @@
                     {
                         $mailListGroups[[string]$group.ExchangeObjectId] = $true
                     }
+                    $matchedGroupName = $groupName
+                    $matchedConfiguredNames[$groupName] = $true
                     break
                 }
             }
 
             Write-SNSLog "Get distribution list $($group.DisplayName)"
             $data = Get-DistributionGroupMember -Verbose:$false -Identity "$($group.ExchangeObjectId)" -ErrorAction Stop
+            if ($null -ne $matchedGroupName)
+            {
+                # One address set per member (primary, external and proxy addresses), used to skip unchanged groups.
+                $memberKeySets = [System.Collections.Generic.List[object]]::new()
+                foreach ($member in @($data))
+                {
+                    $memberKeySets.Add(@(Get-SNSRecipientAddressKey -Recipient $member))
+                }
+                $groupMemberKeys[$matchedGroupName] = $memberKeySets
+            }
             if ($mailListGroups.ContainsKey([string]$group.ExchangeObjectId))
             {
                 $data | ForEach-Object {
@@ -97,7 +115,14 @@
         Write-SNSLog -Level "Error" "Fetch of distribution group members failed. Error $_"
         throw
     }
+    foreach ($configuredName in $configuredGroupNames.Keys)
+    {
+        if (-not $matchedConfiguredNames.ContainsKey($configuredName))
+        {
+            Write-SNSLog -Level "Warn" "Distribution group '$configuredName' was not found by SMTP address, alias, name or identity. Its current members are unknown, so its members are always updated. Use the full e-mail address of the group as key in MailListSettings."
+        }
+    }
     Write-SNSLog "Done"
 
-    return $otherMailListsMembers, $mailListsToProcessMembers
+    return $otherMailListsMembers, $mailListsToProcessMembers, $groupMemberKeys
 }

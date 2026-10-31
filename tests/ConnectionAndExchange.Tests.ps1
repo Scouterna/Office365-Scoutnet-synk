@@ -48,12 +48,17 @@ Describe 'Get-SNSExchangeMailListMember' {
                 return $otherContact
             }
             Mock Write-SNSLog {}
-            $otherMembers, $membersToProcess = Get-SNSExchangeMailListMember -Maillists @('synchronized@example.org')
+            $otherMembers, $membersToProcess, $memberKeys = Get-SNSExchangeMailListMember -Maillists @('synchronized@example.org', 'ravarna')
 
             $membersToProcess.Keys | Should -Be @('scout@example.org')
             $otherMembers.Keys | Should -Be @('external@example.org')
+            $memberKeys.Keys | Should -Be @('synchronized@example.org')
+            @($memberKeys['synchronized@example.org']).Count | Should -Be 2
             Should -Invoke Get-DistributionGroup -Times 1 -Exactly
             Should -Invoke Get-DistributionGroupMember -Times 2 -Exactly
+            Should -Invoke Write-SNSLog -Times 1 -Exactly -ParameterFilter {
+                $Level -eq 'Warn' -and $Message -like "*'ravarna' was not found*full e-mail address*"
+            }
             Should -Invoke Write-SNSLog -Times 1 -Exactly -ParameterFilter {
                 $Message -eq 'Done'
             }

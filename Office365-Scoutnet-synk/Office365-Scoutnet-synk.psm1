@@ -150,6 +150,72 @@ function ConvertTo-SNSContactEmailKey
     return $emailAddress
 }
 
+function Test-SNSGroupMembersUnchanged
+{
+    param (
+        [Parameter()]
+        [AllowNull()]
+        $CurrentMemberKeys,
+
+        [Parameter()]
+        [AllowNull()]
+        $DesiredAddresses,
+
+        [Parameter()]
+        [System.Collections.Generic.List[string]]$Differences = [System.Collections.Generic.List[string]]::new()
+    )
+
+    # Unknown current members (new group or no data) means the group must be updated.
+    if ($null -eq $CurrentMemberKeys)
+    {
+        $Differences.Add('current members unknown')
+        return $false
+    }
+
+    $unchanged = $true
+    $desired = @{}
+    foreach ($address in @($DesiredAddresses))
+    {
+        $key = ConvertTo-SNSContactEmailKey -Address $address
+        if ($null -eq $key)
+        {
+            $Differences.Add("invalid wanted address '$address'")
+            $unchanged = $false
+            continue
+        }
+        $desired[$key] = $false
+    }
+
+    foreach ($memberKeys in @($CurrentMemberKeys))
+    {
+        $matched = $false
+        foreach ($key in @($memberKeys))
+        {
+            if ($desired.ContainsKey($key))
+            {
+                $desired[$key] = $true
+                $matched = $true
+            }
+        }
+        if (-not $matched)
+        {
+            $Differences.Add("unwanted member with addresses '$(@($memberKeys) -join ', ')'")
+            $unchanged = $false
+        }
+    }
+
+    foreach ($key in $desired.Keys)
+    {
+        if (-not $desired[$key])
+        {
+            $Differences.Add("missing member '$key'")
+            $unchanged = $false
+        }
+    }
+
+    return $unchanged
+}
+
 function Get-SNSRecipientAddressKey
 {
     param (
@@ -823,7 +889,7 @@ function SNSUpdateExchangeDistributionGroups
     {
         Write-SNSLog "Scoutnet is updated. Starting to update the distribution groups."
         $phaseStopwatch.Restart()
-        $otherMailListsMembers, $mailListsToProcessMembers = Get-SNSExchangeMailListMember -Maillists $MailListSettings.Keys
+        $otherMailListsMembers, $mailListsToProcessMembers, $currentGroupMemberKeys = Get-SNSExchangeMailListMember -Maillists $MailListSettings.Keys
         Write-SNSTimingLog -Enabled $SNSConf.EnableTimingLog -Phase 'Fetch Exchange distribution group members' -Stopwatch $phaseStopwatch
 
         $phaseStopwatch.Restart()
@@ -1224,10 +1290,24 @@ function SNSUpdateExchangeDistributionGroups
                 Verbose = $false
             }
             $groupMembershipStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+            $currentMemberKeys = $null
+            if ($currentGroupMemberKeys -and $currentGroupMemberKeys.ContainsKey([string]$distGroupName))
+            {
+                $currentMemberKeys = $currentGroupMemberKeys[[string]$distGroupName]
+            }
             try
             {
-                if ($PSCmdlet.ShouldProcess($distGroupName, "Update-DistributionGroupMember"))
+                $memberDifferences = [System.Collections.Generic.List[string]]::new()
+                if (Test-SNSGroupMembersUnchanged -CurrentMemberKeys $currentMemberKeys -DesiredAddresses $AddressesToAdd.Values -Differences $memberDifferences)
                 {
+                    Write-SNSLog "Members of distribution group $distGroupName are unchanged. Update skipped."
+                }
+                elseif ($PSCmdlet.ShouldProcess($distGroupName, "Update-DistributionGroupMember"))
+                {
+                    if ($SNSConf.EnableTimingLog)
+                    {
+                        Write-SNSLog "Distribution group $distGroupName will be updated: $($memberDifferences -join '; ')"
+                    }
                     Update-DistributionGroupMember @UpdateDistGroup -Confirm:$false
                 }
             }
