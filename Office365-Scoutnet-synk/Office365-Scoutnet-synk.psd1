@@ -80,17 +80,11 @@ RequiredModules = @(@{ModuleName='Microsoft.Graph.Authentication';
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = @(
     'Write-SNSLog',
-    'Receive-SNSApiJson',
-    'Get-SNSApiGroupCustomlist',
-    'Get-SNSUserEmail',
-    'Get-SNSMaillistInfo',
     'SNSUpdateExchangeDistributionGroups',
-    'Get-SNSApiGroupMemberlist',
     'Send-SNSMandatoryMomentReport',
     'Update-SNMicrosoft365Group',
     'Invoke-SNSUppdateOffice365User',
     'New-SNSConfiguration',
-    'Get-SNSConfiguration',
     'Set-SNSConfiguration',
     'Connect-SnSOffice365',
     'Disconnect-SnSOffice365'
@@ -100,7 +94,7 @@ FunctionsToExport = @(
 CmdletsToExport = ''
 
 # Variables to export from this module
-VariablesToExport = '*'
+VariablesToExport = @()
 
 # Aliases to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no aliases to export.
 AliasesToExport = ''
@@ -138,10 +132,20 @@ PrivateData = @{
         # ReleaseNotes of this module
         ReleaseNotes = @'
 ## 3.1.0
-Ny funktion Update-SNMicrosoft365Group som hanterar Microsoft 365-grupper utifrån regler i konfigurationen (Microsoft365GroupSettings). Grupper kan styras av Scoutnet-maillistor, roller på avdelningar eller roller på scoutkåren, och kan även göras till Teams-team.
-Microsoft.Graph.Teams 2.41.2 är nu ett beroende, och behörigheten Team.Create krävs för Teams-team.
-SetupAzure.ps1 installerar Microsoft.Graph.Teams och ger hanterad identitet behörigheten Team.Create.
-updateraAzureOffice365ScoutnetSync.ps1 lägger till behörigheter som saknas för den hanterade identiteten vid uppgradering.
+Ny funktion Update-SNMicrosoft365Group för Microsoft 365-grupper och Teams.
+Microsoft.Graph.Teams 2.41.2 är nu ett beroende.
+Listor kan styras av roller och avdelningar i Scoutnet.
+Distributionslistor skapas automatiskt om de saknas.
+Användare kan läggas i säkerhetsgrupper utifrån Scoutnet.
+Ämnesprefix för mejl till distributionslistor med add_prefix.
+Snabbare synk av distributionsgrupper.
+Oförändrade grupper hoppas över.
+Ny inställning EnableTimingLog för tidsmätning.
+Använd gruppens fullständiga e-postadress som nyckel i MailListSettings.
+Använder PowerShells inbyggda autentisering och JSON-hantering mot Scoutnet.
+Bara funktionerna som används i exemplen är publika. Övriga funktioner och variabeln SNSConf är interna.
+Rättat TLS-inställningar, rapportutskick och null-varningar.
+Uppdateringsskriptet har hjälp, nya parametrar och lägger till saknade behörigheter.
 
 ## 3.0.1
 Flyttade dokumentationen till en separat wiki. Den finns på https://github.com/Scouterna/Office365-Scoutnet-synk/wiki

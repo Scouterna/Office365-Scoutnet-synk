@@ -24,7 +24,6 @@
 
 # Configuration holder.
 $script:SNSConf=[SNSConfiguration]::new()
-Export-ModuleMember -Variable SNSConf
 
 function Add-Office365UserToList
 {
