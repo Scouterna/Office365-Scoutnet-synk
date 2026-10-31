@@ -6,15 +6,15 @@
 
     .DESCRIPTION
         Scoutnet API returns a JSON with the resulting data.
-        This functions uses Invoke-WebRequest to fetch the data,
-        and parses the returned JSON and returns a multilevel hashtable with the data.
+        This function uses Invoke-WebRequest to fetch the data and returns the
+        JSON as a multilevel hashtable.
         The credential for the API is configured in scoutnet.
 
     .INPUTS
         None. You cannot pipe objects to Receive-SNSApiJson.
 
     .OUTPUTS
-        The multi level hashtable.
+        A multilevel dictionary.
 
     .PARAMETER Uri
         Url to the scoutnet API for fetching the group memberlist.
@@ -38,7 +38,7 @@
         Receive-SNSApiJson -Credential $CredentialMembers -Uri "https://www.scoutnet.se/api/group/memberlist"
     #>
 
-    [OutputType([System.Collections.Hashtable])]
+    [OutputType([System.Collections.IDictionary])]
     param (
         [Parameter(Mandatory=$True, HelpMessage="Url to Scoutnet API for fetching the group memberlist")]
         [ValidateNotNull()]
@@ -55,18 +55,11 @@
         [bool]$SaveFile = $false
         )
 
-    # Powershell version 5 do not support basic auth.
-    # Workaround is to create the Authorization header with the data from the Credential parameter.
-    $bytes = [System.Text.Encoding]::UTF8.GetBytes(
-        ('{0}:{1}' -f $Credential.UserName, $Credential.GetNetworkCredential().Password)
-    )
-    $Authorization = 'Basic {0}' -f ([Convert]::ToBase64String($bytes))
-
-    # Create the Authorization header.
-    $Headers = @{ Authorization = $Authorization }
-
-    # Recuest the data and convert the result to a hash table. Basic parsing is mandatory on Azure automation.
-    $Response = Invoke-WebRequest -Uri $Uri -Headers $Headers -UseBasicParsing -ErrorAction "Stop"
+    $Response = Invoke-WebRequest `
+        -Uri $Uri `
+        -Authentication Basic `
+        -Credential $Credential `
+        -ErrorAction Stop
     $JsonContent = if ($Response -is [string]) { $Response } else { $Response.Content }
 
     if ($SaveFile)
@@ -98,6 +91,5 @@
         )
     }
 
-    $JsonHashTable = $JsonContent | ConvertFrom-Json -ErrorAction "Stop" | ConvertTo-SNSJSONHash
-    return $JsonHashTable
+    return $JsonContent | ConvertFrom-Json -AsHashtable -ErrorAction Stop
 }
