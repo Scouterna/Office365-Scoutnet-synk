@@ -72,7 +72,7 @@
             {
                 # Static list. Fetch users from the list not the rules.
                 $ledareData = Get-SNSApiGroupCustomlist -Credential $CredentialCustomlists -Uri $UriApiCustomList -listid $key
-                $ledare += $ledareData.data.keys
+                $ledare += @($ledareData.data.keys).Where({ $null -ne $_ })
             }
             else
             {
@@ -83,13 +83,13 @@
                     {
                         # Fetch the list marked "ledare"
                         $ledareData = Get-SNSApiGroupCustomlist -Credential $CredentialCustomlists -Uri $UriApiCustomList -listid $key -ruleid $CustomListInfo[$key].rules[$rule].id
-                        $ledare += $ledareData.data.keys
+                        $ledare += @($ledareData.data.keys).Where({ $null -ne $_ })
                     }
                     else
                     {
                         # Fetch the other lists
                         $scouterData = Get-SNSApiGroupCustomlist -Credential $CredentialCustomlists -Uri $UriApiCustomList -listid $key -ruleid $CustomListInfo[$key].rules[$rule].id
-                        $scouter += $scouterData.data.keys
+                        $scouter += @($scouterData.data.keys).Where({ $null -ne $_ })
                     }
                 }
             }
