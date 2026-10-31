@@ -1,11 +1,81 @@
 #Requires -Modules Az.Accounts, Az.Automation, Microsoft.Graph.Authentication, Microsoft.Graph.Applications
 
+<#
+.SYNOPSIS
+    Uppdaterar Office365-Scoutnet-synk i ett Azure Automation-konto.
+
+.DESCRIPTION
+    Skapar eller uppdaterar en Runtime Environment (PowerShell 7.6) i Azure Automation-kontot,
+    uppgraderar modulens beroenden och Office365-Scoutnet-synk till vald version samt verifierar
+    att alla paket är installerade. Om inte -SkipPermissionUpdate anges uppdateras även de
+    Graph-behörigheter som den hanterade identiteten behöver.
+
+    Du måste vara inloggad mot Azure (Connect-AzAccount) och Microsoft Graph innan skriptet körs.
+
+.PARAMETER AutomationAccountName
+    Namn på Automation-kontot. Standard är 'Scoutnet-sync'.
+
+.PARAMETER ResourceGroupName
+    Namn på resursgruppen som Automation-kontot ligger i. Standard är 'Scoutnet-sync'.
+
+.PARAMETER ModuleVersion
+    Version av Office365-Scoutnet-synk som ska installeras. Standard är '3.1.0'.
+    Beroendena, inklusive Microsoft.Graph.Teams, läses ur modulens manifest på PowerShell Gallery.
+
+.PARAMETER RuntimeEnvironmentName
+    Namn på Runtime Environment som skapas eller uppdateras.
+    Standard är 'PowerShell-7.6-Office365-Scoutnet-synk'. Kan förkortas till -Runtime eller -Env.
+
+.PARAMETER ModulePackagePath
+    Sökväg till en lokal zip- eller nupkg-fil med modulen (till exempel en version som inte är publicerad
+    på PowerShell Gallery). Beroendena läses ur modulmanifestet i filen i stället för från PowerShell Gallery.
+    Azure kan bara importera från en URL, så utan -ModulePackageUri installeras beroendena men inte själva
+    modulen. Ladda i så fall upp zipen manuellt under Runtime Environment > Packages.
+
+.PARAMETER ModulePackageUri
+    URL som Azure Automation hämtar modulpaketet från, till exempel en blob med SAS-token. Används tillsammans
+    med -ModulePackagePath.
+
+.PARAMETER SkipPermissionUpdate
+    Hoppar över uppdateringen av Graph-behörigheter för den hanterade identiteten.
+
+.PARAMETER Help
+    Visar den här hjälpen. Fungerar även som -h, --help och /?.
+
+.EXAMPLE
+    .\updateraAzureOffice365ScoutnetSync.ps1 -ModuleVersion 3.0.1
+
+    Uppdaterar standardkontot 'Scoutnet-sync' till version 3.0.1.
+
+.EXAMPLE
+    .\updateraAzureOffice365ScoutnetSync.ps1 -ModulePackagePath .\Office365-Scoutnet-synk.3.1.0.zip
+
+    Installerar beroendena enligt zipens manifest. Modulen laddas upp manuellt i portalen.
+
+.EXAMPLE
+    .\updateraAzureOffice365ScoutnetSync.ps1 -AutomationAccountName MinSynk -ResourceGroupName MinGrupp -Runtime 'PowerShell-7.6-Test' -SkipPermissionUpdate
+
+    Uppdaterar ett annat konto och en annan Runtime Environment utan att ändra behörigheter.
+#>
 param(
     [string]$AutomationAccountName = 'Scoutnet-sync',
     [string]$ResourceGroupName = 'Scoutnet-sync',
     [string]$ModuleVersion = '3.1.0',
-    [switch]$SkipPermissionUpdate
+    [Alias('Runtime', 'Env')]
+    [string]$RuntimeEnvironmentName = 'PowerShell-7.6-Office365-Scoutnet-synk',
+    [ValidateScript({ Test-Path -LiteralPath $_ -PathType Leaf })]
+    [string]$ModulePackagePath,
+    [string]$ModulePackageUri,
+    [switch]$SkipPermissionUpdate,
+    [Alias('h')]
+    [switch]$Help
 )
+
+# --help och /? tolkas annars som värdet för första positionella parametern
+if ($Help -or $AutomationAccountName -in '--help', '-help', '/?', '/help', '-?') {
+    Get-Help $PSCommandPath -Full
+    return
+}
 
 $ErrorActionPreference = 'Stop'
 
@@ -24,7 +94,6 @@ $RequiredGraphPermissions = @(
 )
 
 $ModuleName = 'Office365-Scoutnet-synk'
-$RuntimeEnvironmentName = 'PowerShell-7.6-Office365-Scoutnet-synk'
 $RuntimeVersion = '7.6'
 $AzRuntimePackageVersion = '15.1.0'
 $AzureCliRuntimePackageVersion = '2.77.0'
@@ -202,11 +271,17 @@ function Get-SNSRequiredPackages
 
     try
     {
-        Invoke-WebRequest `
-            -Uri "$PowerShellGalleryPackageUri/$ModuleName/$ModuleVersion" `
-            -OutFile $packagePath `
-            -ErrorAction Stop
-
+        if ([string]::IsNullOrWhiteSpace($ModulePackagePath))
+        {
+            Invoke-WebRequest `
+                -Uri "$PowerShellGalleryPackageUri/$ModuleName/$ModuleVersion" `
+                -OutFile $packagePath `
+                -ErrorAction Stop
+        }
+        else
+        {
+            Copy-Item -LiteralPath $ModulePackagePath -Destination $packagePath -ErrorAction Stop
+        }
         $archive = [System.IO.Compression.ZipFile]::OpenRead($packagePath)
         try
         {
@@ -245,6 +320,11 @@ function Get-SNSRequiredPackages
 
         Set-Content -LiteralPath $manifestPath -Value $manifestContent -NoNewline -Encoding utf8
         $manifest = Import-PowerShellDataFile -Path $manifestPath -ErrorAction Stop
+        if (-not [string]::IsNullOrWhiteSpace($ModulePackagePath) -and
+            [string]$manifest.ModuleVersion -ne $ModuleVersion)
+        {
+            throw "Paketet $ModulePackagePath innehåller $ModuleName $($manifest.ModuleVersion), men -ModuleVersion är $ModuleVersion. Ange rätt -ModuleVersion."
+        }
 
         $requiredPackages = [System.Collections.Generic.List[hashtable]]::new()
         $declaredDependencies = @()
@@ -291,6 +371,7 @@ function Get-SNSRequiredPackages
         $requiredPackages.Add(@{
             Name = $ModuleName
             Version = $ModuleVersion
+            Uri = $ModulePackageUri
         })
         return $requiredPackages.ToArray()
     }
@@ -313,7 +394,12 @@ function Install-SNSRuntimeEnvironmentPackage
     )
 
     $contentLink = @{
-        uri = "$PowerShellGalleryPackageUri/$($Package.Name)/$($Package.Version)"
+        uri = if ([string]::IsNullOrWhiteSpace($Package.Uri)) {
+            "$PowerShellGalleryPackageUri/$($Package.Name)/$($Package.Version)"
+        }
+        else {
+            $Package.Uri
+        }
         version = $null
     }
     if (Test-SNSSystemVersion -Version $Package.Version)
@@ -530,7 +616,12 @@ if ($runtime.language -ne 'PowerShell' -or $runtime.version -ne $RuntimeVersion)
 }
 
 $RequiredPackages = Get-SNSRequiredPackages
-Write-Host "Uppgraderar paket i Runtime Environment '$RuntimeEnvironmentName' enligt beroendena i $ModuleName $ModuleVersion..."
+$ManualModuleUpload = -not [string]::IsNullOrWhiteSpace($ModulePackagePath) -and
+    [string]::IsNullOrWhiteSpace($ModulePackageUri)
+if ($ManualModuleUpload)
+{
+    $RequiredPackages = @($RequiredPackages | Where-Object { $_.Name -ne $ModuleName })
+}Write-Host "Uppgraderar paket i Runtime Environment '$RuntimeEnvironmentName' enligt beroendena i $ModuleName $ModuleVersion..."
 foreach ($package in $RequiredPackages)
 {
     $packageResourceId = "$packagesResourceId/$([uri]::EscapeDataString($package.Name))"
@@ -603,7 +694,11 @@ foreach ($package in $RequiredPackages)
     }
 }
 
-Write-Host "Alla beroenden och $ModuleName $ModuleVersion är verifierade i Runtime Environment '$RuntimeEnvironmentName' under Automation-kontot '$AutomationAccountName'."
+Write-Host "Alla beroenden$(if (-not $ManualModuleUpload) { " och $ModuleName $ModuleVersion" }) är verifierade i Runtime Environment '$RuntimeEnvironmentName' under Automation-kontot '$AutomationAccountName'."
+if ($ManualModuleUpload)
+{
+    Write-Warning "$ModuleName $ModuleVersion är inte installerad. Ladda upp '$ModulePackagePath' manuellt under Runtime Environment '$RuntimeEnvironmentName' > Packages > Add a custom package, eller ange -ModulePackageUri."
+}
 
 if ($SkipPermissionUpdate)
 {
