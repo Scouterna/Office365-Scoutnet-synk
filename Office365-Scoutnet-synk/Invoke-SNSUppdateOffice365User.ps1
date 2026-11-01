@@ -474,7 +474,7 @@ function Invoke-SNSCreateUserAndUpdateUserData
             {
                 $newAccount = New-MgUser -BodyParameter $createUserparams -ErrorAction Stop
                 Write-SNSLog "User '$($newAccount.UserPrincipalName)' created. Assigning licenses."
-                Set-MgUserLicense -UserId $newAccount.Id -Addlicenses $userLicenseData -RemoveLicenses @() -ErrorAction Stop
+                $null = Set-MgUserLicense -UserId $newAccount.Id -Addlicenses $userLicenseData -RemoveLicenses @() -ErrorAction Stop
                 Write-SNSLog "Licenses assigned to user '$($newAccount.UserPrincipalName)'."
                 Write-SNSLog "User '$($newAccount.UserPrincipalName)' added for member id '$($MemberData.member_no.value)'."
             }
