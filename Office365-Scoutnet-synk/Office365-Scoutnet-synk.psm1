@@ -712,7 +712,7 @@ function Set-SNSMailListPrefixRule
             {
                 Write-SNSLog "Creating mail flow rule '$ruleName' with prefix $prefix"
                 New-TransportRule -Name $ruleName -AnyOfToCCHeader $address -PrependSubject $prependText `
-                    -ExceptIfSubjectContainsWords $prefix -AuditSeverity "DoNotAudit" -SenderAddressLocation "Header" `
+                    -ExceptIfSubjectContainsWords $prefix -SenderAddressLocation "Header" `
                     -RuleErrorAction "Ignore" -Mode "Enforce" -ErrorAction "stop" -Verbose:$false -Confirm:$false | Out-Null
             }
         }

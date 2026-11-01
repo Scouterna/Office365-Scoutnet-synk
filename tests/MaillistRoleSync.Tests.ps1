@@ -226,7 +226,7 @@ Describe 'SNSUpdateExchangeDistributionGroups role based rules' {
             Should -Invoke New-TransportRule -Times 1 -Exactly -ParameterFilter {
                 $Name -eq 'Subject prefix for derived@example.org' -and $AnyOfToCCHeader -eq 'derived@example.org' -and
                 $PrependSubject -eq '[Krypen] ' -and $ExceptIfSubjectContainsWords -eq '[Krypen]' -and
-                $AuditSeverity -eq 'DoNotAudit' -and $SenderAddressLocation -eq 'Header' -and $Mode -eq 'Enforce'
+                $SenderAddressLocation -eq 'Header' -and $Mode -eq 'Enforce'
             }
             Should -Invoke New-TransportRule -Times 1 -Exactly -ParameterFilter {
                 $AnyOfToCCHeader -eq 'text@example.org' -and $PrependSubject -eq '[Utm] ' -and $ExceptIfSubjectContainsWords -eq '[Utm]'

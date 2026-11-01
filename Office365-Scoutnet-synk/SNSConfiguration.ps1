@@ -337,7 +337,8 @@ function New-SNSConfiguration
     $conf.commandNames += "Get-DistributionGroup,Set-MailboxMessageConfiguration,"
     $conf.commandNames += "Set-MailboxAutoReplyConfiguration,"
     $conf.commandNames += "Get-Contact,"
-    $conf.commandNames += "Get-TransportRule,New-TransportRule,Set-TransportRule"
+    $conf.commandNames += "Get-TransportRule,New-TransportRule,Set-TransportRule,"
+    $conf.commandNames += "New-DistributionGroup,Set-DistributionGroup"
 
     return $conf
 }
