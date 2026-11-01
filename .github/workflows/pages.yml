@@ -1,0 +1,63 @@
+name: pages
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'Office365-Scoutnet-synk/**'
+      - 'tools/New-ModuleDocumentation.ps1'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Generate documentation
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+    - name: Install needed modules
+      shell: pwsh
+      run: |
+            Set-PSRepository PSGallery -InstallationPolicy Trusted
+            Install-Module Microsoft.Graph.Authentication -RequiredVersion 2.41.2 -Force -ErrorAction Stop
+            Install-Module Microsoft.Graph.Users -RequiredVersion 2.41.2 -Force -ErrorAction Stop
+            Install-Module Microsoft.Graph.Users.Actions -RequiredVersion 2.41.2 -Force -ErrorAction Stop
+            Install-Module Microsoft.Graph.Groups -RequiredVersion 2.41.2 -Force -ErrorAction Stop
+            Install-Module Microsoft.Graph.Teams -RequiredVersion 2.41.2 -Force -ErrorAction Stop
+            Install-Module Microsoft.Graph.Identity.DirectoryManagement -RequiredVersion 2.41.2 -Force -ErrorAction Stop
+            Install-Module ExchangeOnlineManagement -RequiredVersion 3.10.1 -Force -ErrorAction Stop
+
+    - name: Generate Markdown from the module help
+      shell: pwsh
+      run: ./tools/New-ModuleDocumentation.ps1 -OutputPath ./docs-source
+
+    - name: Build the site with Jekyll
+      uses: actions/jekyll-build-pages@v1
+      with:
+        source: ./docs-source
+        destination: ./_site
+
+    - uses: actions/upload-pages-artifact@v3
+      with:
+        path: ./_site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+    - name: Deploy
+      id: deployment
+      uses: actions/deploy-pages@v4
