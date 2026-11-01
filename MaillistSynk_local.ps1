@@ -246,7 +246,8 @@ Catch
     Write-SNSLog -Level "Error" "Kunde inte skapa eller skicka rapporten över obligatoriska moment. Fel: $_"
 }
 
-$bodyData = Get-Content -Path $conf.LogFilePath -Raw -Encoding UTF8 -ErrorAction "Continue"
+$bodyData = (Get-SNSRunSummary -Configuration $conf) + [Environment]::NewLine +
+    (Get-Content -Path $conf.LogFilePath -Raw -Encoding UTF8 -ErrorAction "Continue")
 $params = @{
     Message = @{
         Subject = $LogEmailSubject

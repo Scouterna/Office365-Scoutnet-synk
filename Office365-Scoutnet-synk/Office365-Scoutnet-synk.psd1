@@ -80,6 +80,7 @@ RequiredModules = @(@{ModuleName='Microsoft.Graph.Authentication';
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = @(
     'Write-SNSLog',
+    'Get-SNSRunSummary',
     'SNSUpdateExchangeDistributionGroups',
     'Send-SNSMandatoryMomentReport',
     'Update-SNMicrosoft365Group',
@@ -141,6 +142,7 @@ Användare kan läggas i säkerhetsgrupper utifrån Scoutnet.
 Snabbare synk av distributionsgrupper.
 Oförändrade grupper hoppas över.
 Ny inställning EnableTimingLog för tidsmätning.
+Ny funktion Get-SNSRunSummary ger en sammanfattning att lägga först i loggmailet.
 Använd gruppens fullständiga e-postadress som nyckel i MailListSettings.
 Använder PowerShells inbyggda autentisering och JSON-hantering mot Scoutnet.
 Bara funktionerna som används i exemplen är publika. Övriga funktioner och variabeln SNSConf är interna.

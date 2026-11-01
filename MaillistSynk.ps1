@@ -310,7 +310,8 @@ Catch
 
 # Skapa ett mail med loggen och skicka till admin.
 
-$bodyData = Get-Content -Path $conf.LogFilePath -Raw -Encoding UTF8 -ErrorAction "Continue"
+$bodyData = (Get-SNSRunSummary -Configuration $conf) + [Environment]::NewLine +
+    (Get-Content -Path $conf.LogFilePath -Raw -Encoding UTF8 -ErrorAction "Continue")
 $params = @{
     Message = @{
         Subject = $LogEmailSubject
