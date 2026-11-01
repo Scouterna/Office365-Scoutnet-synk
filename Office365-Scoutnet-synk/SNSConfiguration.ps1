@@ -60,8 +60,22 @@ function New-SNSConfiguration
     .SYNOPSIS
         Creates a new configuration.
 
+    .DESCRIPTION
+        Creates a configuration object with the settings for the synchronization and caches it in the module.
+        Parameters that are left out keep their default values.
+
+        Settings can be given as parameters, or changed afterwards on the returned object.
+        Pass the configuration to Connect-SnSOffice365 and the synchronization functions.
+
+    .EXAMPLE
+        $conf = New-SNSConfiguration -LicenseAssignment $licenseAssignment -UserSyncMailListId '1234'
+        $conf.DomainName = 'example.se'
+        $conf.EnableTimingLog = $true
+
+        Creates a configuration and changes some settings on the returned object.
+
     .INPUTS
-        None. You cannot pipe objects to Get-SNSConfiguration.
+        None. You cannot pipe objects to New-SNSConfiguration.
 
     .OUTPUTS
         The created configuration
@@ -355,7 +369,11 @@ function Set-SNSConfiguration
 {
     <#
     .SYNOPSIS
-        Set a newconfiguration.
+        Sets the current configuration.
+
+    .DESCRIPTION
+        Replaces the configuration cached in the module with the given configuration.
+        Supports -WhatIf and -Confirm.
 
     .INPUTS
         None. You cannot pipe objects to Set-SNSConfiguration.
@@ -363,8 +381,13 @@ function Set-SNSConfiguration
     .OUTPUTS
         None.
 
-    .PARAMETER new
-        Create new empty configuration.
+    .PARAMETER Configuration
+        The configuration to use, created with New-SNSConfiguration.
+
+    .EXAMPLE
+        Set-SNSConfiguration -Configuration $conf
+
+        Makes $conf the current configuration.
     #>
     [CmdletBinding(SupportsShouldProcess=$true)]
     param

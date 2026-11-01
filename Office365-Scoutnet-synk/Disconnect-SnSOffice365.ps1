@@ -2,10 +2,12 @@
 {
     <#
     .SYNOPSIS
-        Disonnects from Office 365.
+        Disconnects from Microsoft Graph and Exchange Online.
 
     .DESCRIPTION
-        Disconnects to Office 365.
+        Signs out from Exchange Online and Microsoft Graph. Run it when the synchronization is done.
+        A failed sign-out from Exchange Online is logged. A failed sign-out from Microsoft Graph
+        is logged and then thrown as an error.
 
     .INPUTS
         None. You cannot pipe objects to Disconnect-SnSOffice365.
@@ -15,6 +17,8 @@
 
     .EXAMPLE
         Disconnect-SnSOffice365
+
+        Signs out from both services.
     #>
 
     try
