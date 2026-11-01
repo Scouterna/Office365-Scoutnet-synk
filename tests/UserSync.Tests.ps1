@@ -396,6 +396,7 @@ Describe 'Invoke-SNSUppdateOffice365User' {
                     }
                     $unconnectedAccount = [pscustomobject]@{
                         Name = 'Unconnected User'
+                        DisplayName = 'Unconnected User'
                         CustomAttribute1 = 'unconnected-member'
                         ExternalDirectoryObjectId = 'unconnected-id'
                     }

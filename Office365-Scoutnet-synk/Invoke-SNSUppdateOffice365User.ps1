@@ -230,7 +230,7 @@
     if ($UsersInSecurityGroupScoutnetDisabledUsers.Count -gt 0)
     {
         $UsersInSecurityGroupScoutnetDisabledUsers | ForEach-Object {
-            Write-SNSLog "Disabled account '$($_.Name)'"
+            Write-SNSLog "Disabled account '$($_.DisplayName)' ($($_.UserPrincipalName))"
             $allOffice365Users.RemoveAt($allOffice365Users.IndexOf($_))
         }
     }
@@ -247,7 +247,7 @@
     }
 
     Write-SNSLog "Number of accounts not connected to Scoutnet: $($allOffice365Users.Count)"
-    $allOffice365Users | ForEach-Object {Write-SNSLog "Account not connected to Scoutnet '$($_.Name)'"}
+    $allOffice365Users | ForEach-Object {Write-SNSLog "Account not connected to Scoutnet '$($_.DisplayName)'"}
 }
 
 function Get-RandomPassword
@@ -829,17 +829,17 @@ function Invoke-SNSUpdateAccount
             {
                 # Update user data.
                 Update-MgUser -UserId $AccountData.ExternalDirectoryObjectId -BodyParameter $updateUserparams -ErrorAction Stop
-                Write-SNSLog "User '$($AccountData.name)' uppdated with new info from Scoutnet."
+                Write-SNSLog "User '$($AccountData.DisplayName)' uppdated with new info from Scoutnet."
             }
         }
         else
         {
-            Write-SNSLog -Level "Warn" "Could not update user $($AccountData.name). Error user not found in scoutnet data."
+            Write-SNSLog -Level "Warn" "Could not update user $($AccountData.DisplayName). Error user not found in scoutnet data."
         }
     }
     catch
     {
-        Write-SNSLog -Level "Warn" "Could not update user $($AccountData.name). Error $_"
+        Write-SNSLog -Level "Warn" "Could not update user $($AccountData.DisplayName). Error $_"
     }
 }
 
@@ -872,7 +872,7 @@ function Invoke-SNSDisableAccount
 
     try
     {
-        Write-SNSLog "Disabling user '$($AccountData.name)' with Id '$($AccountData.ExternalDirectoryObjectId)'"
+        Write-SNSLog "Disabling user '$($AccountData.DisplayName)' ($($AccountData.UserPrincipalName)) with Id '$($AccountData.ExternalDirectoryObjectId)'"
         Update-MgUser -UserId $AccountData.ExternalDirectoryObjectId -AccountEnabled:$false -ErrorAction "Stop"
 
         # Mark the account as hidden so the user is not shown in the global address book.
@@ -912,13 +912,13 @@ function Invoke-SNSDisableAccount
             }
             catch
             {
-                Write-SNSLog -Level "Error" "Could not set autoreply message for user $($AccountData.name). Error $_"
+                Write-SNSLog -Level "Error" "Could not set autoreply message for user $($AccountData.DisplayName). Error $_"
             }
         }
     }
     catch
     {
-        Write-SNSLog -Level "Error" "Could not disable user $($AccountData.name). Error $_"
+        Write-SNSLog -Level "Error" "Could not disable user $($AccountData.DisplayName). Error $_"
     }
 }
 
@@ -949,7 +949,7 @@ function Invoke-SNSEnableAccount
 
     try
     {
-        Write-SNSLog "Enabling user '$($AccountData.name)' with Id '$($AccountData.ExternalDirectoryObjectId)'"
+        Write-SNSLog "Enabling user '$($AccountData.DisplayName)' with Id '$($AccountData.ExternalDirectoryObjectId)'"
         Update-MgUser -UserId $AccountData.ExternalDirectoryObjectId -AccountEnabled:$true -ErrorAction "Stop"
 
         # Add the user to the global address book.
@@ -975,12 +975,12 @@ function Invoke-SNSEnableAccount
         }
         catch
         {
-            Write-SNSLog -Level "Error" "Could not disable the autoreply message for user $($AccountData.name). Error $_"
+            Write-SNSLog -Level "Error" "Could not disable the autoreply message for user $($AccountData.DisplayName). Error $_"
         }
     }
     catch
     {
-        Write-SNSLog -Level "Error" "Could not enable user $($AccountData.name). Error $_"
+        Write-SNSLog -Level "Error" "Could not enable user $($AccountData.DisplayName). Error $_"
     }
 }
 
