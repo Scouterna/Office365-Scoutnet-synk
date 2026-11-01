@@ -1,12 +1,8 @@
 name: pages
 
 on:
-  push:
-    branches: [ master ]
-    paths:
-      - 'Office365-Scoutnet-synk/**'
-      - 'tools/New-ModuleDocumentation.ps1'
-      - '.github/workflows/pages.yml'
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -21,6 +17,7 @@ concurrency:
 jobs:
   build:
     name: Generate documentation
+    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v7
