@@ -19,12 +19,33 @@
 
     .PARAMETER Configuration
         Configuration to use. If not specified the cached configuration will be used.
+
+    .PARAMETER TestMode
+        Activates test mode (parameter set 'TestMode'). Mail intended for the private address of a new user is
+        sent to TestMasterAccount instead.
+
+    .PARAMETER TestMasterAccount
+        Mail address of the test master account that receives mail otherwise sent to the private address of the user. Only used in test mode.
+
+    .PARAMETER TestExtraMembers
+        Scoutnet member numbers that are added to the list of members that should have an account. Only used in test mode.
     #>
-    [CmdletBinding(HelpURI = 'https://github.com/scouternasetjanster/Office365-Scoutnet-synk',
+    [CmdletBinding(DefaultParameterSetName = 'Normal',
+                HelpURI = 'https://github.com/scouternasetjanster/Office365-Scoutnet-synk',
                 PositionalBinding = $False)]
     param (
         [Parameter(Mandatory=$False, HelpMessage="Configuration to use. If not specified the cached configuration will be used.")]
-        $Configuration
+        $Configuration,
+
+        [Parameter(Mandatory=$True, ParameterSetName='TestMode', HelpMessage="Activate test mode.")]
+        [switch]$TestMode,
+
+        [Parameter(Mandatory=$True, ParameterSetName='TestMode', HelpMessage="Test master account that receives mail meant for the private address of users.")]
+        [ValidateNotNullOrEmpty()]
+        [string]$TestMasterAccount,
+
+        [Parameter(Mandatory=$False, ParameterSetName='TestMode', HelpMessage="Extra scoutnet member numbers to be handled as users that should have an account.")]
+        [string[]]$TestExtraMembers = @()
     )
 
     if ($Configuration)
@@ -115,6 +136,19 @@
         throw "No data returned from Scoutnet. Update aborted."
     }
 
+    if ($TestMode)
+    {
+        Write-SNSLog -Level "Warn" "TEST MODE active. Mail to private addresses is sent to '$TestMasterAccount'."
+        foreach ($extraMember in $TestExtraMembers)
+        {
+            if ($extraMember -notin $MemberListScoutnet)
+            {
+                Write-SNSLog "Test mode: adding extra member '$extraMember'."
+                [void]$MemberListScoutnet.Add($extraMember)
+            }
+        }
+    }
+
     Write-SNSLog "Total number of office365 users: $($allOffice365Users.Count)"
     Write-SNSLog "Total number of Scoutnet members: $($MemberListScoutnet.Count)"
 
@@ -173,7 +207,12 @@
     {
         try
         {
-            Invoke-SNSCreateUserAndUpdateUserData -memberData $NewMembers -userLicenseData $userLicenseData
+            $createParams = @{ memberData = $NewMembers; userLicenseData = $userLicenseData }
+            if ($TestMode)
+            {
+                $createParams.TestMasterAccount = $TestMasterAccount
+            }
+            Invoke-SNSCreateUserAndUpdateUserData @createParams
         }
         catch
         {
@@ -265,7 +304,9 @@ function Invoke-SNSCreateUserAndUpdateUserData
         $memberData,
         [Parameter(Mandatory=$true, HelpMessage="Licensing data")]
         [ValidateNotNull()]
-        $userLicenseData
+        $userLicenseData,
+        [Parameter(Mandatory=$false, HelpMessage="Test mode. Mail to the private address of the user is sent to this address instead.")]
+        [string]$TestMasterAccount
     )
 
     $SecurityGroupScoutnet = Get-SNSSecurityGroupScoutnet
@@ -556,7 +597,7 @@ function Invoke-SNSCreateUserAndUpdateUserData
                             ToRecipients = @(
                                 @{
                                     EmailAddress = @{
-                                        Address = $member.email.value
+                                        Address = $(if ($TestMasterAccount) { $TestMasterAccount } else { $member.email.value })
                                     }
                                 }
                             )
