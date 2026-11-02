@@ -353,10 +353,7 @@ function Get-SNSConfiguration
         None. You cannot pipe objects to Get-SNSConfiguration.
 
     .OUTPUTS
-        None.
-
-    .PARAMETER new
-        Create new empty configuration.
+        SNSConfiguration. The current configuration cached in the module.
     #>
     [OutputType([SNSConfiguration])]
     param

@@ -7,7 +7,8 @@
     .DESCRIPTION
         Reads the log file written by Write-SNSLog and returns a short text summary: status,
         run time, number of errors and warnings, and what the run did for distribution groups,
-        contacts, user accounts and Microsoft 365 groups. All errors and warnings are listed.
+        contacts, user accounts and Microsoft 365 groups. Errors and warnings are listed,
+        up to MaxListedMessages of each; the rest are counted.
         The text is meant to be placed first in the mail with the log.
         Call it after the last synchronization step, before the log is sent.
 

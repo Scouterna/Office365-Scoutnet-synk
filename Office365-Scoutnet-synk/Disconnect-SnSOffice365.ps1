@@ -33,7 +33,7 @@
 
     try
     {
-        # Logga ut ifrån office 365
+        # Logga ut från Microsoft Graph
         Disconnect-MgGraph -ErrorAction "Stop" -Verbose:$false |out-null
     }
     Catch

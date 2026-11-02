@@ -26,7 +26,7 @@
         None. You cannot pipe objects from Connect-SnSOffice365.
 
     .LINK
-        https://github.com/scouternasetjanster/Office365-Scoutnet-synk
+        https://github.com/Scouterna/Office365-Scoutnet-synk
 
     .PARAMETER Configuration
         Configuration to use, created with New-SNSConfiguration. It is cached in the module,
@@ -49,7 +49,7 @@
         Signs in with the managed identity in an Azure runbook.
     #>
 
-    [CmdletBinding(HelpURI = 'https://github.com/scouternasetjanster/Office365-Scoutnet-synk',
+    [CmdletBinding(HelpURI = 'https://github.com/Scouterna/Office365-Scoutnet-synk',
                 PositionalBinding = $False)]
     param (
         [Parameter(Mandatory=$False, HelpMessage="Configuration to use. If not specified the cached configuration will be used.")]

@@ -10,7 +10,7 @@
         The credential for the API is configured in scoutnet.
 
     .INPUTS
-        None. You cannot pipe objects to Get-SNSUserEmail.
+        None. You cannot pipe objects to Get-SNSApiGroupMemberlist.
 
     .OUTPUTS
         The data from ConvertFrom-Json.
@@ -25,7 +25,7 @@
         https://www.scoutnet.se
 
     .EXAMPLE
-        Get-SNSUserEmail -CredentialMemberlist $CredentialMemberlist
+        Get-SNSApiGroupMemberlist -Credential $CredentialMemberlist
     #>
 
     [OutputType([System.Collections.Hashtable])]

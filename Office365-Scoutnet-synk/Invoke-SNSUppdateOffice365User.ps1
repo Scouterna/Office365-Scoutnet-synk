@@ -15,7 +15,7 @@
         None.
 
     .LINK
-        https://github.com/scouternasetjanster/Office365-Scoutnet-synk
+        https://github.com/Scouterna/Office365-Scoutnet-synk
 
     .PARAMETER Configuration
         Configuration to use. If not specified the cached configuration will be used.
@@ -31,7 +31,7 @@
         Scoutnet member numbers that are added to the list of members that should have an account. Only used in test mode.
     #>
     [CmdletBinding(DefaultParameterSetName = 'Normal',
-                HelpURI = 'https://github.com/scouternasetjanster/Office365-Scoutnet-synk',
+                HelpURI = 'https://github.com/Scouterna/Office365-Scoutnet-synk',
                 PositionalBinding = $False)]
     param (
         [Parameter(Mandatory=$False, HelpMessage="Configuration to use. If not specified the cached configuration will be used.")]
@@ -113,7 +113,7 @@
 
     Write-SNSLog "Start of user account update"
 
-    # If there is only one account that mailbox is returned. Not a list.
+    # Normalize the mailbox result to a list, also when only one account is returned.
     $allMailboxes = Get-EXOMailbox -RecipientTypeDetails "UserMailbox" -Properties CustomAttribute1 -Verbose:$false
     if ($allMailboxes -is [System.Array])
     {
@@ -260,7 +260,7 @@ function Get-RandomPassword
         None. You cannot pipe objects to Get-RandomPassword.
 
     .OUTPUTS
-        None.
+        System.String. The generated password.
 
     .PARAMETER length
         Lenght of password to create.

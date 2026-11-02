@@ -158,7 +158,7 @@ function ConvertTo-SNSMandatoryMomentDate
     Builds separate tables for Trygga möten and Registerutdrag. Includes members
     older than the configured minimum age who hold at least one non-excluded
     group or troop role and whose moment date is missing or older than the
-    configured validity period. Each table is preceded by an explanation of
+    configured validity period. The report starts with an explanation of
     these inclusion criteria.
 
 .PARAMETER Memberlist

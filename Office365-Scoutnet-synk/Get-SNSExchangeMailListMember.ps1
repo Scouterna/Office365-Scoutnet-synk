@@ -5,10 +5,10 @@
         Fetches members of exchange distribution groups.
 
     .DESCRIPTION
-        Fetches the distribution groups members and returns them in a ArrayList and a hashtable.
-        The ArrayList is "other" distribution groups members that can be checked if a mailaddress can be reomoved or not.
-        The hashtable is "other" distribution groups members
-        Only contacts is returned. Users with mailboxes is not returned.
+        Fetches the distribution groups members and returns them in two hashtables, plus a third hashtable with the current member addresses.
+        The first hashtable is "other" distribution groups members that can be checked if a mailaddress can be reomoved or not.
+        The second hashtable is the members of the configured distribution groups.
+        Only contacts is returned in these two. Users with mailboxes is not returned.
         The distribution group list is fetched once; configured lists are matched by SMTP address, alias, name or identity.
         A third value is returned with the addresses of all current members (any recipient type) of each configured list,
         keyed by the configured name. It is used to skip updates of lists that already have the wanted members.
@@ -18,15 +18,15 @@
 
     .OUTPUTS
         Three parts is returned.
-        The first part is the otherMailListsMembers ArrayList.
-        The second part is the mailListsToProcessMembers ArrayList.
+        The first part is the otherMailListsMembers hashtable.
+        The second part is the mailListsToProcessMembers hashtable.
         The third part is a hashtable with the current member addresses per configured list.
 
     .PARAMETER Maillists
         Distribution groups that will be part of mailListsToProcessMembers.
     #>
 
-    [OutputType([System.Collections.ArrayList], [System.Collections.ArrayList])]
+    [OutputType([System.Collections.Hashtable], [System.Collections.Hashtable], [System.Collections.Hashtable])]
     param (
         [Parameter(Mandatory=$True, HelpMessage="Distribution groups that will be part of mailListsToProcessMembers.")]
         [string[]]$Maillists

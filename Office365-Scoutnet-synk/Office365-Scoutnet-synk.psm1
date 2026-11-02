@@ -790,7 +790,7 @@ function SNSUpdateExchangeDistributionGroups
         The new validation hash as a string. With -ReturnMaildata, returns the validation hash and a hashtable of mail addresses.
 
     .LINK
-        https://github.com/scouternasetjanster/Office365-Scoutnet-synk
+        https://github.com/Scouterna/Office365-Scoutnet-synk
 
     .PARAMETER ValidationHash
         Hash value used to validate if scoutnet is updated.
@@ -806,7 +806,7 @@ function SNSUpdateExchangeDistributionGroups
         You can use this switch to view the changes that would occur without actually applying those changes.
         You don't need to specify a value with this switch.
     #>
-    [CmdletBinding(HelpURI = 'https://github.com/scouternasetjanster/Office365-Scoutnet-synk',
+    [CmdletBinding(HelpURI = 'https://github.com/Scouterna/Office365-Scoutnet-synk',
                 PositionalBinding = $False,
                 SupportsShouldProcess = $True)]
     [OutputType([string], [object[]])]
@@ -815,7 +815,7 @@ function SNSUpdateExchangeDistributionGroups
         [ValidateNotNull()]
         [string]$ValidationHash,
 
-        [Parameter(Mandatory=$False, HelpMessage="Configuratin to use. If not specified the cached configuration will be used.")]
+        [Parameter(Mandatory=$False, HelpMessage="Configuration to use. If not specified the cached configuration will be used.")]
         $Configuration,
 
         [Parameter(HelpMessage="Enables return of a Hashtable with mailaddresses for the list. Can be used together with -WhatIf to check settings.")]

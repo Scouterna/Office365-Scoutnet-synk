@@ -44,7 +44,8 @@ function Get-SNSMailListSource
         The rule from MailListSettings.
 
     .OUTPUTS
-        System.String. One of mail_list, troop_roles or group_roles (lower case).
+        System.String. The source in lower case. A rule without source is returned
+        as mail_list. Other values are returned unchanged and validated by the caller.
     #>
     [OutputType([string])]
     param (

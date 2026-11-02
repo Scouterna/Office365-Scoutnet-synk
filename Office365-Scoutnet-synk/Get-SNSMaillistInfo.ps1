@@ -2,11 +2,11 @@
 {
     <#
     .SYNOPSIS
-        Fetches the maillist info from scoutnet and creates a hashtable with all lists and all users.
+        Fetches the maillist info from scoutnet and creates a hashtable with the configured lists and their members.
 
     .DESCRIPTION
         Scoutnet API api/group/customlists returns a JSON with maillist info.
-        This function fetches all customlists and creates a hashtable with all lists and all users.
+        This function fetches the customlists and creates a hashtable with the configured lists and their member ids.
         This hashtable can be used to generate maillists.
 
         The function supports that one rule is named 'ledare'. This is to be able to handle them separate.
@@ -15,7 +15,7 @@
         None. You cannot pipe objects to Get-SNSMaillistInfo.
 
     .OUTPUTS
-        Two parts is returned. The first part is the hastable. The second part is a hashcode that can be used to check if scoutnet is updated.
+        Two parts is returned. The first part is the hashtable. The second part is a hashcode that can be used to check if scoutnet is updated.
 
     .PARAMETER CredentialCustomlists
         Credentials for api/group/customlists

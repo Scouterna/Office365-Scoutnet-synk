@@ -6,9 +6,10 @@
 
 .DESCRIPTION
    The Write-SNSLog function is designed to add logging capability to other scripts.
-   In addition to writing output and/or verbose you can write to a log file for
-   later debugging.
-   The configuration variable $LogFilePath can be used to oweride the default logfile scoutnetSync.log.
+   In addition to writing errors, warnings and verbose messages, the function
+   writes to a log file for later debugging.
+   The log file path is taken from the LogFilePath setting in the configuration.
+   If it is empty, no log file is written.
 
 .PARAMETER Message
    Message is the content that you wish to add to the log file.
