@@ -298,6 +298,33 @@ function Test-SNMicrosoft365RoleGroupMatch
     return $false
 }
 
+# A newly created group can be missing on other Microsoft Graph nodes for a short while,
+# which gives 404 Request_ResourceNotFound. Retry only that error.
+function Invoke-SNMicrosoft365GraphRetry
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [scriptblock]$Action,
+        [int]$MaxAttempts = 12,
+        [int]$DelaySeconds = 5
+    )
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++)
+    {
+        try
+        {
+            return & $Action
+        }
+        catch
+        {
+            $isNotFound = "$($_.Exception.Message)" -match 'Request_ResourceNotFound|does not exist or one of its queried reference-property'
+            if (-not $isNotFound -or $attempt -eq $MaxAttempts) { throw }
+            Start-Sleep -Seconds $DelaySeconds
+        }
+    }
+}
+
 function Update-SNMicrosoft365Group
 {
     <#
@@ -697,6 +724,7 @@ function Update-SNMicrosoft365Group
         }
 
         $groupChanged = $false
+        $groupCreated = $false
         if ($null -eq $group)
         {
             $description = [string](Get-SNMicrosoft365Value -Object $setting -Name 'description')
@@ -714,6 +742,7 @@ function Update-SNMicrosoft365Group
             }
             $group = New-MgGroup -BodyParameter $groupParameters -ErrorAction Stop
             $groupChanged = $true
+            $groupCreated = $true
             if ($null -eq $group -or [string]::IsNullOrWhiteSpace([string]$group.Id))
             {
                 throw "Microsoft Graph did not return an ID after creating group '$groupName'."
@@ -734,9 +763,10 @@ function Update-SNMicrosoft365Group
             }
         }
 
-        $existingGroupMembers = @(
-            Get-MgGroupMember -GroupId $group.Id -All -ErrorAction Stop
-        )
+        # A group created in this run has no members yet.
+        $existingGroupMembers = if ($groupCreated) { @() } else {
+            @(Invoke-SNMicrosoft365GraphRetry -Action { Get-MgGroupMember -GroupId $group.Id -All -ErrorAction Stop })
+        }
         $existingDirectoryObjectIds = @{}
         foreach ($groupMember in $existingGroupMembers)
         {
@@ -751,7 +781,10 @@ function Update-SNMicrosoft365Group
             if (-not $existingDirectoryObjectIds.ContainsKey([string]$userId) -and
                 $PSCmdlet.ShouldProcess("$userId in $groupName", 'Add member to Microsoft 365 group'))
             {
-                New-MgGroupMember -GroupId $group.Id -DirectoryObjectId $userId -ErrorAction Stop
+                $memberToAdd = $userId
+                Invoke-SNMicrosoft365GraphRetry -Action {
+                    New-MgGroupMember -GroupId $group.Id -DirectoryObjectId $memberToAdd -ErrorAction Stop
+                }
                 $groupChanged = $true
             }
         }
@@ -763,7 +796,7 @@ function Update-SNMicrosoft365Group
         {
             # Group owners and the accounts listed in keep_members are never removed.
             $protectedObjectIds = @{}
-            foreach ($owner in @(Get-MgGroupOwner -GroupId $group.Id -All -ErrorAction Stop))
+            foreach ($owner in @(Invoke-SNMicrosoft365GraphRetry -Action { Get-MgGroupOwner -GroupId $group.Id -All -ErrorAction Stop }))
             {
                 $protectedObjectIds[[string]$owner.Id] = $true
             }
@@ -799,15 +832,17 @@ function Update-SNMicrosoft365Group
         if ($teamWanted -and -not $teamExists -and
             $PSCmdlet.ShouldProcess([string]$groupName, 'Create Microsoft Teams team'))
         {
-            $existingOwnerIds = @(Get-MgGroupOwner -GroupId $group.Id -All -ErrorAction Stop).Id
+            $existingOwnerIds = @(Invoke-SNMicrosoft365GraphRetry -Action { Get-MgGroupOwner -GroupId $group.Id -All -ErrorAction Stop }).Id
             foreach ($teamOwner in @(Get-SNMicrosoft365Value -Object $setting -Name 'team_owners'))
             {
                 if ([string]::IsNullOrWhiteSpace([string]$teamOwner)) { continue }
                 $ownerId = [string](Get-MgUser -UserId ([string]$teamOwner) -Property Id -ErrorAction Stop).Id
                 if ($existingOwnerIds -notcontains $ownerId)
                 {
-                    New-MgGroupOwnerByRef -GroupId $group.Id `
-                        -OdataId "https://graph.microsoft.com/v1.0/users/$ownerId" -ErrorAction Stop
+                    Invoke-SNMicrosoft365GraphRetry -Action {
+                        New-MgGroupOwnerByRef -GroupId $group.Id `
+                            -OdataId "https://graph.microsoft.com/v1.0/users/$ownerId" -ErrorAction Stop
+                    }
                 }
             }
 

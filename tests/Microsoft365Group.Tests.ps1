@@ -7,6 +7,34 @@ AfterAll {
     Remove-Module Office365-Scoutnet-synk -ErrorAction SilentlyContinue
 }
 
+Describe 'Invoke-SNMicrosoft365GraphRetry' {
+    It 'retries Request_ResourceNotFound and then succeeds' {
+        InModuleScope Office365-Scoutnet-synk {
+            Mock Start-Sleep {}
+            $script:calls = 0
+            $result = Invoke-SNMicrosoft365GraphRetry -Action {
+                $script:calls++
+                if ($script:calls -lt 3) { throw 'Request_ResourceNotFound: does not exist' }
+                'ok'
+            }
+            $result | Should -Be 'ok'
+            $script:calls | Should -Be 3
+            Should -Invoke Start-Sleep -Times 2 -Exactly
+        }
+    }
+
+    It 'does not retry other errors' {
+        InModuleScope Office365-Scoutnet-synk {
+            Mock Start-Sleep {}
+            $script:calls = 0
+            { Invoke-SNMicrosoft365GraphRetry -Action { $script:calls++; throw 'Forbidden' } } |
+                Should -Throw 'Forbidden'
+            $script:calls | Should -Be 1
+            Should -Invoke Start-Sleep -Times 0 -Exactly
+        }
+    }
+}
+
 Describe 'Update-SNMicrosoft365Group' {
     It 'accepts Microsoft 365 group rules when creating configuration' {
         InModuleScope Office365-Scoutnet-synk {
