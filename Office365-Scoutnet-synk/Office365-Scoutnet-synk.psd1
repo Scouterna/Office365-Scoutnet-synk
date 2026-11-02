@@ -133,92 +133,55 @@ PrivateData = @{
         # ReleaseNotes of this module
         ReleaseNotes = @'
 ## 3.1.0
-Ny funktion Update-SNMicrosoft365Group för Microsoft 365-grupper och Teams.
-Microsoft.Graph.Teams 2.41.2 är nu ett beroende.
-Listor kan styras av roller och avdelningar i Scoutnet.
-Distributionslistor skapas automatiskt om de saknas.
-Användare kan läggas i säkerhetsgrupper utifrån Scoutnet.
-Ämnesprefix för mejl till distributionslistor med add_prefix.
-Snabbare synk av distributionsgrupper.
-Oförändrade grupper hoppas över.
-Ny inställning EnableTimingLog för tidsmätning.
-Ny funktion Get-SNSRunSummary ger en sammanfattning att lägga först i loggmailet.
-Använd gruppens fullständiga e-postadress som nyckel i MailListSettings.
-Använder PowerShells inbyggda autentisering och JSON-hantering mot Scoutnet.
-Bara funktionerna som används i exemplen är publika. Övriga funktioner och variabeln SNSConf är interna.
-Rättat TLS-inställningar, rapportutskick och null-varningar.
-Uppdateringsskriptet har hjälp, nya parametrar och lägger till saknade behörigheter.
+Uppgradering från tidigare versioner: https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Ny-version
+
+### Nya funktioner
+- Ny funktion Update-SNMicrosoft365Group för Microsoft 365-grupper och Teams. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Microsoft-365-grupper
+- Microsoft.Graph.Teams 2.41.2 är nu ett beroende.
+- Listor kan styras av roller och avdelningar i Scoutnet. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Distributionsgrupper#source-rollbaserade-distributionsgrupper
+- Distributionslistor skapas automatiskt om de saknas. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Distributionsgrupper#group_type-skapa-distributionsgrupp-eller-säkerhetsgrupp
+- Användare kan läggas i säkerhetsgrupper utifrån Scoutnet. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Distributionsgrupper#group_type-skapa-distributionsgrupp-eller-säkerhetsgrupp
+- Ämnesprefix för mejl till distributionslistor med add_prefix. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Distributionsgrupper#add_prefix-ämnesprefix-för-mejl-till-listan
+- Snabbare synk av distributionsgrupper. Oförändrade grupper hoppas över.
+- Ny inställning EnableTimingLog för tidsmätning. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Distributionsgrupper#tidsmätning
+- Ny funktion Get-SNSRunSummary ger en sammanfattning att lägga först i loggmailet. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Körningssammanfattning
+- Använd gruppens fullständiga e-postadress som nyckel i MailListSettings. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Distributionsgrupper
+- Använder PowerShells inbyggda autentisering och JSON-hantering mot Scoutnet.
+- Bara funktionerna som används i exemplen är publika. Övriga funktioner och variabeln SNSConf är interna.
+- Uppdateringsskriptet har hjälp, nya parametrar och lägger till saknade behörigheter.
+
+### Buggfixar
+- Rättat TLS-inställningar, rapportutskick och null-varningar.
 
 ## 3.0.1
-Flyttade dokumentationen till en separat wiki. Den finns på https://github.com/Scouterna/Office365-Scoutnet-synk/wiki
-Uppdaterade dokumentationen och skripten för att installera en ny version av modulen i Azure Automation, och på en lokal dator. Se dokumentationen på wikin.
-Rättade buggar i skripten som installerar modulen i Azure Automation.
-Exemplen i dokumentationen har uppdaterats för att använda de nya funktionerna i modulen.
+
+### Nya funktioner
+- Flyttade dokumentationen till en separat wiki. Den finns på https://github.com/Scouterna/Office365-Scoutnet-synk/wiki
+- Uppdaterade dokumentationen och skripten för att installera en ny version av modulen i Azure Automation, och på en lokal dator. Se dokumentationen på wikin.
+- Exemplen i dokumentationen har uppdaterats för att använda de nya funktionerna i modulen.
+
+### Buggfixar
+- Rättade buggar i skripten som installerar modulen i Azure Automation.
 
 ## 3.0.0
-Rättade hanteringen av maillistor så att konfigurerade Scoutnet-listor väljs utifrån scoutnet_list_id.
-Förhindrade att samma e-postadress läggs till flera gånger i OtherMails när användarkontot uppdateras.
-Uppdaterade och låste Microsoft.Graph modulerna till version 2.41.2. De nyare versionerna fungerar i azure runbooks.
-Uppdaterade ExchangeOnlineManagement till version 3.10.1. Den versionen kräver PowerShell 7.6 i Azure Automation.
-SetupAzure.ps1 uppdaterad så att den kan ta emot parametrar för kontonamn, resursgrupp och plats. Det gör det möjligt att skapa flera olika Azure Automation-konton med olika namn.
-SetupAzure.ps1 installerar version 2.41.2 av Microsoft.Graph modulerna och version 3.10.1 av ExchangeOnlineManagement modulen.
-Lade till support för TLS 1.3 och tog bort äldre versioner.
-Lade till stöd för -WhatIf och -Confirm vid ändringar av mailkontakter och konfiguration.
-Ändrade JSON-konverteringen så att varje objekt som skickas via pipeline konverteras separat.
-Justerade utmatningen av samlingsobjekt så att de returneras utan enumerering vid anrop till Write-Output -NoEnumerate.
-Löste linting problem med att använda Write-Output utan -NoEnumerate i en pipeline.
-Alla lintvarningar är nu lösta.
-Unittester tillagda för att öka kvaliteten och säkerställa att funktioner fungerar som förväntat.
-Stöd för att spara nerladdaade JSON-objekt i en fil för att kunna felsöka problem med Scoutnet API-anrop.
-Stöd för att rapportera obligatoriska moment i Scoutnet via e-post. Funktionen Send-SNSMandatoryMomentReport kan användas för att skicka rapporter om obligatoriska moment till en eller flera e-postadresser.
 
-## 2.0.8
-Fixade så att när en användare skapas i Office 365 så kopplas licenser till kontot direkt efter skapandet.
-När användaren är skapad används Set-MgUserLicense() för att koppla licens till kontot.
-Tidigare användes $UserPrincipalName som UserId men det fungerar inte längre utan $newAccount.Id är ett bättre UserId.
+### Nya funktioner
+- Uppdaterade och låste Microsoft.Graph modulerna till version 2.41.2. De nyare versionerna fungerar i azure runbooks.
+- Uppdaterade ExchangeOnlineManagement till version 3.10.1. Den versionen kräver PowerShell 7.6 i Azure Automation.
+- SetupAzure.ps1 uppdaterad så att den kan ta emot parametrar för kontonamn, resursgrupp och plats. Det gör det möjligt att skapa flera olika Azure Automation-konton med olika namn.
+- SetupAzure.ps1 installerar version 2.41.2 av Microsoft.Graph modulerna och version 3.10.1 av ExchangeOnlineManagement modulen.
+- Lade till support för TLS 1.3 och tog bort äldre versioner.
+- Lade till stöd för -WhatIf och -Confirm vid ändringar av mailkontakter och konfiguration.
+- Unittester tillagda för att öka kvaliteten och säkerställa att funktioner fungerar som förväntat.
+- Stöd för att spara nerladdaade JSON-objekt i en fil för att kunna felsöka problem med Scoutnet API-anrop.
+- Stöd för att rapportera obligatoriska moment i Scoutnet via e-post. Funktionen Send-SNSMandatoryMomentReport kan användas för att skicka rapporter om obligatoriska moment till en eller flera e-postadresser.
 
-## 2.0.7
-Ändrat hanteringen av licenser för nya konton, löser problemet med att licenser inte sätts på nya konton när de skapas.
-
-## 2.0.6
-Ändrade så att om en användare i scoutnet inte har någon epostadress så skapas ingen användare i Office 365.
-
-Fixade så när användare skapas så läggs inte samma alternativa epost två gånger. I OtherMails listan för en användare måste varje element vara unik.
-
-Ändrade så Get-SNSUsersInSecurityGroup alltid returnerar en array även om det bara är en medlem i gruppen.
-
-När en mailkontakt skapas så behöver inte skriptet lyckas med att sätta fältet "company" till scoutens namn samt sätta
-parametern HiddenFromAddressListsEnabled. För att hantera det så kollar skriptet att information är inskriven när existerande kontakt används i efterföljande körningar.
-
-Uppdaterade dokumentationen om hur en listtyp satt till statisk_lista fungerar och kan användas.
-
-## 2.0.5
-La till paus efter skapande av kontakt, så den hinner skapas ordentligt innan scriptet
-ändrar på inställningar i den nya kontakten.
-
-## 2.0.4
-Låste Microsoft.Graph modulerna till version 1.28.0 då 2.0 inte fungerar på Azure.
-
-## 2.0.3
-Uppdatering av Invoke-SNSUpdateAccount så office 365 adress inte läggs till på OtherMails.
-
-## 2.0.2
-Buggfixar för inloggning i Azure.
-La till krav på Microsoft.Graph.Identity.DirectoryManagement.
-
-## 2.0.1
-Fixade att användare kan skapas även om hemmadress inte är ifylld i scoutnet.
-Fixade hantering av användarlicensedata.
-Fixade aktivering av användare.
-Dokumentationsuppdateringar.
-
-## 2.0.0
-Uppdatering till att använda ExchangeOnlineManagement för hanteringen av
-maillistor och mailboxar.
-
-Uppdatering till att använda MsGraph för användarhantering.
-
-Stödjer windows powershell 5.1 och powershell 7 eller nyare.
+### Buggfixar
+- Rättade hanteringen av maillistor så att konfigurerade Scoutnet-listor väljs utifrån scoutnet_list_id.
+- Förhindrade att samma e-postadress läggs till flera gånger i OtherMails när användarkontot uppdateras.
+- Ändrade JSON-konverteringen så att varje objekt som skickas via pipeline konverteras separat.
+- Justerade utmatningen av samlingsobjekt så att de returneras utan enumerering vid anrop till Write-Output -NoEnumerate.
+- Löste linting problem med att använda Write-Output utan -NoEnumerate i en pipeline. Alla lintvarningar är nu lösta.
 
 '@
 
