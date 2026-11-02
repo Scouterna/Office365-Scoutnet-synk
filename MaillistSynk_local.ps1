@@ -49,29 +49,29 @@ $conf.MandatoryMomentReportFrequency = 'Daily' # Monthly (den 1:a), Weekly (mån
 $conf.MandatoryMomentMinimumAge = 15
 $conf.MandatoryMomentValidityYears = 3
 
-# Hashtable med id på Office 365 distributionsgruppen som nyckel.
+# Hashtable med distributionsgruppens e-postadress i Office 365 som nyckel.
 # Distributions grupper som är med här kommer att synkroniseras.
 $conf.MailListSettings = @{
-    "utmanarna" = @{ # Namet på distributions gruppen i office 365. Används som grupp ID till Get-DistributionGroupMember.
+    "utmanarna@example.se" = @{ # E-postadressen till distributionsgruppen i office 365. Används som grupp ID till Get-DistributionGroupMember.
         "scoutnet_list_id"= "0001"; # Listans Id i Scoutnet.
         "scouter_synk_option" = ""; # Synkoption för scouter. Giltiga värden är p,f,a eller tomt.
         "ledare_synk_option" = "@"; # Synkoption för ledare. Giltiga värden är @,-,t eller &.
         "email_addresses" = "","";  # Kommaseparerad lista med e-postadresser.
         "ignore_user" = "";         # Kommaseparerad lista med ScoutnetId som inte ska med i listan.
     };
-    "aventyrarna" = @{
+    "aventyrarna@example.se" = @{
         "scoutnet_list_id"= "0002";
         "scouter_synk_option" = ""; # Alla adresser
         "ledare_synk_option" = "@"; # Bara office 365 adresser
         "email_addresses" = "";
     };
-    "upptackare" = @{
+    "upptackare@example.se" = @{
         "scoutnet_list_id"= "0004";
         "scouter_synk_option" = ""; # Alla adresser
         "ledare_synk_option" = "@"; # Bara office 365 adresser
         "email_addresses" = "";
     };
-    "sparare" = @{
+    "sparare@example.se" = @{
         "scoutnet_list_id"= "0005";
         "scouter_synk_option" = ""; # Alla adresser
         "ledare_synk_option" = "@"; # Bara office 365 adresser
@@ -79,8 +79,8 @@ $conf.MailListSettings = @{
     }
 }
 
-# Gruppnamn för alla ledare. Gruppen måste skapas i office 365 innan den kan användas här.
-$conf.AllUsersGroupName='ledare'
+# E-postadress till gruppen för alla ledare. Gruppen måste skapas i office 365 innan den kan användas här.
+$conf.AllUsersGroupName='ledare@example.se'
 
 # Rubrik för mailet till ny användare. Skickas till användarens primära e-postadress i Scoutnet.
 $conf.NewUserEmailSubject="Ditt office 365 konto är skapat"

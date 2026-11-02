@@ -136,7 +136,7 @@ function Get-SNSRoleListMember
         source are ignored here.
 
     .PARAMETER MailListSettings
-        The MailListSettings hashtable, keyed by distribution group name.
+        The MailListSettings hashtable, keyed by the e-mail address of the distribution group.
 
     .PARAMETER MemberList
         The member list returned by Get-SNSApiGroupMemberlist.
