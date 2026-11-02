@@ -621,7 +621,9 @@ $ManualModuleUpload = -not [string]::IsNullOrWhiteSpace($ModulePackagePath) -and
 if ($ManualModuleUpload)
 {
     $RequiredPackages = @($RequiredPackages | Where-Object { $_.Name -ne $ModuleName })
-}Write-Host "Uppgraderar paket i Runtime Environment '$RuntimeEnvironmentName' enligt beroendena i $ModuleName $ModuleVersion..."
+}
+
+Write-Host "Uppgraderar paket i Runtime Environment '$RuntimeEnvironmentName' enligt beroendena i $ModuleName $ModuleVersion..."
 foreach ($package in $RequiredPackages)
 {
     $packageResourceId = "$packagesResourceId/$([uri]::EscapeDataString($package.Name))"
