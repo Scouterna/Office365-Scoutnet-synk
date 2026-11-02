@@ -117,10 +117,16 @@ function New-SNSConfiguration
         Name of distribution group to add all new accounts to. The distribution group must exist.
 
     .PARAMETER SignatureText
-        Outlook online signature for new users. Text version.
+        Outlook on the web signature content for new users. Text version.
+        Automatic signature insertion may not work when Outlook roaming signatures
+        is enabled in the organization. See
+        https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/set-mailboxmessageconfiguration?view=exchange-ps
 
     .PARAMETER SignatureHtml
-        Outlook online signature for new users. Html version.
+        Outlook on the web signature content for new users. HTML version.
+        Automatic signature insertion may not work when Outlook roaming signatures
+        is enabled in the organization. See
+        https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/set-mailboxmessageconfiguration?view=exchange-ps
 
     .PARAMETER NewUserEmailSubject
         Subject for the mail to the user about the new account. Is sent to the member Scoutnet primary e-mail address.

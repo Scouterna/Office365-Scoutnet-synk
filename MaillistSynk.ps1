@@ -131,13 +131,19 @@ Scoutkåren
 "@
 
 # Standardsignatur för nya användare. Textvariant.
+# Automatisk infogning kan sluta fungera om Outlook roaming signatures är aktiverat
+# i organisationen. Se Microsofts dokumentation:
+# https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/set-mailboxmessageconfiguration?view=exchange-ps
 $conf.SignatureText=@"
 Med vänliga hälsningar
 
 <DisplayName>
 "@
 
-# Standardsignatur för nya användare. Html variant.
+# Standardsignatur för nya användare. HTML-variant.
+# Automatisk infogning kan sluta fungera om Outlook roaming signatures är aktiverat
+# i organisationen. Se Microsofts dokumentation:
+# https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/set-mailboxmessageconfiguration?view=exchange-ps
 $conf.SignatureHtml=@"
 <html>
     <head>
