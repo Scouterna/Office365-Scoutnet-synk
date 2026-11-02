@@ -158,10 +158,14 @@ Describe 'SNSUpdateExchangeDistributionGroups role based rules' {
                 plain = @{ source = 'group_roles'; ledare_synk_option = '-'; roles = @('Ordforande') }
                 maillist = @{ source = 'group_roles'; group_type = 'distribution'; display_name = 'Maillista'; mail_nickname = 'maillista'; primary_smtp_address = 'maillista@example.org'; ledare_synk_option = '-'; roles = @('Ordforande') }
                 incomplete = @{ source = 'group_roles'; group_type = 'distribution'; display_name = 'Ofullständig'; ledare_synk_option = '-'; roles = @('Ordforande') }
+                'bykey@example.org' = @{ source = 'group_roles'; group_type = 'distribution'; display_name = 'Via nyckel'; mail_nickname = 'bykey'; ledare_synk_option = '-'; roles = @('Ordforande') }
             }
 
             SNSUpdateExchangeDistributionGroups -ValidationHash 'old' -Configuration $configuration | Out-Null
 
+            Should -Invoke New-DistributionGroup -Times 1 -Exactly -ParameterFilter {
+                $Name -eq 'bykey@example.org' -and $PrimarySmtpAddress -eq 'bykey@example.org' -and $Alias -eq 'bykey'
+            }
             Should -Invoke New-DistributionGroup -Times 1 -Exactly -ParameterFilter {
                 $Name -eq 'maillist' -and $Type -eq 'Distribution' -and $DisplayName -eq 'Maillista' -and
                 $Alias -eq 'maillista' -and $PrimarySmtpAddress -eq 'maillista@example.org'
@@ -177,7 +181,7 @@ Describe 'SNSUpdateExchangeDistributionGroups role based rules' {
             Should -Invoke Set-DistributionGroup -Times 1 -Exactly -ParameterFilter {
                 $Identity -eq 'newgroup' -and $RequireSenderAuthenticationEnabled -eq $false
             }
-            Should -Invoke Update-DistributionGroupMember -Times 4 -Exactly
+            Should -Invoke Update-DistributionGroupMember -Times 5 -Exactly
             Should -Invoke Update-DistributionGroupMember -Times 0 -Exactly -ParameterFilter { $Identity -eq 'wrongtype' }
 
             $configuration.MailListSettings = @{ bad = @{ source = 'group_roles'; group_type = 'other'; roles = @('x') } }

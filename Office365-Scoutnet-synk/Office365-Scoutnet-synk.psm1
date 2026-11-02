@@ -771,8 +771,9 @@ function SNSUpdateExchangeDistributionGroups
         group_type = 'security' or 'distribution' (works for all sources) creates the group as a mail-enabled security group
         or a regular distribution list with
         New-DistributionGroup when it does not exist. display_name (the visible name, since the rule key is
-        normally the e-mail address), mail_nickname (alias) and primary_smtp_address must all be specified to create
-        a group; otherwise a warning is logged and the group is skipped while the other lists continue.
+        normally the e-mail address) and mail_nickname (alias) must be specified to create a group, and so must
+        primary_smtp_address unless the rule key is an e-mail address, which is then used as the address; otherwise
+        a warning is logged and the group is skipped while the other lists continue.
         allow_external_senders = $true also
         lets senders outside the organization mail the new group (RequireSenderAuthenticationEnabled = $false);
         it is only applied when the group is created. An existing group of another type is not
@@ -1215,6 +1216,11 @@ function SNSUpdateExchangeDistributionGroups
                     $displayName = [string]$MailListSettings[$distGroupName].display_name
                     $alias = [string]$MailListSettings[$distGroupName].mail_nickname
                     $smtpAddress = [string]$MailListSettings[$distGroupName].primary_smtp_address
+                    # The rule key is used as address when it is an e-mail address.
+                    if ([string]::IsNullOrWhiteSpace($smtpAddress) -and $distGroupName -like '*@*')
+                    {
+                        $smtpAddress = $distGroupName
+                    }
                     $missingFields = @(
                         if ([string]::IsNullOrWhiteSpace($displayName)) { 'display_name' }
                         if ([string]::IsNullOrWhiteSpace($alias)) { 'mail_nickname' }
