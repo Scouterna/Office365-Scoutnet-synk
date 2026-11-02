@@ -45,7 +45,7 @@ $conf.MandatoryMomentMinimumAge = 15
 $conf.MandatoryMomentValidityYears = 3
 
 # Domännam för scoutkårens office 365.
-$conf.DomainName = "scoutkåren.se"
+$conf.DomainName = "example.se"
 
 # Hashtable med distributionsgruppens e-postadress i Office 365 som nyckel.
 # Distributions grupper som är med här kommer att synkroniseras.

@@ -38,7 +38,7 @@ $conf = New-SNSConfiguration -LicenseAssignment $LicenseAssignment -UserSyncMail
 $conf.EmailFromAddress = "admin@scoutkåren"
 
 # Domännam för scoutkårens office 365.
-$conf.DomainName = "scoutkåren.se"
+$conf.DomainName = "example.se"
 
 # Roller som inte i sig ska göra att medlemmen tas med i rapporten.
 $conf.MandatoryMomentExcludedRoles = @()
