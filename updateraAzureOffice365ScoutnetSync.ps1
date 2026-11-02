@@ -43,9 +43,9 @@
     Visar den här hjälpen. Fungerar även som -h, --help och /?.
 
 .EXAMPLE
-    .\updateraAzureOffice365ScoutnetSync.ps1 -ModuleVersion 3.0.1
+    .\updateraAzureOffice365ScoutnetSync.ps1 -ModuleVersion 3.1.0
 
-    Uppdaterar standardkontot 'Scoutnet-sync' till version 3.0.1.
+    Uppdaterar standardkontot 'Scoutnet-sync' till version 3.1.0.
 
 .EXAMPLE
     .\updateraAzureOffice365ScoutnetSync.ps1 -ModulePackagePath .\Office365-Scoutnet-synk.3.1.0.zip
