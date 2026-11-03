@@ -1,8 +1,7 @@
 name: pages
 
 on:
-  release:
-    types: [published]
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -17,7 +16,7 @@ concurrency:
 jobs:
   build:
     name: Generate documentation
-    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
+    if: ${{ github.event_name != 'push' || !contains(github.ref_name, '-') }}
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v7

@@ -5,10 +5,15 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: read
+
 jobs:
   generate-release:
     name: "Generate release"
     runs-on: "ubuntu-latest"
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v7
@@ -60,3 +65,12 @@ jobs:
           Write-Host -Object 'Publishing module (Office365-Scoutnet-synk) to PowerShell Gallery'
           Publish-Module -Path Office365-Scoutnet-synk -NuGetApiKey $env:PS_GALLERY_KEY -Verbose -ErrorAction "Stop"
           Write-Host -Object 'Finished publishing module to PowerShell Gallery'
+
+  publish-pages:
+    name: "Publish documentation"
+    if: ${{ !contains(github.ref_name, '-') }}
+    uses: ./.github/workflows/pages.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write

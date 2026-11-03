@@ -26,7 +26,7 @@ CompanyName = 'Scouterna'
 Copyright = 'c 2019 All rights reserved.'
 
 # Description of the functionality provided by this module
-Description = 'Funktioner för att synkronisera Scoutnet med Office 365.'
+Description = 'Functions for synchronizing Scoutnet with Microsoft 365.'
 
 # Minimum version of the Windows PowerShell engine required by this module
 PowerShellVersion = '7.6'
