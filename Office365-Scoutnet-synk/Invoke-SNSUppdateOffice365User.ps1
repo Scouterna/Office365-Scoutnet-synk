@@ -323,7 +323,15 @@ function Invoke-SNSCreateUserAndUpdateUserData
 
 #region Generate the new UserPrincipalName
         $properties = "businessPhones, displayName, givenName, id, jobTitle, mail, mobilePhone, UserPrincipalName, preferredLanguage, surname, userPrincipalName, postalCode, identities, UserType, StreetAddress, City, Department, UserType"
-        $DisplayName = "$($MemberData.first_name.value) $($MemberData.last_name.value)"
+        $DisplayName = if (-not $Script:SNSConf.IncludeNicknameInDisplayName -or
+            [string]::IsNullOrWhiteSpace($MemberData.nickname.value))
+        {
+            "$($MemberData.first_name.value) $($MemberData.last_name.value)"
+        }
+        else
+        {
+            "$($MemberData.first_name.value) ($($MemberData.nickname.value)) $($MemberData.last_name.value)"
+        }
 
         Write-SNSLog "Trying to create account for '$($DisplayName)' with id '$($MemberData.member_no.value)'."
 
@@ -755,9 +763,19 @@ function Invoke-SNSUpdateAccount
 #endregion
 
 #region User name
-            if ("$($MemberData.first_name.value) $($MemberData.last_name.value)" -notlike $O365MemberData.DisplayName)
+            $DisplayName = if (-not $Script:SNSConf.IncludeNicknameInDisplayName -or
+                [string]::IsNullOrWhiteSpace($MemberData.nickname.value))
             {
-                $updateUserparams["DisplayName"] = "$($MemberData.first_name.value) $($MemberData.last_name.value)"
+                "$($MemberData.first_name.value) $($MemberData.last_name.value)"
+            }
+            else
+            {
+                "$($MemberData.first_name.value) ($($MemberData.nickname.value)) $($MemberData.last_name.value)"
+            }
+
+            if ($DisplayName -notlike $O365MemberData.DisplayName)
+            {
+                $updateUserparams["DisplayName"] = $DisplayName
             }
 
             if ($MemberData.first_name.value -notlike $O365MemberData.GivenName)

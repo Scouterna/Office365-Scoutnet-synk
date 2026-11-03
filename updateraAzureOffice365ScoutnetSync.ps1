@@ -19,7 +19,7 @@
     Namn på resursgruppen som Automation-kontot ligger i. Standard är 'Scoutnet-sync'.
 
 .PARAMETER ModuleVersion
-    Version av Office365-Scoutnet-synk som ska installeras. Standard är '3.1.0'.
+    Version av Office365-Scoutnet-synk som ska installeras. Standard är '3.2.0'.
     Beroendena, inklusive Microsoft.Graph.Teams, läses ur modulens manifest på PowerShell Gallery.
 
 .PARAMETER RuntimeEnvironmentName
@@ -43,12 +43,12 @@
     Visar den här hjälpen. Fungerar även som -h, --help och /?.
 
 .EXAMPLE
-    .\updateraAzureOffice365ScoutnetSync.ps1 -ModuleVersion 3.1.0
+    .\updateraAzureOffice365ScoutnetSync.ps1 -ModuleVersion 3.2.0
 
-    Uppdaterar standardkontot 'Scoutnet-sync' till version 3.1.0.
+    Uppdaterar standardkontot 'Scoutnet-sync' till version 3.2.0.
 
 .EXAMPLE
-    .\updateraAzureOffice365ScoutnetSync.ps1 -ModulePackagePath .\Office365-Scoutnet-synk.3.1.0.zip
+    .\updateraAzureOffice365ScoutnetSync.ps1 -ModulePackagePath .\Office365-Scoutnet-synk.3.2.0.zip
 
     Installerar beroendena enligt zipens manifest. Modulen laddas upp manuellt i portalen.
 
@@ -60,7 +60,7 @@
 param(
     [string]$AutomationAccountName = 'Scoutnet-sync',
     [string]$ResourceGroupName = 'Scoutnet-sync',
-    [string]$ModuleVersion = '3.1.0',
+    [string]$ModuleVersion = '3.2.0',
     [Alias('Runtime', 'Env')]
     [string]$RuntimeEnvironmentName = 'PowerShell-7.6-Office365-Scoutnet-synk',
     [ValidateScript({ Test-Path -LiteralPath $_ -PathType Leaf })]

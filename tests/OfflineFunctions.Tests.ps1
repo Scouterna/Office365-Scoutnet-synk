@@ -53,6 +53,7 @@ Describe 'New-SNSConfiguration' {
         $configuration.AllUsersGroupName | Should -Be 'all-users'
         $configuration.JsonFileDirectory | Should -Be 'json-output'
         $configuration.SaveJsonFiles | Should -BeTrue
+        $configuration.IncludeNicknameInDisplayName | Should -BeFalse
         $configuration.PreferredLanguage | Should -Be 'sv-SE'
         $configuration.UsageLocation | Should -Be 'SE'
         $configuration.MandatoryMomentReportFrequency | Should -Be 'Monthly'
@@ -77,6 +78,7 @@ Describe 'New-SNSConfiguration' {
             -DomainName 'example.org' `
             -LicenseAssignment @{ Basic = @('Teams') } `
             -UserSyncMailListId 'leaders-list' `
+            -IncludeNicknameInDisplayName $true `
             -LogFilePath 'sync.log' `
             -AllUsersGroupName 'all-users' `
             -SignatureText 'Hello <DisplayName>' `
@@ -94,6 +96,7 @@ Describe 'New-SNSConfiguration' {
         [object]::ReferenceEquals($configuration.MailListSettings, $mailListSettings) | Should -BeTrue
         $configuration.DomainName | Should -Be 'example.org'
         $configuration.UserSyncMailListId | Should -Be 'leaders-list'
+        $configuration.IncludeNicknameInDisplayName | Should -BeTrue
         $configuration.LogFilePath | Should -Be 'sync.log'
         $configuration.AllUsersGroupName | Should -Be 'all-users'
         $configuration.SignatureText | Should -Be 'Hello <DisplayName>'
