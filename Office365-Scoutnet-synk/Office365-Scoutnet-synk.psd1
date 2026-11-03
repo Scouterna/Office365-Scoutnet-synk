@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '3.1.0'
+ModuleVersion = '3.2.0'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -132,6 +132,12 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
+## 3.2.0
+Uppgradering från tidigare versioner: https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Ny-version
+
+### Nya funktioner
+- Ny inställning IncludeNicknameInDisplayName (standard av). När den är på visas smeknamnet från Scoutnet i visningsnamnet som "Förnamn (smeknamn) Efternamn", både för nya och befintliga konton. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Konfiguration
+
 ## 3.1.0
 Uppgradering från tidigare versioner: https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Ny-version
 

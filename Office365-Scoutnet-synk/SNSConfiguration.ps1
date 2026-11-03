@@ -10,6 +10,7 @@
     [string]$SyncGroupDisabledUsersDescription="Säkerhetsgrupp som används vid synkronisering med Scoutnet. Användare i gruppen är avaktiverade och finns inte längre med i Scoutnet."
     [string]$AllUsersGroupName=""
     hidden [System.Collections.Hashtable]$LicenseAssignment
+    [bool]$IncludeNicknameInDisplayName=$false
     [string]$PreferredLanguage="sv-SE"
     [string]$UsageLocation="SE"
     [string]$WaitMailboxCreationMaxTime="1200"
@@ -101,6 +102,9 @@ function New-SNSConfiguration
     .PARAMETER UserSyncMailListId
         List Id to use when syncronising user accounts. If it is empty (default value) then all members with a role will be given an account.
 
+    .PARAMETER IncludeNicknameInDisplayName
+        Include a member's Scoutnet nickname in the Microsoft 365 display name. Default is off.
+
     .PARAMETER LogFilePath
         Logfile name and path. Used to override the default value.
 
@@ -182,6 +186,9 @@ function New-SNSConfiguration
 
         [Parameter(HelpMessage="List Id to use when syncronising user accounts.")]
         $UserSyncMailListId,
+
+        [Parameter(HelpMessage="Include Scoutnet nicknames in Microsoft 365 display names.")]
+        [bool]$IncludeNicknameInDisplayName = $false,
 
         [Parameter(HelpMessage="Logfile name and path.")]
         [string]$LogFilePath,
@@ -322,6 +329,8 @@ function New-SNSConfiguration
     {
         $conf.UserSyncMailListId = $UserSyncMailListId
     }
+
+    $conf.IncludeNicknameInDisplayName = $IncludeNicknameInDisplayName
 
     if ($DisabledAccountsAutoReplyText)
     {

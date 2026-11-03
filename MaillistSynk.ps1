@@ -1,5 +1,5 @@
 ﻿#Requires -Version 7.6
-#Requires -Modules @{ ModuleName="Office365-Scoutnet-synk"; ModuleVersion="3.1" }
+#Requires -Modules @{ ModuleName="Office365-Scoutnet-synk"; ModuleVersion="3.2" }
 
 # Lämplig inställning i Azure automation.
 $ProgressPreference = "silentlyContinue"
@@ -31,6 +31,9 @@ $LicenseAssignment=@{
 # Byt ut maillist id till ID som matchar ledarna. Ta bort parametern -UserSyncMailListId om du vill att
 # alla medlemmar med roller ska få ett konto.
 $conf = New-SNSConfiguration -LicenseAssignment $LicenseAssignment -UserSyncMailListId "0000"
+# Sätt till $true om smeknamn från Scoutnet ska visas i användarnas visningsnamn.
+# Standardvärdet är $false.
+# $conf.IncludeNicknameInDisplayName = $true
 
 # Vem ska mailet till nya användare skickas ifrån. Byt ut till en adress som du har i din domän.
 $conf.EmailFromAddress = "info@scoutkåren"
