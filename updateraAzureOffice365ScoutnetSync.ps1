@@ -24,7 +24,7 @@
 
 .PARAMETER RuntimeEnvironmentName
     Namn på Runtime Environment som skapas eller uppdateras.
-    Standard är 'PowerShell-7.6-Office365-Scoutnet-synk'. Kan förkortas till -Runtime eller -Env.
+    Standard är 'PowerShell-7-6-Office365-Scoutnet-synk'. Kan förkortas till -Runtime eller -Env.
 
 .PARAMETER ModulePackagePath
     Sökväg till en lokal zip- eller nupkg-fil med modulen (till exempel en version som inte är publicerad
@@ -53,7 +53,7 @@
     Installerar beroendena enligt zipens manifest. Modulen laddas upp manuellt i portalen.
 
 .EXAMPLE
-    .\updateraAzureOffice365ScoutnetSync.ps1 -AutomationAccountName MinSynk -ResourceGroupName MinGrupp -Runtime 'PowerShell-7.6-Test' -SkipPermissionUpdate
+    .\updateraAzureOffice365ScoutnetSync.ps1 -AutomationAccountName MinSynk -ResourceGroupName MinGrupp -Runtime 'PowerShell-7-6-Test' -SkipPermissionUpdate
 
     Uppdaterar ett annat konto och en annan Runtime Environment utan att ändra behörigheter.
 #>
@@ -62,7 +62,7 @@ param(
     [string]$ResourceGroupName = 'Scoutnet-sync',
     [string]$ModuleVersion = '3.1.0',
     [Alias('Runtime', 'Env')]
-    [string]$RuntimeEnvironmentName = 'PowerShell-7.6-Office365-Scoutnet-synk',
+    [string]$RuntimeEnvironmentName = 'PowerShell-7-6-Office365-Scoutnet-synk',
     [ValidateScript({ Test-Path -LiteralPath $_ -PathType Leaf })]
     [string]$ModulePackagePath,
     [string]$ModulePackageUri,

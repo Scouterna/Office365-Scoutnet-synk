@@ -10,7 +10,7 @@ $ScoutnetModuleVersion = "3.1.0"
 $AzRuntimePackageVersion = '15.1.0'
 $AzureCliRuntimePackageVersion = '2.77.0'
 $AutomationRuntimeVersion = '7.6'
-$RuntimeEnvironmentName = 'PowerShell-7.6-Office365-Scoutnet-synk'
+$RuntimeEnvironmentName = 'PowerShell-7-6-Office365-Scoutnet-synk'
 
 $RequiredLocalModules = @(
     'Az.Accounts',
