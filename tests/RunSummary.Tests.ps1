@@ -42,6 +42,23 @@ Describe 'Get-SNSRunSummary' {
         Get-SNSRunSummary -LogFilePath $script:log | Should -Match 'OK: inga fel eller varningar'
     }
 
+    It 'summarizes shared mailbox changes' {
+        $lines = @(
+            "2026-01-01 10:00:00 INFO: Created shared mailbox 'Kassoren' (kassor@example.se)."
+            "2026-01-01 10:00:01 INFO: Gave u1@example.se FullAccess permission on shared mailbox 'Kassoren'."
+            "2026-01-01 10:00:02 INFO: Gave u1@example.se SendAs permission on shared mailbox 'Kassoren'."
+            "2026-01-01 10:00:03 INFO: Removed FullAccess permission for u2@example.se on shared mailbox 'Info'."
+            "2026-01-01 10:00:04 INFO: Shared mailbox 'Kontakt' is up to date. No changes needed."
+        )
+        Set-Content -Path $script:log -Value $lines -Encoding UTF8
+
+        $text = Get-SNSRunSummary -LogFilePath $script:log
+
+        $text | Should -Match 'Delade mailboxar'
+        $text | Should -Match 'Skapade: 1, oförändrade: 1'
+        $text | Should -Match 'Rättigheter tillagda: 2, borttagna: 1'
+    }
+
     It 'handles a missing log file' {
         Get-SNSRunSummary -LogFilePath (Join-Path $TestDrive 'nope.log') | Should -Match 'loggfilen hittades inte'
     }

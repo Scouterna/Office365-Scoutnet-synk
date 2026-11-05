@@ -300,6 +300,15 @@ Catch
     Write-SNSLog -Level "Error" "Kunde inte uppdatera Microsoft 365-grupper. Fel: $_"
 }
 
+try
+{
+    Update-SNSharedMailbox -Configuration $conf -ErrorAction Stop
+}
+Catch
+{
+    Write-SNSLog -Level "Error" "Kunde inte uppdatera delade mailboxar. Fel: $_"
+}
+
 # Skicka rapporten över obligatoriska moment till de konfigurerade mottagarna.
 try
 {

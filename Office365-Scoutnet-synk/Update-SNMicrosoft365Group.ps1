@@ -325,6 +325,270 @@ function Invoke-SNMicrosoft365GraphRetry
     }
 }
 
+function Assert-SNMicrosoft365SourceRule
+{
+    <#
+    .SYNOPSIS
+        Validates the member source fields of a group or shared mailbox rule.
+
+    .DESCRIPTION
+        Checks the fields that belong to the rule source: scoutnet_list_id and member_type for
+        'mail_list', roles for 'group_roles' and troops for 'troop_roles'. Throws on the first
+        problem.
+
+    .PARAMETER Name
+        Display name of the rule, used in error messages.
+
+    .PARAMETER Setting
+        The rule.
+
+    .PARAMETER Source
+        Lower case rule source: 'mail_list', 'group_roles' or 'troop_roles'.
+
+    .PARAMETER Label
+        Text that names the kind of object in error messages, for example 'Microsoft 365 group'.
+    #>
+    param (
+        [Parameter(Mandatory)]
+        [string]$Name,
+
+        [Parameter(Mandatory)]
+        $Setting,
+
+        [Parameter(Mandatory)]
+        [string]$Source,
+
+        [Parameter(Mandatory)]
+        [string]$Label
+    )
+
+    if ($Source -eq 'mail_list' -and
+        [string]::IsNullOrWhiteSpace([string](Get-SNMicrosoft365Value -Object $Setting -Name 'scoutnet_list_id')))
+    {
+        throw "$Label '$Name' must configure scoutnet_list_id for source mail_list."
+    }
+    if ($Source -eq 'mail_list')
+    {
+        $memberType = [string](Get-SNMicrosoft365Value -Object $Setting -Name 'member_type')
+        if ([string]::IsNullOrWhiteSpace($memberType))
+        {
+            $memberType = 'ledare'
+        }
+        if ($memberType.ToLowerInvariant() -notin @('ledare', 'scouter', 'both'))
+        {
+            throw "$Label '$Name' has unsupported member_type '$memberType'. Use ledare, scouter, or both."
+        }
+    }
+    elseif ($Source -eq 'group_roles')
+    {
+        $configuredRoles = @(Get-SNMicrosoft365Value -Object $Setting -Name 'roles')
+        if ($configuredRoles.Count -eq 0 -or
+            @($configuredRoles | Where-Object { [string]::IsNullOrWhiteSpace([string]$_) }).Count -gt 0)
+        {
+            throw "$Label '$Name' must configure one or more non-empty roles for source group_roles."
+        }
+    }
+    else
+    {
+        $troopSettings = @(Get-SNMicrosoft365Value -Object $Setting -Name 'troops')
+        if ($troopSettings.Count -eq 0)
+        {
+            throw "$Label '$Name' must configure troops for source troop_roles."
+        }
+        foreach ($troopSetting in $troopSettings)
+        {
+            $troopId = [string](Get-SNMicrosoft365Value -Object $troopSetting -Name 'id')
+            $troopName = [string](Get-SNMicrosoft365Value -Object $troopSetting -Name 'name')
+            $roles = @(Get-SNMicrosoft365Value -Object $troopSetting -Name 'roles').Where({ $null -ne $_ })
+            if ([string]::IsNullOrWhiteSpace($troopId) -and [string]::IsNullOrWhiteSpace($troopName))
+            {
+                throw "Each troop rule for $Label '$Name' must configure name or id."
+            }
+            $unitMembers = (Get-SNMicrosoft365Value -Object $troopSetting -Name 'unit_members') -eq $true
+            if (($roles.Count -eq 0 -and -not $unitMembers) -or
+                @($roles | Where-Object { [string]::IsNullOrWhiteSpace([string]$_) }).Count -gt 0)
+            {
+                throw "Each troop rule for $Label '$Name' must configure one or more non-empty roles, or unit_members = `$true."
+            }
+        }
+    }
+}
+
+function Get-SNMicrosoft365ScoutnetData
+{
+    <#
+    .SYNOPSIS
+        Fetches the Scoutnet data needed to evaluate group or shared mailbox rules.
+
+    .DESCRIPTION
+        Fetches the member list, builds the troop id to name map and fetches only the Scoutnet
+        maillists that the rules with source 'mail_list' refer to. Throws when the member list
+        or a referred maillist is missing, so that nothing is changed.
+
+    .PARAMETER Configuration
+        Module configuration with the Scoutnet credentials.
+
+    .PARAMETER Rules
+        Hashtable of rules, keyed by display name.
+
+    .PARAMETER Label
+        Plural name of the managed objects, used in error messages, for example
+        'Microsoft 365 groups'.
+
+    .OUTPUTS
+        PSCustomObject with Memberlist, UnitNamesById and CustomLists.
+    #>
+    param (
+        [Parameter(Mandatory)]
+        $Configuration,
+
+        [Parameter(Mandatory)]
+        [hashtable]$Rules,
+
+        [Parameter(Mandatory)]
+        [string]$Label
+    )
+
+    $memberlist = Get-SNSApiGroupMemberlist -Credential $Configuration.CredentialMemberlist
+    if ($null -eq $memberlist -or $memberlist.data -isnot [System.Collections.IDictionary])
+    {
+        throw "The member list does not contain the expected 'data' dictionary. No $Label were changed."
+    }
+
+    # Troop names are only available on each member's 'unit' object, so build an id to name map.
+    $unitNamesById = @{}
+    foreach ($member in $memberlist.data.Values)
+    {
+        $unit = Get-SNMicrosoft365Value -Object $member -Name 'unit'
+        $unitId = [string](Get-SNMicrosoft365Value -Object $unit -Name 'raw_value')
+        $unitName = [string](Get-SNMicrosoft365Value -Object $unit -Name 'value')
+        if (-not [string]::IsNullOrWhiteSpace($unitId) -and -not [string]::IsNullOrWhiteSpace($unitName))
+        {
+            $unitNamesById[$unitId] = $unitName
+        }
+    }
+
+    # Only fetch the Scoutnet maillists that the rules refer to.
+    $mailListSettings = @()
+    foreach ($ruleName in $Rules.Keys)
+    {
+        $setting = $Rules[$ruleName]
+        if (([string](Get-SNMicrosoft365Value -Object $setting -Name 'source')).ToLowerInvariant() -eq 'mail_list')
+        {
+            $listSetting = @{
+                scoutnet_list_id = [string](Get-SNMicrosoft365Value -Object $setting -Name 'scoutnet_list_id')
+            }
+            $staticList = Get-SNMicrosoft365Value -Object $setting -Name 'statisk_lista'
+            if ($null -ne $staticList)
+            {
+                $listSetting.statisk_lista = $staticList
+            }
+            $mailListSettings += $listSetting
+        }
+    }
+
+    $customLists = @{}
+    if ($mailListSettings.Count -gt 0)
+    {
+        $customLists, $customListsHash = Get-SNSMaillistInfo `
+            -CredentialCustomlists $Configuration.CredentialCustomlists `
+            -MaillistsIds $mailListSettings
+        foreach ($listSetting in $mailListSettings)
+        {
+            if (-not $customLists.ContainsKey([string]$listSetting.scoutnet_list_id))
+            {
+                throw "Scoutnet mailing list '$($listSetting.scoutnet_list_id)' was not found. No $Label were changed."
+            }
+        }
+    }
+
+    return [pscustomobject]@{
+        Memberlist = $memberlist
+        UnitNamesById = $unitNamesById
+        CustomLists = $customLists
+    }
+}
+
+function Get-SNMicrosoft365DesiredMemberId
+{
+    <#
+    .SYNOPSIS
+        Returns the Scoutnet member numbers that match a rule.
+
+    .PARAMETER Setting
+        The rule. Its 'source' selects how members are found.
+
+    .PARAMETER ScoutnetData
+        Result of Get-SNMicrosoft365ScoutnetData.
+
+    .OUTPUTS
+        Hashtable with the member numbers as keys.
+    #>
+    param (
+        [Parameter(Mandatory)]
+        $Setting,
+
+        [Parameter(Mandatory)]
+        $ScoutnetData
+    )
+
+    $source = ([string](Get-SNMicrosoft365Value -Object $Setting -Name 'source')).ToLowerInvariant()
+    $desiredMemberIds = @{}
+
+    if ($source -eq 'mail_list')
+    {
+        $listId = [string](Get-SNMicrosoft365Value -Object $Setting -Name 'scoutnet_list_id')
+        $memberType = [string](Get-SNMicrosoft365Value -Object $Setting -Name 'member_type')
+        if ([string]::IsNullOrWhiteSpace($memberType))
+        {
+            $memberType = 'ledare'
+        }
+        $memberType = $memberType.ToLowerInvariant()
+        if ($memberType -in @('ledare', 'both'))
+        {
+            foreach ($memberId in @($ScoutnetData.CustomLists[$listId].ledare))
+            {
+                if (-not [string]::IsNullOrWhiteSpace([string]$memberId))
+                {
+                    $desiredMemberIds[[string]$memberId] = $true
+                }
+            }
+        }
+        if ($memberType -in @('scouter', 'both'))
+        {
+            foreach ($memberId in @($ScoutnetData.CustomLists[$listId].scouter))
+            {
+                if (-not [string]::IsNullOrWhiteSpace([string]$memberId))
+                {
+                    $desiredMemberIds[[string]$memberId] = $true
+                }
+            }
+        }
+    }
+    else
+    {
+        foreach ($memberEntry in $ScoutnetData.Memberlist.data.GetEnumerator())
+        {
+            $member = $memberEntry.Value
+            if (Test-SNMicrosoft365RoleGroupMatch -Member $member -Source $source `
+                -Setting $Setting -UnitNamesById $ScoutnetData.UnitNamesById)
+            {
+                $memberId = [string](Get-SNMicrosoft365Value -Object $member.member_no -Name 'value')
+                if ([string]::IsNullOrWhiteSpace($memberId))
+                {
+                    $memberId = [string]$memberEntry.Key
+                }
+                if (-not [string]::IsNullOrWhiteSpace($memberId))
+                {
+                    $desiredMemberIds[$memberId] = $true
+                }
+            }
+        }
+    }
+
+    return $desiredMemberIds
+}
+
 function Update-SNMicrosoft365Group
 {
     <#
@@ -508,110 +772,10 @@ function Update-SNMicrosoft365Group
             }
         }
 
-        if ($source -eq 'mail_list' -and
-            [string]::IsNullOrWhiteSpace([string](Get-SNMicrosoft365Value -Object $setting -Name 'scoutnet_list_id')))
-        {
-            throw "Microsoft 365 group '$groupName' must configure scoutnet_list_id for source mail_list."
-        }
-        if ($source -eq 'mail_list')
-        {
-            $memberType = [string](Get-SNMicrosoft365Value -Object $setting -Name 'member_type')
-            if ([string]::IsNullOrWhiteSpace($memberType))
-            {
-                $memberType = 'ledare'
-            }
-            if ($memberType.ToLowerInvariant() -notin @('ledare', 'scouter', 'both'))
-            {
-                throw "Microsoft 365 group '$groupName' has unsupported member_type '$memberType'. Use ledare, scouter, or both."
-            }
-        }
-        elseif ($source -eq 'group_roles')
-        {
-            $configuredRoles = @(Get-SNMicrosoft365Value -Object $setting -Name 'roles')
-            if ($configuredRoles.Count -eq 0 -or
-                @($configuredRoles | Where-Object { [string]::IsNullOrWhiteSpace([string]$_) }).Count -gt 0)
-            {
-                throw "Microsoft 365 group '$groupName' must configure one or more non-empty roles for source group_roles."
-            }
-        }
-        else
-        {
-            $troopSettings = @(Get-SNMicrosoft365Value -Object $setting -Name 'troops')
-            if ($troopSettings.Count -eq 0)
-            {
-                throw "Microsoft 365 group '$groupName' must configure troops for source troop_roles."
-            }
-            foreach ($troopSetting in $troopSettings)
-            {
-                $troopId = [string](Get-SNMicrosoft365Value -Object $troopSetting -Name 'id')
-                $troopName = [string](Get-SNMicrosoft365Value -Object $troopSetting -Name 'name')
-                $roles = @(Get-SNMicrosoft365Value -Object $troopSetting -Name 'roles').Where({ $null -ne $_ })
-                if ([string]::IsNullOrWhiteSpace($troopId) -and [string]::IsNullOrWhiteSpace($troopName))
-                {
-                    throw "Each troop rule for Microsoft 365 group '$groupName' must configure name or id."
-                }
-                $unitMembers = (Get-SNMicrosoft365Value -Object $troopSetting -Name 'unit_members') -eq $true
-                if (($roles.Count -eq 0 -and -not $unitMembers) -or
-                    @($roles | Where-Object { [string]::IsNullOrWhiteSpace([string]$_) }).Count -gt 0)
-                {
-                    throw "Each troop rule for Microsoft 365 group '$groupName' must configure one or more non-empty roles, or unit_members = `$true."
-                }
-            }
-        }
+        Assert-SNMicrosoft365SourceRule -Name ([string]$groupName) -Setting $setting -Source $source -Label 'Microsoft 365 group'
     }
 
-    $memberlist = Get-SNSApiGroupMemberlist -Credential $snsConfiguration.CredentialMemberlist
-    if ($null -eq $memberlist -or $memberlist.data -isnot [System.Collections.IDictionary])
-    {
-        throw "The member list does not contain the expected 'data' dictionary. No Microsoft 365 groups were changed."
-    }
-
-    # Troop names are only available on each member's 'unit' object, so build an id to name map.
-    $unitNamesById = @{}
-    foreach ($member in $memberlist.data.Values)
-    {
-        $unit = Get-SNMicrosoft365Value -Object $member -Name 'unit'
-        $unitId = [string](Get-SNMicrosoft365Value -Object $unit -Name 'raw_value')
-        $unitName = [string](Get-SNMicrosoft365Value -Object $unit -Name 'value')
-        if (-not [string]::IsNullOrWhiteSpace($unitId) -and -not [string]::IsNullOrWhiteSpace($unitName))
-        {
-            $unitNamesById[$unitId] = $unitName
-        }
-    }
-
-    # Only fetch the Scoutnet maillists that the rules refer to.
-    $mailListSettings = @()
-    foreach ($groupName in $groupSettings.Keys)
-    {
-        $setting = $groupSettings[$groupName]
-        if (([string](Get-SNMicrosoft365Value -Object $setting -Name 'source')).ToLowerInvariant() -eq 'mail_list')
-        {
-            $listSetting = @{
-                scoutnet_list_id = [string](Get-SNMicrosoft365Value -Object $setting -Name 'scoutnet_list_id')
-            }
-            $staticList = Get-SNMicrosoft365Value -Object $setting -Name 'statisk_lista'
-            if ($null -ne $staticList)
-            {
-                $listSetting.statisk_lista = $staticList
-            }
-            $mailListSettings += $listSetting
-        }
-    }
-
-    $customLists = @{}
-    if ($mailListSettings.Count -gt 0)
-    {
-        $customLists, $customListsHash = Get-SNSMaillistInfo `
-            -CredentialCustomlists $snsConfiguration.CredentialCustomlists `
-            -MaillistsIds $mailListSettings
-        foreach ($listSetting in $mailListSettings)
-        {
-            if (-not $customLists.ContainsKey([string]$listSetting.scoutnet_list_id))
-            {
-                throw "Scoutnet mailing list '$($listSetting.scoutnet_list_id)' was not found. No Microsoft 365 groups were changed."
-            }
-        }
-    }
+    $scoutnetData = Get-SNMicrosoft365ScoutnetData -Configuration $snsConfiguration -Rules $groupSettings -Label 'Microsoft 365 groups'
 
     # CustomAttribute1 holds the Scoutnet member number of each Microsoft 365 account.
     $allOffice365Users = @(
@@ -633,61 +797,7 @@ function Update-SNMicrosoft365Group
     foreach ($groupName in $groupSettings.Keys)
     {
         $setting = $groupSettings[$groupName]
-        $source = ([string](Get-SNMicrosoft365Value -Object $setting -Name 'source')).ToLowerInvariant()
-        $desiredMemberIds = @{}
-
-        if ($source -eq 'mail_list')
-        {
-            $listId = [string](Get-SNMicrosoft365Value -Object $setting -Name 'scoutnet_list_id')
-            $memberType = [string](Get-SNMicrosoft365Value -Object $setting -Name 'member_type')
-            if ([string]::IsNullOrWhiteSpace($memberType))
-            {
-                $memberType = 'ledare'
-            }
-            $memberType = $memberType.ToLowerInvariant()
-            if ($memberType -in @('ledare', 'both'))
-            {
-                foreach ($memberId in @($customLists[$listId].ledare))
-                {
-                    if (-not [string]::IsNullOrWhiteSpace([string]$memberId))
-                    {
-                        $desiredMemberIds[[string]$memberId] = $true
-                    }
-                }
-            }
-            if ($memberType -in @('scouter', 'both'))
-            {
-                foreach ($memberId in @($customLists[$listId].scouter))
-                {
-                    if (-not [string]::IsNullOrWhiteSpace([string]$memberId))
-                    {
-                        $desiredMemberIds[[string]$memberId] = $true
-                    }
-                }
-            }
-        }
-        else
-        {
-            foreach ($memberEntry in $memberlist.data.GetEnumerator())
-            {
-                $member = $memberEntry.Value
-                if (Test-SNMicrosoft365RoleGroupMatch -Member $member -Source $source `
-                    -Setting $setting -UnitNamesById $unitNamesById)
-                {
-                    $memberId = [string](Get-SNMicrosoft365Value -Object $member.member_no -Name 'value')
-                    if ([string]::IsNullOrWhiteSpace($memberId))
-                    {
-                        $memberId = [string]$memberEntry.Key
-                    }
-                    if (-not [string]::IsNullOrWhiteSpace($memberId))
-                    {
-                        $desiredMemberIds[$memberId] = $true
-                    }
-                }
-            }
-        }
-
-        $desiredMemberIdsByGroup[$groupName] = $desiredMemberIds
+        $desiredMemberIdsByGroup[$groupName] = Get-SNMicrosoft365DesiredMemberId -Setting $setting -ScoutnetData $scoutnetData
     }
 
     # Find or create each configured group and make its membership match the rule.

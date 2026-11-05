@@ -36,6 +36,7 @@
     [pscredential]$CredentialMemberlist
     [System.Collections.Hashtable]$MailListSettings
     [System.Collections.Hashtable]$Microsoft365GroupSettings
+    [System.Collections.Hashtable]$SharedMailboxSettings
     [string]$DomainName
     [string]$DisabledAccountsAutoReplyText
     [System.Collections.Hashtable]$ApiGroupMemberlistCache
@@ -92,6 +93,9 @@ function New-SNSConfiguration
 
     .PARAMETER Microsoft365GroupSettings
         Rules for Microsoft 365 groups synchronized from Scoutnet.
+
+    .PARAMETER SharedMailboxSettings
+        Rules for shared mailboxes synchronized from Scoutnet.
 
     .PARAMETER DomainName
         Domain name for office365 mail addresses.
@@ -177,6 +181,9 @@ function New-SNSConfiguration
         [Parameter(HelpMessage="Rules for Microsoft 365 groups.")]
         [System.Collections.Hashtable]$Microsoft365GroupSettings,
 
+        [Parameter(HelpMessage="Rules for shared mailboxes.")]
+        [System.Collections.Hashtable]$SharedMailboxSettings,
+
         [Parameter(HelpMessage="Domain name for office365 mail addresses.")]
         [string]$DomainName,
 
@@ -243,6 +250,11 @@ function New-SNSConfiguration
     if ($PSBoundParameters.ContainsKey('Microsoft365GroupSettings'))
     {
         $conf.Microsoft365GroupSettings = $Microsoft365GroupSettings
+    }
+
+    if ($PSBoundParameters.ContainsKey('SharedMailboxSettings'))
+    {
+        $conf.SharedMailboxSettings = $SharedMailboxSettings
     }
 
     if ($NewUserInfoEmailText)
@@ -353,7 +365,10 @@ function New-SNSConfiguration
     $conf.commandNames += "Set-MailboxAutoReplyConfiguration,"
     $conf.commandNames += "Get-Contact,"
     $conf.commandNames += "Get-TransportRule,New-TransportRule,Set-TransportRule,"
-    $conf.commandNames += "New-DistributionGroup,Set-DistributionGroup"
+    $conf.commandNames += "New-DistributionGroup,Set-DistributionGroup,"
+    $conf.commandNames += "New-Mailbox,Get-MailboxPermission,Add-MailboxPermission,"
+    $conf.commandNames += "Remove-MailboxPermission,Get-RecipientPermission,"
+    $conf.commandNames += "Add-RecipientPermission,Remove-RecipientPermission"
 
     return $conf
 }

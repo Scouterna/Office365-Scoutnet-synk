@@ -8,6 +8,8 @@ Du kan med dessa program göra följande
    i Scoutnet för att använda som e-postlistor i [Microsoft365][Microsoft365].
 1. Synkronisera Microsoft 365-grupper och Teams från konfigurerade
    Scoutnet-maillistor och roller i Scoutnet.
+1. Synkronisera delade mailboxar från konfigurerade Scoutnet-maillistor
+   och roller i Scoutnet.
 
 - Vid problem, fel, frågor eller tips på förbättringar eller fler funktioner
   som du saknar
