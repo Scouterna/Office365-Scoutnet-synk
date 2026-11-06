@@ -59,6 +59,12 @@ Describe 'Get-SNSRunSummary' {
         $text | Should -Match 'Rättigheter tillagda: 2, borttagna: 1'
     }
 
+    It 'summarizes mandatory moment reminders' {
+        Set-Content -Path $script:log -Value '2026-01-01 10:00:00 INFO: Mandatory moment reminders sent: 4.' -Encoding UTF8
+
+        Get-SNSRunSummary -LogFilePath $script:log | Should -Match 'Påminnelser om obligatoriska moment: 4 skickade'
+    }
+
     It 'handles a missing log file' {
         Get-SNSRunSummary -LogFilePath (Join-Path $TestDrive 'nope.log') | Should -Match 'loggfilen hittades inte'
     }

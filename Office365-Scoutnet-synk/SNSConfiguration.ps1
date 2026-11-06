@@ -31,6 +31,22 @@
     [string]$MandatoryMomentCourseDescription = 'Lista över medlemmar som behöver göra om kursen Trygga möten'
     [string]$MandatoryMomentPoliceCheckDescription = 'Lista över medlemmar som behöver förnya registerutdraget'
     [string[]]$MandatoryMomentExcludedRoles = @()
+    [string[]]$MandatoryMomentCourseExemptMembers = @()
+    [string[]]$MandatoryMomentPoliceCheckExemptMembers = @()
+    [string]$MandatoryMomentReminderFrequency = ''
+    [int]$MandatoryMomentReminderMinimumAge = 0
+    [int]$MandatoryMomentReminderValidityYears = 0
+    [string[]]$MandatoryMomentReminderExcludedRoles = @()
+    [int]$MandatoryMomentReminderDaysBefore = 30
+    [string[]]$MandatoryMomentReminderCc = @()
+    [string]$MandatoryMomentReminderSubject = 'Påminnelse: obligatoriska moment'
+    [string]$MandatoryMomentReminderHeading = 'Påminnelse om obligatoriska moment'
+    [string]$MandatoryMomentReminderIntro = 'Hej {FirstName}! Du behöver göra eller förnya följande obligatoriska moment.'
+    [string]$MandatoryMomentCourseReminderText = 'Trygga möten: du behöver göra om kursen.'
+    [string[]]$MandatoryMomentCourseReminderLinks = @()
+    [string]$MandatoryMomentPoliceCheckReminderText = 'Registerutdrag: du behöver förnya registerutdraget.'
+    [string[]]$MandatoryMomentPoliceCheckReminderLinks = @()
+    [string]$MandatoryMomentReminderFooter = ''
     [string]$UserSyncMailListId
     [pscredential]$CredentialCustomlists
     [pscredential]$CredentialMemberlist
