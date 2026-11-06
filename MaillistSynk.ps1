@@ -47,6 +47,29 @@ $conf.MandatoryMomentReportFrequency = 'Monthly' # Monthly (den 1:a), Weekly (m�
 $conf.MandatoryMomentMinimumAge = 15
 $conf.MandatoryMomentValidityYears = 3
 
+# Medlemsnummer som inte ska med för ett visst moment, till exempel om momentet hanteras på annat sätt.
+# Gäller både rapporten och påminnelserna.
+$conf.MandatoryMomentCourseExemptMembers = @()
+$conf.MandatoryMomentPoliceCheckExemptMembers = @()
+
+# Påminnelser till ledare som behöver göra eller förnya obligatoriska moment.
+# Urvalet använder som standard samma frekvens, åldersgräns, giltighetstid och roller som rapporten.
+# Sätt någon av de tre första nedan för att ge påminnelserna egna värden (tomt/0 = använd rapportens).
+$conf.MandatoryMomentReminderFrequency = '' # Monthly (den 1:a), Weekly (måndag) eller Daily.
+$conf.MandatoryMomentReminderMinimumAge = 0
+$conf.MandatoryMomentReminderValidityYears = 0
+$conf.MandatoryMomentReminderExcludedRoles = @()
+$conf.MandatoryMomentReminderDaysBefore = 30 # Påminn så här många dagar innan giltighetstiden går ut.
+$conf.MandatoryMomentReminderCc = @() # Ansvariga som får kopia på varje påminnelse.
+$conf.MandatoryMomentReminderSubject = "Påminnelse: obligatoriska moment"
+$conf.MandatoryMomentReminderHeading = "Påminnelse om obligatoriska moment"
+$conf.MandatoryMomentReminderIntro = "Hej {FirstName}! Du behöver göra eller förnya följande obligatoriska moment."
+$conf.MandatoryMomentCourseReminderText = "Trygga möten: gör kursen i Scouternas utbildningsportal."
+$conf.MandatoryMomentCourseReminderLinks = @("Om Trygga möten|https://example.se/trygga-moten")
+$conf.MandatoryMomentPoliceCheckReminderText = "Registerutdrag: begär ett nytt utdrag ur belastningsregistret."
+$conf.MandatoryMomentPoliceCheckReminderLinks = @("Så gör du|https://example.se/registerutdrag")
+$conf.MandatoryMomentReminderFooter = "Hälsningar scoutkåren"
+
 # Domännam för scoutkårens office 365.
 $conf.DomainName = "example.se"
 
@@ -324,6 +347,25 @@ try
 Catch
 {
     Write-SNSLog -Level "Error" "Kunde inte skapa eller skicka rapporten över obligatoriska moment. Fel: $_"
+}
+
+# Skicka påminnelser till ledare som behöver göra eller förnya obligatoriska moment.
+# Avkommentera blocket nedan för att aktivera påminnelserna.
+try
+{
+    $lastReminderSentValue = Get-AutomationVariable -Name 'MandatoryMomentReminderLastSent' -ErrorAction "Stop"
+    # Lägg till -TestEmailAddress "test@example.org" för att skicka alla påminnelser dit i stället för till medlemmarna.
+    $reminderSent = Send-SNSMandatoryMomentReminder -Configuration $conf `
+        -LastSentValue $lastReminderSentValue -ErrorAction "Stop"
+    if ($reminderSent)
+    {
+        Set-AutomationVariable -Name 'MandatoryMomentReminderLastSent' `
+            -Value (Get-Date -Format 'o') -ErrorAction "Stop"
+    }
+}
+Catch
+{
+    Write-SNSLog -Level "Error" "Kunde inte skicka påminnelser om obligatoriska moment. Fel: $_"
 }
 
 # Skapa ett mail med loggen och skicka till admin.

@@ -125,6 +125,7 @@
     $mailboxPermissionsGiven = & $count "^Gave .* permission on shared mailbox '"
     $mailboxPermissionsRemoved = & $count "^Removed .* permission for .* on shared mailbox '"
     $reportSent = & $count '^Mandatory moment report sent to '
+    $remindersSent = & $lastNumber '^Mandatory moment reminders sent: (\d+)\.$'
     $scoutnetUnchanged = & $count '^Scoutnet is not updated\. No update will be done\.$'
 
     if ($errors.Count -gt 0)
@@ -185,6 +186,10 @@
     $lines.Add("  Rättigheter tillagda: $mailboxPermissionsGiven, borttagna: $mailboxPermissionsRemoved")
     $lines.Add("")
     $lines.Add("Rapport över obligatoriska moment: " + $(if ($reportSent -gt 0) { "skickad" } else { "inte skickad" }))
+    if ($null -ne $remindersSent)
+    {
+        $lines.Add("Påminnelser om obligatoriska moment: $remindersSent skickade")
+    }
 
     $addList = {
         param([string]$Title, $Items, [int]$Limit)
