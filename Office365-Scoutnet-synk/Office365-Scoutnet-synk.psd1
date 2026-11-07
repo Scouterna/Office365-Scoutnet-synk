@@ -26,7 +26,13 @@ CompanyName = 'Scouterna'
 Copyright = 'c 2019 All rights reserved.'
 
 # Description of the functionality provided by this module
-Description = 'Functions for synchronizing Scoutnet with Microsoft 365.'
+Description = @'
+Funktioner för att synkronisera Scoutnet med Microsoft 365.
+
+För mer information, se dokumentationen: https://github.com/Scouterna/Office365-Scoutnet-synk/wiki
+
+Uppgradering från tidigare versioner: https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Ny-version
+'@
 
 # Minimum version of the Windows PowerShell engine required by this module
 PowerShellVersion = '7.6'
@@ -95,13 +101,13 @@ FunctionsToExport = @(
 )
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = ''
+CmdletsToExport = @()
 
 # Variables to export from this module
 VariablesToExport = @()
 
 # Aliases to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no aliases to export.
-AliasesToExport = ''
+AliasesToExport = @()
 
 # DSC resources to export from this module
 # DscResourcesToExport = @()
