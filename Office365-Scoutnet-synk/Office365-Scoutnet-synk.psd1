@@ -84,6 +84,7 @@ FunctionsToExport = @(
     'SNSUpdateExchangeDistributionGroups',
     'Send-SNSMandatoryMomentReport',
     'Send-SNSMandatoryMomentReminder',
+    'Invoke-SNSMandatoryMomentReportAndReminder',
     'Update-SNMicrosoft365Group',
     'Update-SNSharedMailbox',
     'Invoke-SNSUppdateOffice365User',
@@ -141,6 +142,7 @@ Uppgradering från tidigare versioner: https://github.com/Scouterna/Office365-Sc
 - Ny inställning IncludeNicknameInDisplayName (standard av). När den är på visas smeknamnet från Scoutnet i visningsnamnet som "Förnamn (smeknamn) Efternamn", både för nya och befintliga konton. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Konfiguration
 - Ny funktion Update-SNSharedMailbox för delade mailboxar. Skapar delade mailboxar och synkar Full Access och Skicka som (Send As) utifrån maillistor och roller i Scoutnet. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Delade-mailboxar
 - Ny funktion Send-SNSMandatoryMomentReminder skickar påminnelser till ledare som behöver göra eller förnya Trygga möten eller registerutdrag. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Obligatoriska-moment
+- Ny funktion Invoke-SNSMandatoryMomentReportAndReminder kör rapport och påminnelser med gemensamt kördatum. Anropet kan begränsas till rapport eller påminnelser.
 
 ### Bugfixar och förbättringar
 - Inga buggar rapporterade.
