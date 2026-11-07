@@ -274,27 +274,17 @@ Catch
     Write-SNSLog -Level "Error" "Kunde inte uppdatera delade mailboxar. Fel: $_"
 }
 
-# Skicka rapporten över obligatoriska moment till de konfigurerade mottagarna.
+# Skicka rapport och påminnelser om obligatoriska moment.
+# Ta bort -NoReminder om påminnelserna inte ska skickas.
 try
 {
-    $reportSent = Send-SNSMandatoryMomentReport -Configuration $conf -LastSentValue "0001-01-01T00:00:00" -ErrorAction "Stop"
+    Invoke-SNSMandatoryMomentReportAndReminder -Configuration $conf `
+        -LastSentValue "0001-01-01T00:00:00" -NoReminder -ErrorAction "Stop"
 }
 Catch
 {
-    Write-SNSLog -Level "Error" "Kunde inte skapa eller skicka rapporten över obligatoriska moment. Fel: $_"
+    Write-SNSLog -Level "Error" "Kunde inte skapa rapporten eller skicka påminnelser om obligatoriska moment. Fel: $_"
 }
-
-# Skicka påminnelser till ledare som behöver göra eller förnya obligatoriska moment.
-# Avkommentera blocket nedan för att aktivera påminnelserna.
-#try
-#{
-#    # Lägg till -TestEmailAddress "test@example.org" för att skicka alla påminnelser dit i stället för till medlemmarna.
-#    $reminderSent = Send-SNSMandatoryMomentReminder -Configuration $conf -LastSentValue "0001-01-01T00:00:00" -ErrorAction "Stop"
-#}
-#Catch
-#{
-#    Write-SNSLog -Level "Error" "Kunde inte skicka påminnelser om obligatoriska moment. Fel: $_"
-#}
 
 $bodyData = (Get-SNSRunSummary -Configuration $conf) + [Environment]::NewLine +
     (Get-Content -Path $conf.LogFilePath -Raw -Encoding UTF8 -ErrorAction "Continue")

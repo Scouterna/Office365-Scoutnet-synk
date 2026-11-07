@@ -367,11 +367,21 @@ function Send-SNSMandatoryMomentReminder
         [datetime]$AsOfDate = [datetime]::Today,
 
         [Parameter(HelpMessage = 'Test mode. All reminders are sent to this address instead of the members, and Cc is not used.')]
-        [string]$TestEmailAddress
+        [string]$TestEmailAddress,
+
+        [Parameter()]
+        [string]$FrequencyOverride
     )
 
     # Reminder-specific settings fall back to the report settings when not configured.
-    $frequency = if ([string]::IsNullOrWhiteSpace($Configuration.MandatoryMomentReminderFrequency)) { $Configuration.MandatoryMomentReportFrequency } else { $Configuration.MandatoryMomentReminderFrequency }
+    if (-not [string]::IsNullOrWhiteSpace($FrequencyOverride))
+    {
+        $frequency = $FrequencyOverride
+    }
+    else
+    {
+        $frequency = if ([string]::IsNullOrWhiteSpace($Configuration.MandatoryMomentReminderFrequency)) { $Configuration.MandatoryMomentReportFrequency } else { $Configuration.MandatoryMomentReminderFrequency }
+    }
     $minimumAge = if ($Configuration.MandatoryMomentReminderMinimumAge -gt 0) { $Configuration.MandatoryMomentReminderMinimumAge } else { $Configuration.MandatoryMomentMinimumAge }
     $validityYears = if ($Configuration.MandatoryMomentReminderValidityYears -gt 0) { $Configuration.MandatoryMomentReminderValidityYears } else { $Configuration.MandatoryMomentValidityYears }
     $reminderRoles = @($Configuration.MandatoryMomentReminderExcludedRoles | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })

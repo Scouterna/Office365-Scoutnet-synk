@@ -6,6 +6,7 @@ BeforeAll {
     . (Join-Path $modulePath 'Get-SNSApiGroupMemberlist.ps1')
     . (Join-Path $modulePath 'Send-SNSMandatoryMomentReport.ps1')
     . (Join-Path $modulePath 'Send-SNSMandatoryMomentReminder.ps1')
+    . (Join-Path $modulePath 'Invoke-SNSMandatoryMomentReportAndReminder.ps1')
 }
 
 Describe 'Mandatory moment reminder' {

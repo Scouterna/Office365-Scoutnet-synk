@@ -332,40 +332,23 @@ Catch
     Write-SNSLog -Level "Error" "Kunde inte uppdatera delade mailboxar. Fel: $_"
 }
 
-# Skicka rapporten över obligatoriska moment till de konfigurerade mottagarna.
+# Skicka rapport och påminnelser om obligatoriska moment.
 try
 {
-    $lastReportSentValue = Get-AutomationVariable -Name 'MandatoryMomentReportLastSent' -ErrorAction "Stop"
-    $reportSent = Send-SNSMandatoryMomentReport -Configuration $conf `
-        -LastSentValue $lastReportSentValue -ErrorAction "Stop"
-    if ($reportSent)
+    $lastSentValue = Get-AutomationVariable -Name 'MandatoryMomentReportLastSent' -ErrorAction "Stop"
+    # Lägg till -TestEmailAddress "test@example.org" för att skicka alla påminnelser dit i stället för till medlemmarna.
+    # Ta bort -NoReminder om påminnelserna inte ska skickas.
+    $lastSentDate = Invoke-SNSMandatoryMomentReportAndReminder -Configuration $conf `
+        -LastSentValue $lastSentValue -NoReminder -ErrorAction "Stop"
+    if ($null -ne $lastSentDate)
     {
         Set-AutomationVariable -Name 'MandatoryMomentReportLastSent' `
-            -Value (Get-Date -Format 'o') -ErrorAction "Stop"
+            -Value $lastSentDate.ToString('o') -ErrorAction "Stop"
     }
 }
 Catch
 {
-    Write-SNSLog -Level "Error" "Kunde inte skapa eller skicka rapporten över obligatoriska moment. Fel: $_"
-}
-
-# Skicka påminnelser till ledare som behöver göra eller förnya obligatoriska moment.
-# Avkommentera blocket nedan för att aktivera påminnelserna.
-try
-{
-    $lastReminderSentValue = Get-AutomationVariable -Name 'MandatoryMomentReminderLastSent' -ErrorAction "Stop"
-    # Lägg till -TestEmailAddress "test@example.org" för att skicka alla påminnelser dit i stället för till medlemmarna.
-    $reminderSent = Send-SNSMandatoryMomentReminder -Configuration $conf `
-        -LastSentValue $lastReminderSentValue -ErrorAction "Stop"
-    if ($reminderSent)
-    {
-        Set-AutomationVariable -Name 'MandatoryMomentReminderLastSent' `
-            -Value (Get-Date -Format 'o') -ErrorAction "Stop"
-    }
-}
-Catch
-{
-    Write-SNSLog -Level "Error" "Kunde inte skicka påminnelser om obligatoriska moment. Fel: $_"
+    Write-SNSLog -Level "Error" "Kunde inte skapa rapporten eller skicka påminnelser om obligatoriska moment. Fel: $_"
 }
 
 # Skapa ett mail med loggen och skicka till admin.

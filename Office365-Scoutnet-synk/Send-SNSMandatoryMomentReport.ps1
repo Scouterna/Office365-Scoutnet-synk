@@ -495,8 +495,13 @@ function Send-SNSMandatoryMomentReport
         [object]$LastSentValue,
 
         [Parameter()]
-        [datetime]$AsOfDate = [datetime]::Today
+        [datetime]$AsOfDate = [datetime]::Today,
+
+        [Parameter()]
+        [string]$FrequencyOverride
     )
+
+    $frequency = if ([string]::IsNullOrWhiteSpace($FrequencyOverride)) { $Configuration.MandatoryMomentReportFrequency } else { $FrequencyOverride }
 
     $lastSentDate = [datetime]::MinValue
     $forceSend = $false
@@ -524,9 +529,9 @@ function Send-SNSMandatoryMomentReport
         }
     }
 
-    if ($Configuration.MandatoryMomentReportFrequency -notin @('Monthly', 'Weekly', 'Daily'))
+    if ($frequency -notin @('Monthly', 'Weekly', 'Daily'))
     {
-        throw "MandatoryMomentReportFrequency must be 'Monthly', 'Weekly', or 'Daily'."
+        throw "Report frequency must be 'Monthly', 'Weekly', or 'Daily'."
     }
     if ($Configuration.MandatoryMomentMinimumAge -lt 0)
     {
@@ -538,11 +543,11 @@ function Send-SNSMandatoryMomentReport
     }
 
     if (-not $forceSend -and -not (Test-SNSMandatoryMomentReportDue `
-        -Frequency $Configuration.MandatoryMomentReportFrequency `
+        -Frequency $frequency `
         -LastSentDate $lastSentDate `
         -AsOfDate $AsOfDate))
     {
-        Write-SNSLog "Mandatory moment report is not due ($($Configuration.MandatoryMomentReportFrequency))."
+        Write-SNSLog "Mandatory moment report is not due ($frequency)."
         return $false
     }
 
