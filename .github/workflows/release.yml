@@ -57,13 +57,21 @@ jobs:
             MaillistSynk_local.ps1
             Office365-Scoutnet-synk.zip
 
+      - name: "Build PowerShell Gallery package"
+        id: module-package
+        shell: pwsh
+        run: |
+          $packagePath = ./tools/New-ModulePackage.ps1 -ModulePath ./Office365-Scoutnet-synk -DestinationPath $env:RUNNER_TEMP
+          "path=$packagePath" >> $env:GITHUB_OUTPUT
+
       - name: "Publish to PowerShell Gallery"
         env:
           PS_GALLERY_KEY: ${{ secrets.PS_GALLERY_KEY }}
+          PACKAGE_PATH: ${{ steps.module-package.outputs.path }}
         shell: pwsh
         run: |
           Write-Host -Object 'Publishing module (Office365-Scoutnet-synk) to PowerShell Gallery'
-          Publish-Module -Path Office365-Scoutnet-synk -NuGetApiKey $env:PS_GALLERY_KEY -Verbose -ErrorAction "Stop"
+          Publish-PSResource -NupkgPath $env:PACKAGE_PATH -ApiKey $env:PS_GALLERY_KEY -Repository PSGallery -ErrorAction Stop
           Write-Host -Object 'Finished publishing module to PowerShell Gallery'
 
   publish-pages:
