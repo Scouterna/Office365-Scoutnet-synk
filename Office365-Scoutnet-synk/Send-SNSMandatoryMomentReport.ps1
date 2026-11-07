@@ -152,6 +152,42 @@ function ConvertTo-SNSMandatoryMomentDate
 
 <#
 .SYNOPSIS
+    Gets the Scoutnet member number of a member record.
+
+.DESCRIPTION
+    Reads member_no from the member record. When it is missing, the key of the
+    member in the member list is used.
+
+.PARAMETER Member
+    Member record from the Scoutnet member list.
+
+.PARAMETER Key
+    Key of the member in the member list. Used when the record has no member_no.
+
+.OUTPUTS
+    System.String
+    The member number, or an empty string when it cannot be determined.
+#>
+function Get-SNSMandatoryMomentMemberNumber
+{
+    param (
+        [Parameter()]
+        $Member,
+
+        [Parameter()]
+        $Key
+    )
+
+    $memberNumber = [string](Get-SNSMandatoryMomentValue -Object (Get-SNSMandatoryMomentValue -Object $Member -Name 'member_no') -Name 'value')
+    if ([string]::IsNullOrWhiteSpace($memberNumber))
+    {
+        $memberNumber = [string]$Key
+    }
+    return $memberNumber.Trim()
+}
+
+<#
+.SYNOPSIS
     Creates the HTML report for Scoutnet mandatory moments.
 
 .DESCRIPTION
@@ -179,6 +215,12 @@ function ConvertTo-SNSMandatoryMomentDate
 .PARAMETER ExcludedRoles
     Role names that do not qualify a member for inclusion in the report. A
     member with at least one other role is still included.
+
+.PARAMETER CourseExemptMembers
+    Member numbers that are never listed under Trygga möten.
+
+.PARAMETER PoliceCheckExemptMembers
+    Member numbers that are never listed under Registerutdrag.
 
 .PARAMETER AsOfDate
     Date used for age and validity calculations. Defaults to today.
@@ -215,6 +257,11 @@ function ConvertTo-SNSMandatoryMomentReportHtml
         [string[]]$ExcludedRoles = @(),
 
         [Parameter()]
+        [string[]]$CourseExemptMembers = @(),
+
+        [Parameter()]
+        [string[]]$PoliceCheckExemptMembers = @(),
+        [Parameter()]
         [datetime]$AsOfDate = [datetime]::Today
     )
 
@@ -239,8 +286,8 @@ function ConvertTo-SNSMandatoryMomentReportHtml
 
     $cutoffDate = $AsOfDate.Date.AddYears(-$ValidityYears)
     $moments = @(
-        @{ Field = 'pc_course_89'; Name = 'Trygga möten'; Description = $CourseDescription }
-        @{ Field = 'latest_police_check'; Name = 'Registerutdrag'; Description = $PoliceCheckDescription }
+        @{ Field = 'pc_course_89'; Name = 'Trygga möten'; Description = $CourseDescription; Exempt = @($CourseExemptMembers | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { "$_".Trim() }) }
+        @{ Field = 'latest_police_check'; Name = 'Registerutdrag'; Description = $PoliceCheckDescription; Exempt = @($PoliceCheckExemptMembers | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { "$_".Trim() }) }
     )
 
     $html = [System.Text.StringBuilder]::new()
@@ -258,8 +305,15 @@ function ConvertTo-SNSMandatoryMomentReportHtml
         [void]$html.AppendLine("<section><h2>$($moment.Name)</h2><p>$description</p>")
         [void]$html.AppendLine('<table><thead><tr><th>Efternamn</th><th>Förnamn</th><th>Datum när momentet gjordes</th><th>Roller i kåren</th><th>Roller på avdelning</th></tr></thead><tbody>')
 
-        foreach ($member in $members)
+        foreach ($memberEntry in $Memberlist.data.GetEnumerator())
         {
+            $member = $memberEntry.Value
+            if ($moment.Exempt.Count -gt 0 -and
+                (Get-SNSMandatoryMomentMemberNumber -Member $member -Key $memberEntry.Key) -in $moment.Exempt)
+            {
+                continue
+            }
+
             $birthDate = ConvertTo-SNSMandatoryMomentDate -Value $member.date_of_birth -FieldName 'date_of_birth'
             if ($null -eq $birthDate)
             {
@@ -441,8 +495,13 @@ function Send-SNSMandatoryMomentReport
         [object]$LastSentValue,
 
         [Parameter()]
-        [datetime]$AsOfDate = [datetime]::Today
+        [datetime]$AsOfDate = [datetime]::Today,
+
+        [Parameter()]
+        [string]$FrequencyOverride
     )
+
+    $frequency = if ([string]::IsNullOrWhiteSpace($FrequencyOverride)) { $Configuration.MandatoryMomentReportFrequency } else { $FrequencyOverride }
 
     $lastSentDate = [datetime]::MinValue
     $forceSend = $false
@@ -470,9 +529,9 @@ function Send-SNSMandatoryMomentReport
         }
     }
 
-    if ($Configuration.MandatoryMomentReportFrequency -notin @('Monthly', 'Weekly', 'Daily'))
+    if ($frequency -notin @('Monthly', 'Weekly', 'Daily'))
     {
-        throw "MandatoryMomentReportFrequency must be 'Monthly', 'Weekly', or 'Daily'."
+        throw "Report frequency must be 'Monthly', 'Weekly', or 'Daily'."
     }
     if ($Configuration.MandatoryMomentMinimumAge -lt 0)
     {
@@ -484,11 +543,11 @@ function Send-SNSMandatoryMomentReport
     }
 
     if (-not $forceSend -and -not (Test-SNSMandatoryMomentReportDue `
-        -Frequency $Configuration.MandatoryMomentReportFrequency `
+        -Frequency $frequency `
         -LastSentDate $lastSentDate `
         -AsOfDate $AsOfDate))
     {
-        Write-SNSLog "Mandatory moment report is not due ($($Configuration.MandatoryMomentReportFrequency))."
+        Write-SNSLog "Mandatory moment report is not due ($frequency)."
         return $false
     }
 
@@ -516,6 +575,8 @@ function Send-SNSMandatoryMomentReport
         -CourseDescription $Configuration.MandatoryMomentCourseDescription `
         -PoliceCheckDescription $Configuration.MandatoryMomentPoliceCheckDescription `
         -ExcludedRoles $Configuration.MandatoryMomentExcludedRoles `
+        -CourseExemptMembers $Configuration.MandatoryMomentCourseExemptMembers `
+        -PoliceCheckExemptMembers $Configuration.MandatoryMomentPoliceCheckExemptMembers `
         -AsOfDate $AsOfDate
 
     $params = @{

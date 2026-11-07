@@ -8,7 +8,7 @@
 RootModule = 'Office365-Scoutnet-synk.psm1'
 
 # Version number of this module.
-ModuleVersion = '3.1.0'
+ModuleVersion = '3.2.0'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -83,7 +83,10 @@ FunctionsToExport = @(
     'Get-SNSRunSummary',
     'SNSUpdateExchangeDistributionGroups',
     'Send-SNSMandatoryMomentReport',
+    'Send-SNSMandatoryMomentReminder',
+    'Invoke-SNSMandatoryMomentReportAndReminder',
     'Update-SNMicrosoft365Group',
+    'Update-SNSharedMailbox',
     'Invoke-SNSUppdateOffice365User',
     'New-SNSConfiguration',
     'Set-SNSConfiguration',
@@ -132,57 +135,19 @@ PrivateData = @{
 
         # ReleaseNotes of this module
         ReleaseNotes = @'
-## 3.1.0
 Uppgradering från tidigare versioner: https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Ny-version
 
+## 3.2.0
 ### Nya funktioner
-- Ny funktion Update-SNMicrosoft365Group för Microsoft 365-grupper och Teams. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Microsoft-365-grupper
-- Microsoft.Graph.Teams 2.41.2 är nu ett beroende.
-- Listor kan styras av roller och avdelningar i Scoutnet. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Distributionsgrupper#source-rollbaserade-distributionsgrupper
-- Distributionslistor skapas automatiskt om de saknas. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Distributionsgrupper#group_type-skapa-distributionsgrupp-eller-säkerhetsgrupp
-- Användare kan läggas i säkerhetsgrupper utifrån Scoutnet. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Distributionsgrupper#group_type-skapa-distributionsgrupp-eller-säkerhetsgrupp
-- Ämnesprefix för mejl till distributionslistor med add_prefix. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Distributionsgrupper#add_prefix-ämnesprefix-för-mejl-till-listan
-- Snabbare synk av distributionsgrupper. Oförändrade grupper hoppas över.
-- Ny inställning EnableTimingLog för tidsmätning. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Distributionsgrupper#tidsmätning
-- Ny funktion Get-SNSRunSummary ger en sammanfattning att lägga först i loggmailet. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Körningssammanfattning
-- Använd gruppens fullständiga e-postadress som nyckel i MailListSettings. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Distributionsgrupper
-- Använder PowerShells inbyggda autentisering och JSON-hantering mot Scoutnet.
-- Bara funktionerna som används i exemplen är publika. Övriga funktioner och variabeln SNSConf är interna.
-- Uppdateringsskriptet har hjälp, nya parametrar och lägger till saknade behörigheter.
+- Ny inställning IncludeNicknameInDisplayName (standard av). När den är på visas smeknamnet från Scoutnet i visningsnamnet som "Förnamn (smeknamn) Efternamn", både för nya och befintliga konton. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Konfiguration
+- Ny funktion Update-SNSharedMailbox för delade mailboxar. Skapar delade mailboxar och synkar Full Access och Skicka som (Send As) utifrån maillistor och roller i Scoutnet. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Delade-mailboxar
+- Ny funktion Send-SNSMandatoryMomentReminder skickar påminnelser till ledare som behöver göra eller förnya Trygga möten eller registerutdrag. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Obligatoriska-moment
+- Ny funktion Invoke-SNSMandatoryMomentReportAndReminder kör rapport och påminnelser med gemensamt kördatum. Anropet kan begränsas till rapport eller påminnelser.
 
-### Buggfixar
-- Rättat TLS-inställningar, rapportutskick och null-varningar.
+### Bugfixar och förbättringar
+- Inga buggar rapporterade.
 
-## 3.0.1
-
-### Nya funktioner
-- Flyttade dokumentationen till en separat wiki. Den finns på https://github.com/Scouterna/Office365-Scoutnet-synk/wiki
-- Uppdaterade dokumentationen och skripten för att installera en ny version av modulen i Azure Automation, och på en lokal dator. Se dokumentationen på wikin.
-- Exemplen i dokumentationen har uppdaterats för att använda de nya funktionerna i modulen.
-
-### Buggfixar
-- Rättade buggar i skripten som installerar modulen i Azure Automation.
-
-## 3.0.0
-
-### Nya funktioner
-- Uppdaterade och låste Microsoft.Graph modulerna till version 2.41.2. De nyare versionerna fungerar i azure runbooks.
-- Uppdaterade ExchangeOnlineManagement till version 3.10.1. Den versionen kräver PowerShell 7.6 i Azure Automation.
-- SetupAzure.ps1 uppdaterad så att den kan ta emot parametrar för kontonamn, resursgrupp och plats. Det gör det möjligt att skapa flera olika Azure Automation-konton med olika namn.
-- SetupAzure.ps1 installerar version 2.41.2 av Microsoft.Graph modulerna och version 3.10.1 av ExchangeOnlineManagement modulen.
-- Lade till support för TLS 1.3 och tog bort äldre versioner.
-- Lade till stöd för -WhatIf och -Confirm vid ändringar av mailkontakter och konfiguration.
-- Unittester tillagda för att öka kvaliteten och säkerställa att funktioner fungerar som förväntat.
-- Stöd för att spara nerladdaade JSON-objekt i en fil för att kunna felsöka problem med Scoutnet API-anrop.
-- Stöd för att rapportera obligatoriska moment i Scoutnet via e-post. Funktionen Send-SNSMandatoryMomentReport kan användas för att skicka rapporter om obligatoriska moment till en eller flera e-postadresser.
-
-### Buggfixar
-- Rättade hanteringen av maillistor så att konfigurerade Scoutnet-listor väljs utifrån scoutnet_list_id.
-- Förhindrade att samma e-postadress läggs till flera gånger i OtherMails när användarkontot uppdateras.
-- Ändrade JSON-konverteringen så att varje objekt som skickas via pipeline konverteras separat.
-- Justerade utmatningen av samlingsobjekt så att de returneras utan enumerering vid anrop till Write-Output -NoEnumerate.
-- Löste linting problem med att använda Write-Output utan -NoEnumerate i en pipeline. Alla lintvarningar är nu lösta.
-
+För fullständig lista över ändringar, se https://github.com/Scouterna/Office365-Scoutnet-synk/releases
 '@
 
     } # End of PSData hashtable

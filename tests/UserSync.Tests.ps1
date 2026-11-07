@@ -23,6 +23,7 @@ Describe 'Invoke-SNSCreateUserAndUpdateUserData' {
             $credential = [pscredential]::new('test', (ConvertTo-SecureString 'test' -AsPlainText -Force))
             $script:SNSConf = [SNSConfiguration]::new()
             $script:SNSConf.DomainName = 'example.org'
+            $script:SNSConf.IncludeNicknameInDisplayName = $true
             $script:SNSConf.WaitMailboxCreationMaxTime = '1'
             $script:SNSConf.WaitMailboxCreationPollTime = '0'
             $script:SNSConf.SignatureHtml = '<DisplayName>'
@@ -31,6 +32,7 @@ Describe 'Invoke-SNSCreateUserAndUpdateUserData' {
             $member = [pscustomobject]@{
                 member_no = [pscustomobject]@{ value = 'member-1' }
                 first_name = [pscustomobject]@{ value = 'Ada' }
+                nickname = [pscustomobject]@{ value = 'Enchantress' }
                 last_name = [pscustomobject]@{ value = 'Lovelace' }
                 email = [pscustomobject]@{ value = 'ada@example.org' }
                 contact_alt_email = [pscustomobject]@{ value = 'ada@example.org' }
@@ -64,6 +66,7 @@ Describe 'Invoke-SNSCreateUserAndUpdateUserData' {
 
             Should -Invoke New-MgUser -Times 1 -Exactly -ParameterFilter {
                 $BodyParameter.UserPrincipalName -eq 'ada.lovelace@example.org' -and
+                $BodyParameter.DisplayName -eq 'Ada (Enchantress) Lovelace' -and
                 $BodyParameter.OtherMails.Count -eq 1 -and
                 $BodyParameter.OtherMails[0] -eq 'ada@example.org'
             }
@@ -107,6 +110,7 @@ Describe 'Invoke-SNSUpdateAccount' {
             }
 
             $credential = [pscredential]::new('test', (ConvertTo-SecureString 'test' -AsPlainText -Force))
+            $script:SNSConf = [SNSConfiguration]::new()
             $accountData = [pscustomobject]@{
                 name = 'Ada Lovelace'
                 CustomAttribute1 = 'member-1'
@@ -121,6 +125,7 @@ Describe 'Invoke-SNSUpdateAccount' {
                 town = [pscustomobject]@{ value = 'London' }
                 country = [pscustomobject]@{ value = 'GB' }
                 first_name = [pscustomobject]@{ value = 'Ada' }
+                nickname = [pscustomobject]@{ value = 'Enchantress' }
                 last_name = [pscustomobject]@{ value = 'Lovelace' }
                 contact_mobile_phone = [pscustomobject]@{ value = '+44123456789' }
                 email = [pscustomobject]@{ value = 'ada@example.org' }
@@ -131,7 +136,7 @@ Describe 'Invoke-SNSUpdateAccount' {
                 PostalCode = ''
                 City = ''
                 Country = ''
-                DisplayName = ''
+                DisplayName = 'Ada Lovelace'
                 GivenName = ''
                 Surname = ''
                 MobilePhone = ''
@@ -146,9 +151,16 @@ Describe 'Invoke-SNSUpdateAccount' {
 
             Should -Invoke Update-MgUser -Times 1 -Exactly -ParameterFilter {
                 $BodyParameter.StreetAddress -eq '1 Main Street' -and
-                $BodyParameter.DisplayName -eq 'Ada Lovelace' -and
+                $BodyParameter.DisplayName -eq $null -and
                 $BodyParameter.OtherMails.Count -eq 1 -and
                 $BodyParameter.OtherMails[0] -eq 'ada@example.org'
+            }
+
+            $script:SNSConf.IncludeNicknameInDisplayName = $true
+            Invoke-SNSUpdateAccount -AccountData $accountData -CredentialMemberlist $credential
+
+            Should -Invoke Update-MgUser -Times 1 -Exactly -ParameterFilter {
+                $BodyParameter.DisplayName -eq 'Ada (Enchantress) Lovelace'
             }
         }
     }

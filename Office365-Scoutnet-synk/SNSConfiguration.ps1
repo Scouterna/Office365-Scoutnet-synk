@@ -10,6 +10,7 @@
     [string]$SyncGroupDisabledUsersDescription="Säkerhetsgrupp som används vid synkronisering med Scoutnet. Användare i gruppen är avaktiverade och finns inte längre med i Scoutnet."
     [string]$AllUsersGroupName=""
     hidden [System.Collections.Hashtable]$LicenseAssignment
+    [bool]$IncludeNicknameInDisplayName=$false
     [string]$PreferredLanguage="sv-SE"
     [string]$UsageLocation="SE"
     [string]$WaitMailboxCreationMaxTime="1200"
@@ -30,11 +31,28 @@
     [string]$MandatoryMomentCourseDescription = 'Lista över medlemmar som behöver göra om kursen Trygga möten'
     [string]$MandatoryMomentPoliceCheckDescription = 'Lista över medlemmar som behöver förnya registerutdraget'
     [string[]]$MandatoryMomentExcludedRoles = @()
+    [string[]]$MandatoryMomentCourseExemptMembers = @()
+    [string[]]$MandatoryMomentPoliceCheckExemptMembers = @()
+    [string]$MandatoryMomentReminderFrequency = ''
+    [int]$MandatoryMomentReminderMinimumAge = 0
+    [int]$MandatoryMomentReminderValidityYears = 0
+    [string[]]$MandatoryMomentReminderExcludedRoles = @()
+    [int]$MandatoryMomentReminderDaysBefore = 30
+    [string[]]$MandatoryMomentReminderCc = @()
+    [string]$MandatoryMomentReminderSubject = 'Påminnelse: obligatoriska moment'
+    [string]$MandatoryMomentReminderHeading = 'Påminnelse om obligatoriska moment'
+    [string]$MandatoryMomentReminderIntro = 'Hej {FirstName}! Du behöver göra eller förnya följande obligatoriska moment.'
+    [string]$MandatoryMomentCourseReminderText = 'Trygga möten: du behöver göra om kursen.'
+    [string[]]$MandatoryMomentCourseReminderLinks = @()
+    [string]$MandatoryMomentPoliceCheckReminderText = 'Registerutdrag: du behöver förnya registerutdraget.'
+    [string[]]$MandatoryMomentPoliceCheckReminderLinks = @()
+    [string]$MandatoryMomentReminderFooter = ''
     [string]$UserSyncMailListId
     [pscredential]$CredentialCustomlists
     [pscredential]$CredentialMemberlist
     [System.Collections.Hashtable]$MailListSettings
     [System.Collections.Hashtable]$Microsoft365GroupSettings
+    [System.Collections.Hashtable]$SharedMailboxSettings
     [string]$DomainName
     [string]$DisabledAccountsAutoReplyText
     [System.Collections.Hashtable]$ApiGroupMemberlistCache
@@ -92,6 +110,9 @@ function New-SNSConfiguration
     .PARAMETER Microsoft365GroupSettings
         Rules for Microsoft 365 groups synchronized from Scoutnet.
 
+    .PARAMETER SharedMailboxSettings
+        Rules for shared mailboxes synchronized from Scoutnet.
+
     .PARAMETER DomainName
         Domain name for office365 mail addresses.
 
@@ -100,6 +121,9 @@ function New-SNSConfiguration
 
     .PARAMETER UserSyncMailListId
         List Id to use when syncronising user accounts. If it is empty (default value) then all members with a role will be given an account.
+
+    .PARAMETER IncludeNicknameInDisplayName
+        Include a member's Scoutnet nickname in the Microsoft 365 display name. Default is off.
 
     .PARAMETER LogFilePath
         Logfile name and path. Used to override the default value.
@@ -173,6 +197,9 @@ function New-SNSConfiguration
         [Parameter(HelpMessage="Rules for Microsoft 365 groups.")]
         [System.Collections.Hashtable]$Microsoft365GroupSettings,
 
+        [Parameter(HelpMessage="Rules for shared mailboxes.")]
+        [System.Collections.Hashtable]$SharedMailboxSettings,
+
         [Parameter(HelpMessage="Domain name for office365 mail addresses.")]
         [string]$DomainName,
 
@@ -182,6 +209,9 @@ function New-SNSConfiguration
 
         [Parameter(HelpMessage="List Id to use when syncronising user accounts.")]
         $UserSyncMailListId,
+
+        [Parameter(HelpMessage="Include Scoutnet nicknames in Microsoft 365 display names.")]
+        [bool]$IncludeNicknameInDisplayName = $false,
 
         [Parameter(HelpMessage="Logfile name and path.")]
         [string]$LogFilePath,
@@ -236,6 +266,11 @@ function New-SNSConfiguration
     if ($PSBoundParameters.ContainsKey('Microsoft365GroupSettings'))
     {
         $conf.Microsoft365GroupSettings = $Microsoft365GroupSettings
+    }
+
+    if ($PSBoundParameters.ContainsKey('SharedMailboxSettings'))
+    {
+        $conf.SharedMailboxSettings = $SharedMailboxSettings
     }
 
     if ($NewUserInfoEmailText)
@@ -323,6 +358,8 @@ function New-SNSConfiguration
         $conf.UserSyncMailListId = $UserSyncMailListId
     }
 
+    $conf.IncludeNicknameInDisplayName = $IncludeNicknameInDisplayName
+
     if ($DisabledAccountsAutoReplyText)
     {
         $conf.DisabledAccountsAutoReplyText = $DisabledAccountsAutoReplyText
@@ -344,7 +381,10 @@ function New-SNSConfiguration
     $conf.commandNames += "Set-MailboxAutoReplyConfiguration,"
     $conf.commandNames += "Get-Contact,"
     $conf.commandNames += "Get-TransportRule,New-TransportRule,Set-TransportRule,"
-    $conf.commandNames += "New-DistributionGroup,Set-DistributionGroup"
+    $conf.commandNames += "New-DistributionGroup,Set-DistributionGroup,"
+    $conf.commandNames += "New-Mailbox,Get-MailboxPermission,Add-MailboxPermission,"
+    $conf.commandNames += "Remove-MailboxPermission,Get-RecipientPermission,"
+    $conf.commandNames += "Add-RecipientPermission,Remove-RecipientPermission"
 
     return $conf
 }

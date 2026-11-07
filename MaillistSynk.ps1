@@ -1,5 +1,5 @@
 ﻿#Requires -Version 7.6
-#Requires -Modules @{ ModuleName="Office365-Scoutnet-synk"; ModuleVersion="3.1" }
+#Requires -Modules @{ ModuleName="Office365-Scoutnet-synk"; ModuleVersion="3.2" }
 
 # Lämplig inställning i Azure automation.
 $ProgressPreference = "silentlyContinue"
@@ -31,6 +31,9 @@ $LicenseAssignment=@{
 # Byt ut maillist id till ID som matchar ledarna. Ta bort parametern -UserSyncMailListId om du vill att
 # alla medlemmar med roller ska få ett konto.
 $conf = New-SNSConfiguration -LicenseAssignment $LicenseAssignment -UserSyncMailListId "0000"
+# Sätt till $true om smeknamn från Scoutnet ska visas i användarnas visningsnamn.
+# Standardvärdet är $false.
+# $conf.IncludeNicknameInDisplayName = $true
 
 # Vem ska mailet till nya användare skickas ifrån. Byt ut till en adress som du har i din domän.
 $conf.EmailFromAddress = "info@scoutkåren"
@@ -43,6 +46,29 @@ $conf.MandatoryMomentReportRecipients = @("ansvarig@scoutkåren")
 $conf.MandatoryMomentReportFrequency = 'Monthly' # Monthly (den 1:a), Weekly (måndag) eller Daily.
 $conf.MandatoryMomentMinimumAge = 15
 $conf.MandatoryMomentValidityYears = 3
+
+# Medlemsnummer som inte ska med för ett visst moment, till exempel om momentet hanteras på annat sätt.
+# Gäller både rapporten och påminnelserna.
+$conf.MandatoryMomentCourseExemptMembers = @()
+$conf.MandatoryMomentPoliceCheckExemptMembers = @()
+
+# Påminnelser till ledare som behöver göra eller förnya obligatoriska moment.
+# Urvalet använder som standard samma frekvens, åldersgräns, giltighetstid och roller som rapporten.
+# Sätt någon av de tre första nedan för att ge påminnelserna egna värden (tomt/0 = använd rapportens).
+$conf.MandatoryMomentReminderFrequency = '' # Monthly (den 1:a), Weekly (måndag) eller Daily.
+$conf.MandatoryMomentReminderMinimumAge = 0
+$conf.MandatoryMomentReminderValidityYears = 0
+$conf.MandatoryMomentReminderExcludedRoles = @()
+$conf.MandatoryMomentReminderDaysBefore = 30 # Påminn så här många dagar innan giltighetstiden går ut.
+$conf.MandatoryMomentReminderCc = @() # Ansvariga som får kopia på varje påminnelse.
+$conf.MandatoryMomentReminderSubject = "Påminnelse: obligatoriska moment"
+$conf.MandatoryMomentReminderHeading = "Påminnelse om obligatoriska moment"
+$conf.MandatoryMomentReminderIntro = "Hej {FirstName}! Du behöver göra eller förnya följande obligatoriska moment."
+$conf.MandatoryMomentCourseReminderText = "Trygga möten: gör kursen i Scouternas utbildningsportal."
+$conf.MandatoryMomentCourseReminderLinks = @("Om Trygga möten|https://example.se/trygga-moten")
+$conf.MandatoryMomentPoliceCheckReminderText = "Registerutdrag: begär ett nytt utdrag ur belastningsregistret."
+$conf.MandatoryMomentPoliceCheckReminderLinks = @("Så gör du|https://example.se/registerutdrag")
+$conf.MandatoryMomentReminderFooter = "Hälsningar scoutkåren"
 
 # Domännam för scoutkårens office 365.
 $conf.DomainName = "example.se"
@@ -297,21 +323,32 @@ Catch
     Write-SNSLog -Level "Error" "Kunde inte uppdatera Microsoft 365-grupper. Fel: $_"
 }
 
-# Skicka rapporten över obligatoriska moment till de konfigurerade mottagarna.
 try
 {
-    $lastReportSentValue = Get-AutomationVariable -Name 'MandatoryMomentReportLastSent' -ErrorAction "Stop"
-    $reportSent = Send-SNSMandatoryMomentReport -Configuration $conf `
-        -LastSentValue $lastReportSentValue -ErrorAction "Stop"
-    if ($reportSent)
+    Update-SNSharedMailbox -Configuration $conf -ErrorAction Stop
+}
+Catch
+{
+    Write-SNSLog -Level "Error" "Kunde inte uppdatera delade mailboxar. Fel: $_"
+}
+
+# Skicka rapport och påminnelser om obligatoriska moment.
+try
+{
+    $lastSentValue = Get-AutomationVariable -Name 'MandatoryMomentReportLastSent' -ErrorAction "Stop"
+    # Lägg till -TestEmailAddress "test@example.org" för att skicka alla påminnelser dit i stället för till medlemmarna.
+    # Ta bort -NoReminder om påminnelserna inte ska skickas.
+    $lastSentDate = Invoke-SNSMandatoryMomentReportAndReminder -Configuration $conf `
+        -LastSentValue $lastSentValue -NoReminder -ErrorAction "Stop"
+    if ($null -ne $lastSentDate)
     {
         Set-AutomationVariable -Name 'MandatoryMomentReportLastSent' `
-            -Value (Get-Date -Format 'o') -ErrorAction "Stop"
+            -Value $lastSentDate.ToString('o') -ErrorAction "Stop"
     }
 }
 Catch
 {
-    Write-SNSLog -Level "Error" "Kunde inte skapa eller skicka rapporten över obligatoriska moment. Fel: $_"
+    Write-SNSLog -Level "Error" "Kunde inte skapa rapporten eller skicka påminnelser om obligatoriska moment. Fel: $_"
 }
 
 # Skapa ett mail med loggen och skicka till admin.

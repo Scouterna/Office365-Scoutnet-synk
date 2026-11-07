@@ -7,7 +7,7 @@
     .DESCRIPTION
         Reads the log file written by Write-SNSLog and returns a short text summary: status,
         run time, number of errors and warnings, and what the run did for distribution groups,
-        contacts, user accounts and Microsoft 365 groups. Errors and warnings are listed,
+        contacts, user accounts, Microsoft 365 groups and shared mailboxes. Errors and warnings are listed,
         up to MaxListedMessages of each; the rest are counted.
         The text is meant to be placed first in the mail with the log.
         Call it after the last synchronization step, before the log is sent.
@@ -120,7 +120,12 @@
     $usersEnabled = & $count "^Enabling user "
     $m365UpToDate = & $count "^Microsoft 365 group '.*' is up to date"
     $teamsCreated = & $count "^Created Microsoft Teams team for group "
+    $mailboxesCreated = & $count "^Created shared mailbox '"
+    $mailboxesUpToDate = & $count "^Shared mailbox '.*' is up to date"
+    $mailboxPermissionsGiven = & $count "^Gave .* permission on shared mailbox '"
+    $mailboxPermissionsRemoved = & $count "^Removed .* permission for .* on shared mailbox '"
     $reportSent = & $count '^Mandatory moment report sent to '
+    $remindersSent = & $lastNumber '^Mandatory moment reminders sent: (\d+)\.$'
     $scoutnetUnchanged = & $count '^Scoutnet is not updated\. No update will be done\.$'
 
     if ($errors.Count -gt 0)
@@ -176,7 +181,15 @@
     $lines.Add("  Oförändrade: $m365UpToDate, Teams skapade: $teamsCreated")
     $lines.Add("")
 
+    $lines.Add("Delade mailboxar")
+    $lines.Add("  Skapade: $mailboxesCreated, oförändrade: $mailboxesUpToDate")
+    $lines.Add("  Rättigheter tillagda: $mailboxPermissionsGiven, borttagna: $mailboxPermissionsRemoved")
+    $lines.Add("")
     $lines.Add("Rapport över obligatoriska moment: " + $(if ($reportSent -gt 0) { "skickad" } else { "inte skickad" }))
+    if ($null -ne $remindersSent)
+    {
+        $lines.Add("Påminnelser om obligatoriska moment: $remindersSent skickade")
+    }
 
     $addList = {
         param([string]$Title, $Items, [int]$Limit)

@@ -1,5 +1,5 @@
 ﻿#Requires -Version 7.6
-#Requires -Modules @{ ModuleName="Office365-Scoutnet-synk"; ModuleVersion="3.1" }
+#Requires -Modules @{ ModuleName="Office365-Scoutnet-synk"; ModuleVersion="3.2" }
 
 # Lämplig inställning i Azure automation.
 $ProgressPreference = "silentlyContinue"
@@ -48,6 +48,29 @@ $conf.MandatoryMomentReportRecipients = @("ansvarig@scoutkåren")
 $conf.MandatoryMomentReportFrequency = 'Daily' # Monthly (den 1:a), Weekly (måndag) eller Daily.
 $conf.MandatoryMomentMinimumAge = 15
 $conf.MandatoryMomentValidityYears = 3
+
+# Medlemsnummer som inte ska med för ett visst moment, till exempel om momentet hanteras på annat sätt.
+# Gäller både rapporten och påminnelserna.
+$conf.MandatoryMomentCourseExemptMembers = @()
+$conf.MandatoryMomentPoliceCheckExemptMembers = @()
+
+# Påminnelser till ledare som behöver göra eller förnya obligatoriska moment.
+# Urvalet använder som standard samma frekvens, åldersgräns, giltighetstid och roller som rapporten.
+# Sätt någon av de tre första nedan för att ge påminnelserna egna värden (tomt/0 = använd rapportens).
+$conf.MandatoryMomentReminderFrequency = '' # Monthly (den 1:a), Weekly (måndag) eller Daily.
+$conf.MandatoryMomentReminderMinimumAge = 0
+$conf.MandatoryMomentReminderValidityYears = 0
+$conf.MandatoryMomentReminderExcludedRoles = @()
+$conf.MandatoryMomentReminderDaysBefore = 30 # Påminn så här många dagar innan giltighetstiden går ut.
+$conf.MandatoryMomentReminderCc = @() # Ansvariga som får kopia på varje påminnelse.
+$conf.MandatoryMomentReminderSubject = "Påminnelse: obligatoriska moment"
+$conf.MandatoryMomentReminderHeading = "Påminnelse om obligatoriska moment"
+$conf.MandatoryMomentReminderIntro = "Hej {FirstName}! Du behöver göra eller förnya följande obligatoriska moment."
+$conf.MandatoryMomentCourseReminderText = "Trygga möten: gör kursen i Scouternas utbildningsportal."
+$conf.MandatoryMomentCourseReminderLinks = @("Om Trygga möten|https://example.se/trygga-moten")
+$conf.MandatoryMomentPoliceCheckReminderText = "Registerutdrag: begär ett nytt utdrag ur belastningsregistret."
+$conf.MandatoryMomentPoliceCheckReminderLinks = @("Så gör du|https://example.se/registerutdrag")
+$conf.MandatoryMomentReminderFooter = "Hälsningar scoutkåren"
 
 # Hashtable med distributionsgruppens e-postadress i Office 365 som nyckel.
 # Distributions grupper som är med här kommer att synkroniseras.
@@ -242,14 +265,25 @@ Catch
     Write-SNSLog -Level "Error" "Kunde inte uppdatera Microsoft 365-grupper. Fel: $_"
 }
 
-# Skicka rapporten över obligatoriska moment till de konfigurerade mottagarna.
 try
 {
-    $reportSent = Send-SNSMandatoryMomentReport -Configuration $conf -LastSentValue "0001-01-01T00:00:00" -ErrorAction "Stop"
+    Update-SNSharedMailbox -Configuration $conf -ErrorAction Stop
 }
 Catch
 {
-    Write-SNSLog -Level "Error" "Kunde inte skapa eller skicka rapporten över obligatoriska moment. Fel: $_"
+    Write-SNSLog -Level "Error" "Kunde inte uppdatera delade mailboxar. Fel: $_"
+}
+
+# Skicka rapport och påminnelser om obligatoriska moment.
+# Ta bort -NoReminder om påminnelserna inte ska skickas.
+try
+{
+    Invoke-SNSMandatoryMomentReportAndReminder -Configuration $conf `
+        -LastSentValue "0001-01-01T00:00:00" -NoReminder -ErrorAction "Stop"
+}
+Catch
+{
+    Write-SNSLog -Level "Error" "Kunde inte skapa rapporten eller skicka påminnelser om obligatoriska moment. Fel: $_"
 }
 
 $bodyData = (Get-SNSRunSummary -Configuration $conf) + [Environment]::NewLine +

@@ -15,7 +15,10 @@
 . $PSScriptRoot\Get-SNSExchangeMailListMember.ps1
 . $PSScriptRoot\Get-SNSApiGroupMemberlist.ps1
 . $PSScriptRoot\Send-SNSMandatoryMomentReport.ps1
+. $PSScriptRoot\Send-SNSMandatoryMomentReminder.ps1
+. $PSScriptRoot\Invoke-SNSMandatoryMomentReportAndReminder.ps1
 . $PSScriptRoot\Update-SNMicrosoft365Group.ps1
+. $PSScriptRoot\Update-SNSharedMailbox.ps1
 . $PSScriptRoot\Get-SNSRoleListMember.ps1
 . $PSScriptRoot\Invoke-SNSUppdateOffice365User.ps1
 . $PSScriptRoot\Connect-SnSOffice365.ps1
