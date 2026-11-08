@@ -406,6 +406,65 @@ Describe 'Update-SNMicrosoft365Group' {
         }
     }
 
+    It 'adds keep_members without fetching Scoutnet data when source is omitted' {
+        InModuleScope Office365-Scoutnet-synk {
+            function Get-EXOMailbox {}
+            function Get-MgGroup { param($Filter, $Property, $All, $ErrorAction) }
+            function Get-MgGroupMember { param($GroupId, $All, $ErrorAction) }
+            function Get-MgUser { param($UserId, $Property, $ErrorAction) }
+            function New-MgGroupMember { param($GroupId, $DirectoryObjectId, $ErrorAction) }
+            function Remove-MgGroupMemberDirectoryObjectByRef { param($GroupId, $DirectoryObjectId, $ErrorAction) }
+
+            $configuration = [SNSConfiguration]::new()
+            $configuration.Microsoft365GroupSettings = @{
+                'Extern arbetsgrupp' = @{
+                    mail_nickname = 'extern-arbetsgrupp'
+                    keep_members = @('person@example.org', 'object-id')
+                }
+            }
+            $existingGroup = [pscustomobject]@{
+                Id = 'group-1'
+                DisplayName = 'Extern arbetsgrupp'
+                GroupTypes = @('Unified')
+                MailEnabled = $true
+            }
+
+            Mock Get-SNSApiGroupMemberlist { throw 'Scoutnet must not be queried.' }
+            Mock Get-EXOMailbox { throw 'Exchange mailboxes are not needed without a Scoutnet rule.' }
+            Mock Get-MgGroup { return @($existingGroup) }
+            Mock Get-MgGroupMember { return @() }
+            Mock Get-MgUser { return [pscustomobject]@{ Id = 'resolved-user-id' } }
+            Mock New-MgGroupMember {}
+            Mock Remove-MgGroupMemberDirectoryObjectByRef {}
+            Mock Write-SNSLog {}
+
+            Update-SNMicrosoft365Group -Configuration $configuration
+
+            Should -Invoke Get-SNSApiGroupMemberlist -Times 0 -Exactly
+            Should -Invoke Get-EXOMailbox -Times 0 -Exactly
+            Should -Invoke Get-MgUser -Times 1 -Exactly -ParameterFilter { $UserId -eq 'person@example.org' }
+            Should -Invoke New-MgGroupMember -Times 2 -Exactly
+            Should -Invoke New-MgGroupMember -Times 1 -Exactly -ParameterFilter {
+                $GroupId -eq 'group-1' -and $DirectoryObjectId -eq 'resolved-user-id'
+            }
+            Should -Invoke New-MgGroupMember -Times 1 -Exactly -ParameterFilter {
+                $GroupId -eq 'group-1' -and $DirectoryObjectId -eq 'object-id'
+            }
+        }
+    }
+
+    It 'requires keep_members when source is omitted' {
+        InModuleScope Office365-Scoutnet-synk {
+            $configuration = [SNSConfiguration]::new()
+            $configuration.Microsoft365GroupSettings = @{
+                'Extern arbetsgrupp' = @{ mail_nickname = 'extern-arbetsgrupp' }
+            }
+
+            { Update-SNMicrosoft365Group -Configuration $configuration } |
+                Should -Throw '*must configure keep_members when source is omitted*'
+        }
+    }
+
     It 'uses the configured Scoutnet mailing list and defaults to its leader members' {
         InModuleScope Office365-Scoutnet-synk {
             function Get-EXOMailbox {}

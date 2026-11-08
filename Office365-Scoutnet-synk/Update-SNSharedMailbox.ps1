@@ -129,12 +129,13 @@ function Update-SNSharedMailbox
         mailbox and each value is a rule with these entries:
 
         Required for all rules
-          source         'mail_list', 'troop_roles' or 'group_roles'. Selects the members in the
-                         same way as for Microsoft365GroupSettings.
           mail_nickname  Alias of the mailbox. It identifies the mailbox and is used for the
                          e-mail address when the mailbox is created. Letters, digits, '.', '_'
                          and '-' are allowed.
         Optional for all rules
+          source         'mail_list', 'troop_roles' or 'group_roles'. Selects the members in the
+                         same way as for Microsoft365GroupSettings. Omit to manage only
+                         keep_members without a Scoutnet connection.
           email_address  Primary e-mail address, used when the mailbox is created. Default is
                          mail_nickname@DomainName, so DomainName must be configured when it is
                          left out.
@@ -148,15 +149,16 @@ function Update-SNSharedMailbox
                          changed when configured.
           copy_sent_items  Set to $true to keep a copy of the mail sent with Send As in the
                          mailbox. Only changed when configured.
-          keep_members   Accounts (user principal names or object ids) that never lose a
-                         permission even if they do not match the rule.
+          keep_members   Accounts (user principal names or object ids) to give the configured
+                         permissions to and never remove. Required when source is omitted.
 
         source = 'mail_list', 'group_roles' and 'troop_roles' take the same fields as for
         Update-SNMicrosoft365Group.
 
-        The function validates all rules first, fetches the member list, the maillists and the
-        Exchange mailboxes, and only then changes Exchange Online. A member is mapped to an
-        account through the mailbox CustomAttribute1, which holds the Scoutnet member number.
+        The function validates all rules first, fetches Scoutnet data only when a rule has a
+        source, fetches the Exchange mailboxes, and only then changes Exchange Online. A member
+        is mapped to an account through the mailbox CustomAttribute1, which holds the Scoutnet
+        member number.
         A member matching a rule without an account is written to the log and skipped.
 
         The mailbox is found through its alias. It is created as a shared mailbox if it does not
@@ -164,7 +166,9 @@ function Update-SNSharedMailbox
         than a shared mailbox causes an error and the mailbox is not changed. Accounts that
         match the rule and lack a permission are given it, and accounts that no longer match
         lose it. Only permissions of accounts with a Microsoft 365 mailbox are removed. Permissions
-        of groups and other recipients, and accounts in keep_members, are never removed.
+        of groups and other recipients are never removed. Accounts in keep_members are given the
+        configured permissions and are never removed. When source is omitted, membership and
+        permissions are managed only from keep_members, and no Scoutnet data is fetched.
 
         Full Access can take up to an hour before it is visible in Outlook and Send As up to
         15 minutes.
@@ -204,6 +208,15 @@ function Update-SNSharedMailbox
             }
         }
         Update-SNSharedMailbox -Configuration $conf -WhatIf
+
+    .EXAMPLE
+        $conf.SharedMailboxSettings = @{
+            'Extern' = @{
+                mail_nickname = 'extern'
+                keep_members  = @('person@example.org', 'object-id')
+            }
+        }
+        Update-SNSharedMailbox -Configuration $conf
     #>
     [CmdletBinding(SupportsShouldProcess = $true)]
     param (
@@ -234,7 +247,7 @@ function Update-SNSharedMailbox
     foreach ($mailboxName in $mailboxSettings.Keys)
     {
         $setting = $mailboxSettings[$mailboxName]
-        $source = ([string](Get-SNMicrosoft365Value -Object $setting -Name 'source')).ToLowerInvariant()
+        $source = ([string](Get-SNMicrosoft365Value -Object $setting -Name 'source')).Trim().ToLowerInvariant()
         $alias = [string](Get-SNMicrosoft365Value -Object $setting -Name 'mail_nickname')
 
         if ([string]::IsNullOrWhiteSpace([string]$mailboxName))
@@ -254,9 +267,15 @@ function Update-SNSharedMailbox
             throw "Shared mailboxes '$($usedAliases[$alias.ToLowerInvariant()])' and '$mailboxName' use the same mail_nickname '$alias'."
         }
         $usedAliases[$alias.ToLowerInvariant()] = $mailboxName
-        if ($source -notin @('mail_list', 'troop_roles', 'group_roles'))
+        if ($source -notin @('', 'mail_list', 'troop_roles', 'group_roles'))
         {
             throw "Shared mailbox '$mailboxName' has unsupported source '$source'. Use mail_list, troop_roles, or group_roles."
+        }
+        if ([string]::IsNullOrWhiteSpace($source) -and
+            @((Get-SNMicrosoft365Value -Object $setting -Name 'keep_members') |
+                Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }).Count -eq 0)
+        {
+            throw "Shared mailbox '$mailboxName' must configure keep_members when source is omitted."
         }
         if ([string]::IsNullOrWhiteSpace([string](Get-SNMicrosoft365Value -Object $setting -Name 'email_address')) -and
             [string]::IsNullOrWhiteSpace([string]$snsConfiguration.DomainName))
@@ -277,10 +296,19 @@ function Update-SNSharedMailbox
             throw "Shared mailbox '$mailboxName' must give at least one permission. Remove full_access = `$false or send_as = `$false."
         }
 
-        Assert-SNMicrosoft365SourceRule -Name ([string]$mailboxName) -Setting $setting -Source $source -Label 'Shared mailbox'
+        if (-not [string]::IsNullOrWhiteSpace($source))
+        {
+            Assert-SNMicrosoft365SourceRule -Name ([string]$mailboxName) -Setting $setting -Source $source -Label 'Shared mailbox'
+        }
     }
 
-    $scoutnetData = Get-SNMicrosoft365ScoutnetData -Configuration $snsConfiguration -Rules $mailboxSettings -Label 'shared mailboxes'
+    $usesScoutnet = @($mailboxSettings.Values | Where-Object {
+        -not [string]::IsNullOrWhiteSpace(([string](Get-SNMicrosoft365Value -Object $_ -Name 'source')).Trim())
+    }).Count -gt 0
+    $scoutnetData = if ($usesScoutnet)
+    {
+        Get-SNMicrosoft365ScoutnetData -Configuration $snsConfiguration -Rules $mailboxSettings -Label 'shared mailboxes'
+    }
 
     # CustomAttribute1 holds the Scoutnet member number of each Microsoft 365 account.
     $allOffice365Users = @(
@@ -312,12 +340,39 @@ function Update-SNSharedMailbox
         }
     }
 
-    # Work out the wanted Scoutnet member numbers per mailbox before touching Exchange Online.
+    # Resolve desired members before touching Exchange Online.
     $desiredMemberIdsByMailbox = @{}
+    $keepUserIdsByMailbox = @{}
     foreach ($mailboxName in $mailboxSettings.Keys)
     {
-        $desiredMemberIdsByMailbox[$mailboxName] = Get-SNMicrosoft365DesiredMemberId `
-            -Setting $mailboxSettings[$mailboxName] -ScoutnetData $scoutnetData
+        $setting = $mailboxSettings[$mailboxName]
+        $source = ([string](Get-SNMicrosoft365Value -Object $setting -Name 'source')).Trim().ToLowerInvariant()
+        $desiredMemberIdsByMailbox[$mailboxName] = if ([string]::IsNullOrWhiteSpace($source))
+        {
+            @{}
+        }
+        else
+        {
+            Get-SNMicrosoft365DesiredMemberId -Setting $setting -ScoutnetData $scoutnetData
+        }
+
+        $keepUserIds = @{}
+        foreach ($keepMember in @(Get-SNMicrosoft365Value -Object $setting -Name 'keep_members'))
+        {
+            if ([string]::IsNullOrWhiteSpace([string]$keepMember)) { continue }
+            $keepId = ([string]$keepMember).Trim()
+            $keepUser = $knownUsers[$keepId.ToLowerInvariant()]
+            if ($null -ne $keepUser)
+            {
+                $keepId = [string]$keepUser.ExternalDirectoryObjectId
+            }
+            elseif (-not $usersById.ContainsKey($keepId))
+            {
+                throw "Shared mailbox '$mailboxName' has keep_members account '$keepMember' that could not be resolved to a Microsoft 365 mailbox."
+            }
+            $keepUserIds[$keepId] = $true
+        }
+        $keepUserIdsByMailbox[$mailboxName] = $keepUserIds
     }
 
     foreach ($mailboxName in $mailboxSettings.Keys)
@@ -410,21 +465,15 @@ function Update-SNSharedMailbox
                 Write-SNSLog -Level 'Info' "Scoutnet member '$memberId' matches shared mailbox '$mailboxName' but has no Microsoft 365 user account. The member is skipped."
             }
         }
-
-        # Accounts in keep_members never lose a permission.
-        $protectedUserIds = @{}
-        foreach ($keepMember in @(Get-SNMicrosoft365Value -Object $setting -Name 'keep_members'))
+        foreach ($userId in $keepUserIdsByMailbox[$mailboxName].Keys)
         {
-            if ([string]::IsNullOrWhiteSpace([string]$keepMember)) { continue }
-            $keepUser = $knownUsers[([string]$keepMember).Trim().ToLowerInvariant()]
-            if ($null -ne $keepUser)
-            {
-                $protectedUserIds[[string]$keepUser.ExternalDirectoryObjectId] = $true
-            }
-            elseif ($usersById.ContainsKey(([string]$keepMember).Trim()))
-            {
-                $protectedUserIds[([string]$keepMember).Trim()] = $true
-            }
+            $desiredUserIds[[string]$userId] = $true
+        }
+
+        $protectedUserIds = @{}
+        foreach ($userId in $keepUserIdsByMailbox[$mailboxName].Keys)
+        {
+            $protectedUserIds[[string]$userId] = $true
         }
 
         $permissionKinds = @()

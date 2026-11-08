@@ -296,6 +296,48 @@ Describe 'Update-SNSharedMailbox' {
         }
     }
 
+    It 'adds keep_members permissions without fetching Scoutnet data when source is omitted' {
+        InModuleScope Office365-Scoutnet-synk {
+            $script:recipients = @($script:sharedMailbox)
+            $configuration = New-TestConfiguration
+            $configuration.SharedMailboxSettings = @{
+                'Kassoren' = @{
+                    mail_nickname = 'kassoren'
+                    keep_members = @('u1@example.se', 'id-2')
+                }
+            }
+
+            Update-SNSharedMailbox -Configuration $configuration
+
+            Should -Invoke Get-SNSApiGroupMemberlist -Times 0 -Exactly
+            foreach ($upn in @('u1@example.se', 'u2@example.se'))
+            {
+                Should -Invoke Add-MailboxPermission -Times 1 -Exactly -ParameterFilter {
+                    $Identity -eq 'mbx-1' -and $User -eq $upn -and $AccessRights -eq 'FullAccess'
+                }
+                Should -Invoke Add-RecipientPermission -Times 1 -Exactly -ParameterFilter {
+                    $Identity -eq 'mbx-1' -and $Trustee -eq $upn -and $AccessRights -eq 'SendAs'
+                }
+            }
+            Should -Invoke Add-MailboxPermission -Times 2 -Exactly
+            Should -Invoke Add-RecipientPermission -Times 2 -Exactly
+        }
+    }
+
+    It 'requires keep_members when source is omitted' {
+        InModuleScope Office365-Scoutnet-synk {
+            $configuration = New-TestConfiguration
+            $configuration.SharedMailboxSettings = @{
+                'Kassoren' = @{ mail_nickname = 'kassoren' }
+            }
+
+            { Update-SNSharedMailbox -Configuration $configuration } |
+                Should -Throw '*must configure keep_members when source is omitted*'
+            Should -Invoke Get-SNSApiGroupMemberlist -Times 0 -Exactly
+            Should -Invoke Get-EXOMailbox -Times 0 -Exactly
+        }
+    }
+
     It 'creates a missing shared mailbox and gives matching accounts Full Access and Send As' {
         InModuleScope Office365-Scoutnet-synk {
             $configuration = New-TestConfiguration

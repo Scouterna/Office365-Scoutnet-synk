@@ -603,15 +603,17 @@ function Update-SNMicrosoft365Group
         each value is a rule with these entries:
 
         Required for all rules
-          source         'mail_list', 'troop_roles' or 'group_roles'.
           mail_nickname  Unique mail nickname, used when the group is created.
         Optional for all rules
+          source         'mail_list', 'troop_roles' or 'group_roles'. Omit to manage only
+                         keep_members without a Scoutnet connection.
           description    Group description, used when the group is created.
           group_type     'microsoft365' (default) for a Microsoft 365 group, or 'security' for a
                          security group (not mail enabled). Security groups can be used to
-                         control access, for example to a SharePoint area. They cannot be teams.          create_team    Set to $true to also make the group a Microsoft Teams team.
-          keep_members   Accounts (user principal names or object ids) that are never removed
-                         from the group even if they do not match the rule.
+                         control access, for example to a SharePoint area. They cannot be teams.
+          create_team    Set to $true to also make the group a Microsoft Teams team.
+          keep_members   Accounts (user principal names or object ids) to add to the group and
+                         never remove. Required when source is omitted.
           team_owners    Owners (user principal names or object ids) added to the group when
                          the team is created. Teams requires the group to have an owner.
 
@@ -641,8 +643,9 @@ function Update-SNMicrosoft365Group
         group when group_type is 'security', if it does not
         exist. Matching accounts missing in the group are added and members that no longer
         match, for example leaders whose account was closed or who left the troop, are removed.
-        Owners of the group and accounts listed in keep_members are never removed, which also
-        protects an existing team whose owners are not part of the rule.
+        Accounts listed in keep_members are added and never removed. When source is omitted, the
+        group is managed only from keep_members and no Scoutnet data is fetched. Owners are also
+        never removed, which protects an existing team whose owners are not part of the rule.
         Existing groups of another type than configured, or display names that are not
         unique, cause an error and the group is not changed.
 
@@ -707,6 +710,15 @@ function Update-SNMicrosoft365Group
             }
         }
         Update-SNMicrosoft365Group -Configuration $conf
+
+    .EXAMPLE
+        $conf.Microsoft365GroupSettings = @{
+            'Extern arbetsgrupp' = @{
+                mail_nickname = 'extern-arbetsgrupp'
+                keep_members  = @('person@example.org', 'object-id')
+            }
+        }
+        Update-SNMicrosoft365Group -Configuration $conf
     #>
     [CmdletBinding(SupportsShouldProcess = $true)]
     param (
@@ -736,7 +748,7 @@ function Update-SNMicrosoft365Group
     foreach ($groupName in $groupSettings.Keys)
     {
         $setting = $groupSettings[$groupName]
-        $source = ([string](Get-SNMicrosoft365Value -Object $setting -Name 'source')).ToLowerInvariant()
+        $source = ([string](Get-SNMicrosoft365Value -Object $setting -Name 'source')).Trim().ToLowerInvariant()
         $mailNickname =  [string](Get-SNMicrosoft365Value -Object $setting -Name 'mail_nickname')
 
         if ([string]::IsNullOrWhiteSpace([string]$groupName))
@@ -747,9 +759,15 @@ function Update-SNMicrosoft365Group
         {
             throw "Microsoft 365 group '$groupName' must configure mail_nickname."
         }
-        if ($source -notin @('mail_list', 'troop_roles', 'group_roles'))
+        if ($source -notin @('', 'mail_list', 'troop_roles', 'group_roles'))
         {
             throw "Microsoft 365 group '$groupName' has unsupported source '$source'. Use mail_list, troop_roles, or group_roles."
+        }
+        if ([string]::IsNullOrWhiteSpace($source) -and
+            @((Get-SNMicrosoft365Value -Object $setting -Name 'keep_members') |
+                Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }).Count -eq 0)
+        {
+            throw "Microsoft 365 group '$groupName' must configure keep_members when source is omitted."
         }
         $groupType = ([string](Get-SNMicrosoft365Value -Object $setting -Name 'group_type')).Trim().ToLowerInvariant()
         if (-not [string]::IsNullOrWhiteSpace($groupType) -and $groupType -notin @('microsoft365', 'security'))
@@ -772,15 +790,31 @@ function Update-SNMicrosoft365Group
             }
         }
 
-        Assert-SNMicrosoft365SourceRule -Name ([string]$groupName) -Setting $setting -Source $source -Label 'Microsoft 365 group'
+        if (-not [string]::IsNullOrWhiteSpace($source))
+        {
+            Assert-SNMicrosoft365SourceRule -Name ([string]$groupName) -Setting $setting -Source $source -Label 'Microsoft 365 group'
+        }
     }
 
-    $scoutnetData = Get-SNMicrosoft365ScoutnetData -Configuration $snsConfiguration -Rules $groupSettings -Label 'Microsoft 365 groups'
+    $usesScoutnet = @($groupSettings.Values | Where-Object {
+        -not [string]::IsNullOrWhiteSpace(([string](Get-SNMicrosoft365Value -Object $_ -Name 'source')).Trim())
+    }).Count -gt 0
+    $scoutnetData = if ($usesScoutnet)
+    {
+        Get-SNMicrosoft365ScoutnetData -Configuration $snsConfiguration -Rules $groupSettings -Label 'Microsoft 365 groups'
+    }
 
     # CustomAttribute1 holds the Scoutnet member number of each Microsoft 365 account.
-    $allOffice365Users = @(
-        Get-EXOMailbox -RecipientTypeDetails 'UserMailbox' -Properties CustomAttribute1 -Verbose:$false -ErrorAction Stop
-    )
+    $allOffice365Users = if ($usesScoutnet)
+    {
+        @(
+            Get-EXOMailbox -RecipientTypeDetails 'UserMailbox' -Properties CustomAttribute1 -Verbose:$false -ErrorAction Stop
+        )
+    }
+    else
+    {
+        @()
+    }
     $office365UsersByScoutnetId = @{}
     foreach ($office365User in $allOffice365Users)
     {
@@ -792,12 +826,38 @@ function Update-SNMicrosoft365Group
         }
     }
 
-    # Work out the wanted Scoutnet member numbers per group before touching Microsoft 365.
+    # Resolve desired members before touching Microsoft 365.
     $desiredMemberIdsByGroup = @{}
+    $keepDirectoryObjectIdsByGroup = @{}
     foreach ($groupName in $groupSettings.Keys)
     {
         $setting = $groupSettings[$groupName]
-        $desiredMemberIdsByGroup[$groupName] = Get-SNMicrosoft365DesiredMemberId -Setting $setting -ScoutnetData $scoutnetData
+        $source = ([string](Get-SNMicrosoft365Value -Object $setting -Name 'source')).Trim().ToLowerInvariant()
+        $desiredMemberIdsByGroup[$groupName] = if ([string]::IsNullOrWhiteSpace($source))
+        {
+            @{}
+        }
+        else
+        {
+            Get-SNMicrosoft365DesiredMemberId -Setting $setting -ScoutnetData $scoutnetData
+        }
+        $keepIds = @{}
+        foreach ($keepMember in @(Get-SNMicrosoft365Value -Object $setting -Name 'keep_members'))
+        {
+            if ([string]::IsNullOrWhiteSpace([string]$keepMember)) { continue }
+            $keepId = ([string]$keepMember).Trim()
+            if ($keepId.Contains('@'))
+            {
+                $keepUser = Get-MgUser -UserId $keepId -Property Id -ErrorAction Stop
+                if ($null -eq $keepUser -or [string]::IsNullOrWhiteSpace([string]$keepUser.Id))
+                {
+                    throw "Microsoft 365 group '$groupName' has keep_members account '$keepId' that could not be resolved."
+                }
+                $keepId = [string]$keepUser.Id
+            }
+            $keepIds[$keepId] = $true
+        }
+        $keepDirectoryObjectIdsByGroup[$groupName] = $keepIds
     }
 
     # Find or create each configured group and make its membership match the rule.
@@ -872,6 +932,10 @@ function Update-SNMicrosoft365Group
                 Write-SNSLog -Level 'Info' "Scoutnet member '$memberId' matches Microsoft 365 group '$groupName' but has no Microsoft 365 user account. The member is skipped."
             }
         }
+        foreach ($userId in $keepDirectoryObjectIdsByGroup[$groupName].Keys)
+        {
+            $desiredDirectoryObjectIds[[string]$userId] = $true
+        }
 
         # A group created in this run has no members yet.
         $existingGroupMembers = if ($groupCreated) { @() } else {
@@ -910,15 +974,9 @@ function Update-SNMicrosoft365Group
             {
                 $protectedObjectIds[[string]$owner.Id] = $true
             }
-            foreach ($keepMember in @(Get-SNMicrosoft365Value -Object $setting -Name 'keep_members'))
+            foreach ($keepId in $keepDirectoryObjectIdsByGroup[$groupName].Keys)
             {
-                if ([string]::IsNullOrWhiteSpace([string]$keepMember)) { continue }
-                $keepId = [string]$keepMember
-                if ($keepId.Contains('@'))
-                {
-                    $keepId = [string](Get-MgUser -UserId $keepId -Property Id -ErrorAction Stop).Id
-                }
-                $protectedObjectIds[$keepId] = $true
+                $protectedObjectIds[[string]$keepId] = $true
             }
         }
         foreach ($userId in $staleDirectoryObjectIds)
