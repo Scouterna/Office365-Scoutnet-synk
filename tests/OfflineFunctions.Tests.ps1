@@ -311,17 +311,21 @@ Describe 'Mandatory moment report' {
         $script:sentReportParameters.Message.Body.Content | Should -Match '<h2>Registerutdrag</h2>'
     }
 
-    It 'sends only on the configured cadence and only once per period' {
+    It 'sends only on the configured cadence and waits the interval for weekly and monthly runs' {
         Test-SNSMandatoryMomentReportDue -Frequency Monthly -AsOfDate ([datetime]'2025-03-01') |
             Should -BeTrue
-        Test-SNSMandatoryMomentReportDue -Frequency Monthly -AsOfDate ([datetime]'2025-03-02') |
-            Should -BeFalse
         Test-SNSMandatoryMomentReportDue -Frequency Monthly -LastSentDate ([datetime]'2025-03-01') `
             -AsOfDate ([datetime]'2025-03-01') | Should -BeFalse
+        Test-SNSMandatoryMomentReportDue -Frequency Monthly -LastSentDate ([datetime]'2025-03-01') `
+            -AsOfDate ([datetime]'2025-03-30') | Should -BeFalse
+        Test-SNSMandatoryMomentReportDue -Frequency Monthly -LastSentDate ([datetime]'2025-03-01') `
+            -AsOfDate ([datetime]'2025-03-31') | Should -BeTrue
         Test-SNSMandatoryMomentReportDue -Frequency Weekly -AsOfDate ([datetime]'2025-03-03') |
             Should -BeTrue
         Test-SNSMandatoryMomentReportDue -Frequency Weekly -LastSentDate ([datetime]'2025-03-03') `
             -AsOfDate ([datetime]'2025-03-03') | Should -BeFalse
+        Test-SNSMandatoryMomentReportDue -Frequency Weekly -LastSentDate ([datetime]'2025-03-03') `
+            -AsOfDate ([datetime]'2025-03-09') | Should -BeFalse
         Test-SNSMandatoryMomentReportDue -Frequency Weekly -LastSentDate ([datetime]'2025-03-03') `
             -AsOfDate ([datetime]'2025-03-10') | Should -BeTrue
         Test-SNSMandatoryMomentReportDue -Frequency Daily -AsOfDate ([datetime]'2025-03-02') |

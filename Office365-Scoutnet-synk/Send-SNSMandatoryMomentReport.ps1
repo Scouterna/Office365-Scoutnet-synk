@@ -387,11 +387,12 @@ function ConvertTo-SNSMandatoryMomentReportHtml
     Determines whether the mandatory moment report is due.
 
 .DESCRIPTION
-    Checks whether the configured daily, weekly, or monthly reporting period has
-    started and whether a report has already been sent in that period.
+    Checks whether the configured daily, weekly, or monthly reporting cadence is
+    due. Weekly is due 7 days and monthly is due 30 days after the previous
+    successful run.
 
 .PARAMETER Frequency
-    Reporting cadence: Daily, Weekly (Monday), or Monthly (the first day).
+    Reporting cadence: Daily, Weekly (every 7 days), or Monthly (every 30 days).
 
 .PARAMETER LastSentDate
     Date and time of the last successful report. DateTime.MinValue means no
@@ -425,15 +426,12 @@ function Test-SNSMandatoryMomentReportDue
     switch ($Frequency)
     {
         'Monthly' {
-            return $today.Day -eq 1 -and
-                ($LastSentDate -eq [datetime]::MinValue -or
-                    $LastSentDate.Year -ne $today.Year -or $LastSentDate.Month -ne $today.Month)
+            return $LastSentDate -eq [datetime]::MinValue -or
+                $today -ge $LastSentDate.Date.AddDays(30)
         }
         'Weekly' {
-            $weekStart = $today.AddDays(-(([int]$today.DayOfWeek + 6) % 7))
-            $lastSentWeekStart = $LastSentDate.Date.AddDays(-(([int]$LastSentDate.DayOfWeek + 6) % 7))
-            return $today.DayOfWeek -eq [DayOfWeek]::Monday -and
-                ($LastSentDate -eq [datetime]::MinValue -or $lastSentWeekStart -ne $weekStart)
+            return $LastSentDate -eq [datetime]::MinValue -or
+                $today -ge $LastSentDate.Date.AddDays(7)
         }
         'Daily' {
             return $LastSentDate.Date -lt $today
