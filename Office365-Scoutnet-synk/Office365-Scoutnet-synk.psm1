@@ -1,4 +1,4 @@
-﻿#Requires -Version 7.6
+#Requires -Version 7.6
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls13
 
@@ -20,6 +20,7 @@
 . $PSScriptRoot\Update-SNMicrosoft365Group.ps1
 . $PSScriptRoot\Update-SNSharedMailbox.ps1
 . $PSScriptRoot\Get-SNSRoleListMember.ps1
+. $PSScriptRoot\Set-SNSMailListSetting.ps1
 . $PSScriptRoot\Invoke-SNSUppdateOffice365User.ps1
 . $PSScriptRoot\Connect-SnSOffice365.ps1
 . $PSScriptRoot\Disconnect-SnSOffice365.ps1
@@ -62,7 +63,7 @@ function Add-Office365UserToList
     {
         $PrimarySmtpAddress = $recipient.PrimarySmtpAddress
         $userAdded = $True
-        Write-SNSLog "Added member $($recipient.DisplayName) with smtp address $($recipient.PrimarySmtpAddress) to distribution group $distGroupName"
+        Write-SNSLog "Resolved member $($recipient.DisplayName) to smtp address $($recipient.PrimarySmtpAddress) for distribution group $distGroupName"
     }
     elseif ($doWarn)
     {
@@ -777,9 +778,11 @@ function SNSUpdateExchangeDistributionGroups
         normally the e-mail address) and mail_nickname (alias) must be specified to create a group, and so must
         primary_smtp_address unless the rule key is an e-mail address, which is then used as the address; otherwise
         a warning is logged and the group is skipped while the other lists continue.
-        allow_external_senders = $true also
-        lets senders outside the organization mail the new group (RequireSenderAuthenticationEnabled = $false);
-        it is only applied when the group is created. An existing group of another type is not
+        allow_external_senders (default $true) lets senders outside the organization mail the group
+        (RequireSenderAuthenticationEnabled = $false); it is applied to existing groups too. Group settings are handled by
+        Set-SNSMailListSetting: send_as (accounts/groups given Send As), require_moderation, moderators,
+        bypass_moderation, moderation_notification (Never/Internal/Always, default Never) and member_join_restriction
+        (default Closed) / member_depart_restriction (default Closed). An existing group of another type is not
         changed. Without group_type the
         group must already exist.
         add_prefix = $true creates (or updates) an Exchange mail flow rule that prepends a prefix to the subject
@@ -1202,6 +1205,7 @@ function SNSUpdateExchangeDistributionGroups
 #region Update maillist
             # Create a missing group when the rule asks for it: a mail-enabled security group or a regular distribution list.
             $groupType = Get-SNSMailListGroupType -Setting $MailListSettings[$distGroupName]
+            $groupCreated = $false
             if ($groupType -ne '')
             {
                 $exchangeType = if ($groupType -eq 'security') { 'Security' } else { 'Distribution' }
@@ -1244,32 +1248,7 @@ function SNSUpdateExchangeDistributionGroups
                         {
                             Write-SNSLog "Creating $exchangeType group $distGroupName"
                             New-DistributionGroup @newGroup -Confirm:$false | Out-Null
-
-                            # Set-DistributionGroup is used since New-DistributionGroup has no parameter for this.
-                            if ((Get-SNMicrosoft365Value -Object $MailListSettings[$distGroupName] -Name 'allow_external_senders') -eq $true)
-                            {
-                                for ($attempt = 1; $attempt -le 5; $attempt++)
-                                {
-                                    try
-                                    {
-                                        Set-DistributionGroup -Identity $distGroupName -RequireSenderAuthenticationEnabled $false -ErrorAction "stop" -Verbose:$false -Confirm:$false
-                                        Write-SNSLog "Allowed external senders for $distGroupName"
-                                        break
-                                    }
-                                    catch
-                                    {
-                                        if ($attempt -eq 5)
-                                        {
-                                            Write-SNSLog -Level "Warn" "Could not allow external senders for $distGroupName. Error $_"
-                                        }
-                                        else
-                                        {
-                                            # A new group can take a while to be visible.
-                                            Start-Sleep -Seconds 3
-                                        }
-                                    }
-                                }
-                            }
+                            $groupCreated = $true
                         }
                     }
                     catch
@@ -1286,6 +1265,7 @@ function SNSUpdateExchangeDistributionGroups
                     continue
                 }
             }
+            Set-SNSMailListSetting -GroupName $distGroupName -Setting $MailListSettings[$distGroupName] -Created:$groupCreated -WhatIf:$WhatIfPreference
             if ((Get-SNMicrosoft365Value -Object $MailListSettings[$distGroupName] -Name 'add_prefix') -eq $true)
             {
                 $prefixRuleStopwatch = [System.Diagnostics.Stopwatch]::StartNew()

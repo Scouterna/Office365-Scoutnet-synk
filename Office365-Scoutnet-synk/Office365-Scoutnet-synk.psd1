@@ -149,6 +149,8 @@ Uppgradering från tidigare versioner: https://github.com/Scouterna/Office365-Sc
 - Ny funktion Update-SNSharedMailbox för delade mailboxar. Skapar delade mailboxar och synkar Full Access och Skicka som (Send As) utifrån maillistor och roller i Scoutnet. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Delade-mailboxar
 - Ny funktion Send-SNSMandatoryMomentReminder skickar påminnelser till ledare som behöver göra eller förnya Trygga möten eller registerutdrag. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Obligatoriska-moment
 - Ny funktion Invoke-SNSMandatoryMomentReportAndReminder kör rapport och påminnelser med gemensamt kördatum. Anropet kan begränsas till rapport eller påminnelser.
+- Update-SNMicrosoft365Group och Update-SNSharedMailbox: keep_members lägger nu till extra medlemmar utan Scoutnet-koppling och skyddar dem från borttagning. source är valfritt när keep_members anges. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Microsoft-365-grupper
+- Distributionsgrupper har nya inställningar: send_as, require_moderation, moderators, bypass_moderation, moderation_notification, member_join_restriction och member_depart_restriction. Se https://github.com/Scouterna/Office365-Scoutnet-synk/wiki/Manual-Distributionsgrupper
 
 ### Bugfixar och förbättringar
 - Inga buggar rapporterade.

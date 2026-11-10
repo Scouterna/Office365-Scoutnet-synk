@@ -140,6 +140,10 @@ Describe 'SNSUpdateExchangeDistributionGroups role based rules' {
             function Get-EXORecipient { param($Identity, $ErrorAction, $Verbose) }
             function New-DistributionGroup { param($Name, $Type, $Alias, $DisplayName, $PrimarySmtpAddress, $ErrorAction, $Verbose, $Confirm) }
             function Set-DistributionGroup { param($Identity, $RequireSenderAuthenticationEnabled, $ErrorAction, $Verbose, $Confirm) }
+            function Get-DistributionGroup { param($Identity, $ErrorAction, $Verbose) }
+            Mock Get-DistributionGroup {
+                [pscustomobject]@{ RequireSenderAuthenticationEnabled = ($Identity -eq 'newgroup'); MemberJoinRestriction = 'Closed'; MemberDepartRestriction = 'Closed'; SendModerationNotifications = 'Never'; ModerationEnabled = $false }
+            }
             Mock Set-DistributionGroup {}
             Mock Get-EXORecipient {
                 if ($Identity -eq 'wrongtype') { return [pscustomobject]@{ RecipientTypeDetails = 'MailUniversalDistributionGroup' } }
@@ -187,6 +191,68 @@ Describe 'SNSUpdateExchangeDistributionGroups role based rules' {
             $configuration.MailListSettings = @{ bad = @{ source = 'group_roles'; group_type = 'other'; roles = @('x') } }
             { SNSUpdateExchangeDistributionGroups -ValidationHash 'old' -Configuration $configuration -WhatIf } |
                 Should -Throw '*Unsupported group_type*'
+        }
+    }
+
+    It 'applies delegate, moderation, membership and delivery settings' {
+        InModuleScope Office365-Scoutnet-synk {
+            function Get-DistributionGroup { param($Identity, $ErrorAction, $Verbose) }
+            function Set-DistributionGroup { param($Identity, $ModerationEnabled, $ModeratedBy, $BypassModerationFromSendersOrMembers, $SendModerationNotifications, $MemberJoinRestriction, $MemberDepartRestriction, $RequireSenderAuthenticationEnabled, $ErrorAction, $Verbose, $Confirm) }
+            function Add-RecipientPermission { [CmdletBinding()] param($Identity, $Trustee, $AccessRights, $Confirm, $ErrorAction, $Verbose) }
+            $script:current = [pscustomobject]@{ RequireSenderAuthenticationEnabled = $false; MemberJoinRestriction = 'Open'; MemberDepartRestriction = 'Closed'; SendModerationNotifications = 'Always'; ModerationEnabled = $false }
+            Mock Get-DistributionGroup { $script:current }
+            Mock Set-DistributionGroup {}
+            Mock Add-RecipientPermission {}
+
+            Set-SNSMailListSetting -GroupName 'list@example.org' -Setting @{
+                require_moderation = $true; moderators = @('mod@example.org'); bypass_moderation = @('ok@example.org', 'grp@example.org')
+                send_as = @('a@example.org', 'b@example.org'); allow_external_senders = $false
+            }
+
+            Should -Invoke Set-DistributionGroup -Times 1 -Exactly -ParameterFilter {
+                $Identity -eq 'list@example.org' -and $RequireSenderAuthenticationEnabled -eq $true -and $MemberJoinRestriction -eq 'Closed' -and
+                $SendModerationNotifications -eq 'Never' -and $ModerationEnabled -eq $true -and
+                @($ModeratedBy) -contains 'mod@example.org' -and @($BypassModerationFromSendersOrMembers).Count -eq 2 -and
+                $null -eq $MemberDepartRestriction
+            }
+            Should -Invoke Add-RecipientPermission -Times 2 -Exactly -ParameterFilter { $AccessRights -eq 'SendAs' }
+
+            # Defaults are in place and nothing else is specified, so nothing changes.
+            $script:current = [pscustomobject]@{ RequireSenderAuthenticationEnabled = $false; MemberJoinRestriction = 'Closed'; MemberDepartRestriction = 'Closed'; SendModerationNotifications = 'Never'; ModerationEnabled = $false }
+            Set-SNSMailListSetting -GroupName 'list@example.org' -Setting @{}
+            Should -Invoke Set-DistributionGroup -Times 1 -Exactly
+        }
+    }
+
+    It 'suppresses only the expected warning when Send As permission already exists' {
+        InModuleScope Office365-Scoutnet-synk {
+            function Get-DistributionGroup { param($Identity, $ErrorAction, $Verbose) }
+            function Set-DistributionGroup { param($Identity, $ErrorAction, $Verbose, $Confirm) }
+            function Add-RecipientPermission { [CmdletBinding()] param($Identity, $Trustee, $AccessRights, $Confirm, $ErrorAction, $Verbose) }
+            $script:current = [pscustomobject]@{ RequireSenderAuthenticationEnabled = $false; MemberJoinRestriction = 'Closed'; MemberDepartRestriction = 'Closed'; SendModerationNotifications = 'Never'; ModerationEnabled = $false }
+            Mock Get-DistributionGroup { $script:current }
+            Mock Set-DistributionGroup {}
+            Mock Write-SNSLog {}
+            $script:mockWarning = 'The appropriate access control entry is already present on the object.'
+            Mock Add-RecipientPermission { if ($script:mockWarning) { Write-Warning $script:mockWarning } }
+
+            $warnings = @()
+            Set-SNSMailListSetting -GroupName 'list@example.org' -Setting @{ send_as = @('user@example.org') } -WarningVariable warnings
+
+            $warnings | Should -BeNullOrEmpty
+            Should -Invoke Write-SNSLog -Times 1 -Exactly -ParameterFilter {
+                $Message -eq 'Send As permission for user@example.org already exists on list@example.org'
+            }
+
+            $script:mockWarning = 'An unexpected Exchange warning.'
+            Set-SNSMailListSetting -GroupName 'list@example.org' -Setting @{ send_as = @('other@example.org') } -WarningVariable warnings
+            ($warnings -join '') | Should -Match 'An unexpected Exchange warning.'
+
+            $script:mockWarning = $null
+            Set-SNSMailListSetting -GroupName 'list@example.org' -Setting @{ send_as = @('third@example.org') }
+            Should -Invoke Write-SNSLog -Times 1 -Exactly -ParameterFilter {
+                $Message -eq 'Send As permission request completed for third@example.org on list@example.org'
+            }
         }
     }
 
