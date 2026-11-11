@@ -112,6 +112,7 @@ Describe 'Mandatory moment reminder' {
     }
 
     It 'starts reminding only when the moment has expired with zero days before' {
+        $script:SNSConf.MandatoryMomentDaysBefore = 0
         $script:SNSConf.MandatoryMomentReminderDaysBefore = 0
 
         Send-SNSMandatoryMomentReminder -Memberlist $script:memberlist -AsOfDate ([datetime]'2025-01-31') | Should -BeTrue
@@ -226,7 +227,7 @@ Describe 'Mandatory moment reminder' {
 
         $script:SNSConf.MandatoryMomentReminderFrequency = 'Monthly'
         $script:SNSConf.MandatoryMomentReminderDaysBefore = -1
-        { Send-SNSMandatoryMomentReminder -Memberlist $script:memberlist } | Should -Throw '*MandatoryMomentReminderDaysBefore*'
+        { Send-SNSMandatoryMomentReminder -Memberlist $script:memberlist } | Should -Throw '*must be zero or greater*'
     }
 
     It 'skips member retrieval and mail when the reminders are not due' {

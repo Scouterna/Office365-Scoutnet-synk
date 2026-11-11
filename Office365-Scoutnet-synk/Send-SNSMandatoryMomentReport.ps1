@@ -206,6 +206,9 @@ function Get-SNSMandatoryMomentMemberNumber
 .PARAMETER ValidityYears
     Number of years a completed mandatory moment remains valid.
 
+.PARAMETER DaysBefore
+    Number of days before the validity ends that members are listed.
+
 .PARAMETER CourseDescription
     Configured description displayed above the Trygga möten table.
 
@@ -248,6 +251,9 @@ function ConvertTo-SNSMandatoryMomentReportHtml
         [int]$ValidityYears,
 
         [Parameter()]
+        [int]$DaysBefore = 0,
+
+        [Parameter()]
         [string]$CourseDescription,
 
         [Parameter()]
@@ -284,7 +290,7 @@ function ConvertTo-SNSMandatoryMomentReportHtml
         }
     }
 
-    $cutoffDate = $AsOfDate.Date.AddYears(-$ValidityYears)
+    $cutoffDate = $AsOfDate.Date.AddYears(-$ValidityYears).AddDays($DaysBefore)
     $moments = @(
         @{ Field = 'pc_course_89'; Name = 'Trygga möten'; Description = $CourseDescription; Exempt = @($CourseExemptMembers | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { "$_".Trim() }) }
         @{ Field = 'latest_police_check'; Name = 'Registerutdrag'; Description = $PoliceCheckDescription; Exempt = @($PoliceCheckExemptMembers | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { "$_".Trim() }) }
@@ -295,7 +301,7 @@ function ConvertTo-SNSMandatoryMomentReportHtml
     [void]$html.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
     [void]$html.AppendLine('<style>body{font-family:Arial,sans-serif;color:#222}table{border-collapse:collapse;width:100%;margin-bottom:2em}th,td{border:1px solid #bbb;padding:6px;text-align:left}th{background:#eee}section{margin-bottom:2em}</style>')
     [void]$html.AppendLine('</head><body>')
-    $inclusionReason = "En medlem är med i listan om medlemmen är äldre än $MinimumAge år, har minst en kår- eller avdelningsroll och det var minst $ValidityYears år sedan momentet gjordes."
+    $inclusionReason = "En medlem är med i listan om medlemmen är äldre än $MinimumAge år, har minst en kår- eller avdelningsroll och det var minst $ValidityYears år sedan momentet gjordes eller det upphör inom $DaysBefore dagar."
     $inclusionReason = [System.Net.WebUtility]::HtmlEncode($inclusionReason)
     [void]$html.AppendLine("<p>$inclusionReason</p>")
 
@@ -570,6 +576,7 @@ function Send-SNSMandatoryMomentReport
         -Memberlist $Memberlist `
         -MinimumAge $Configuration.MandatoryMomentMinimumAge `
         -ValidityYears $Configuration.MandatoryMomentValidityYears `
+        -DaysBefore $Configuration.MandatoryMomentDaysBefore `
         -CourseDescription $Configuration.MandatoryMomentCourseDescription `
         -PoliceCheckDescription $Configuration.MandatoryMomentPoliceCheckDescription `
         -ExcludedRoles $Configuration.MandatoryMomentExcludedRoles `

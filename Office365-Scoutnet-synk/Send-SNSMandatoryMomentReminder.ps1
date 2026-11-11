@@ -373,7 +373,7 @@ function Send-SNSMandatoryMomentReminder
         [string]$FrequencyOverride
     )
 
-    # Reminder-specific settings fall back to the report settings when not configured.
+    # Reminder-specific settings fall back to the report/base settings when not configured.
     if (-not [string]::IsNullOrWhiteSpace($FrequencyOverride))
     {
         $frequency = $FrequencyOverride
@@ -386,6 +386,7 @@ function Send-SNSMandatoryMomentReminder
     $validityYears = if ($Configuration.MandatoryMomentReminderValidityYears -gt 0) { $Configuration.MandatoryMomentReminderValidityYears } else { $Configuration.MandatoryMomentValidityYears }
     $reminderRoles = @($Configuration.MandatoryMomentReminderExcludedRoles | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
     $excludedRoles = if ($reminderRoles.Count -gt 0) { $reminderRoles } else { $Configuration.MandatoryMomentExcludedRoles }
+    $daysBefore = if ($Configuration.MandatoryMomentReminderDaysBefore -ne 0) { $Configuration.MandatoryMomentReminderDaysBefore } else { $Configuration.MandatoryMomentDaysBefore }
 
     if ($frequency -notin @('Monthly', 'Weekly', 'Daily'))
     {
@@ -399,9 +400,9 @@ function Send-SNSMandatoryMomentReminder
     {
         throw 'MandatoryMomentValidityYears must be at least one.'
     }
-    if ($Configuration.MandatoryMomentReminderDaysBefore -lt 0)
+    if ($daysBefore -lt 0)
     {
-        throw 'MandatoryMomentReminderDaysBefore must be zero or greater.'
+        throw 'MandatoryMomentDaysBefore or MandatoryMomentReminderDaysBefore must be zero or greater.'
     }
     if ([string]::IsNullOrWhiteSpace($Configuration.EmailFromAddress))
     {
@@ -452,7 +453,7 @@ function Send-SNSMandatoryMomentReminder
         -Memberlist $Memberlist `
         -MinimumAge $minimumAge `
         -ValidityYears $validityYears `
-        -DaysBefore $Configuration.MandatoryMomentReminderDaysBefore `
+        -DaysBefore $daysBefore `
         -ExcludedRoles $excludedRoles `
         -CourseExemptMembers $Configuration.MandatoryMomentCourseExemptMembers `
         -PoliceCheckExemptMembers $Configuration.MandatoryMomentPoliceCheckExemptMembers `

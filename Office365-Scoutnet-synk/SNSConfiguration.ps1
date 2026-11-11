@@ -33,11 +33,12 @@
     [string[]]$MandatoryMomentExcludedRoles = @()
     [string[]]$MandatoryMomentCourseExemptMembers = @()
     [string[]]$MandatoryMomentPoliceCheckExemptMembers = @()
+    [int]$MandatoryMomentDaysBefore = 30
     [string]$MandatoryMomentReminderFrequency = ''
     [int]$MandatoryMomentReminderMinimumAge = 0
     [int]$MandatoryMomentReminderValidityYears = 0
     [string[]]$MandatoryMomentReminderExcludedRoles = @()
-    [int]$MandatoryMomentReminderDaysBefore = 30
+    [int]$MandatoryMomentReminderDaysBefore = 0
     [string[]]$MandatoryMomentReminderCc = @()
     [string]$MandatoryMomentReminderSubject = 'Påminnelse: obligatoriska moment'
     [string]$MandatoryMomentReminderHeading = 'Påminnelse om obligatoriska moment'

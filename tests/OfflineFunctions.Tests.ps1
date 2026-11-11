@@ -278,7 +278,7 @@ Describe 'Mandatory moment report' {
         $html | Should -Match '<h2>Registerutdrag</h2>'
         $html | Should -Match '<p>Kursbeskrivning f&#246;r rapporten</p>'
         $html | Should -Match '<p>Registerkontrollbeskrivning f&#246;r rapporten</p>'
-        $reason = '<p>En medlem &#228;r med i listan om medlemmen &#228;r &#228;ldre &#228;n 15 &#229;r, har minst en k&#229;r- eller avdelningsroll och det var minst 3 &#229;r sedan momentet gjordes.</p>'
+        $reason = '<p>En medlem &#228;r med i listan om medlemmen &#228;r &#228;ldre &#228;n 15 &#229;r, har minst en k&#229;r- eller avdelningsroll och det var minst 3 &#229;r sedan momentet gjordes eller det upph&#246;r inom 0 dagar.</p>'
         ([regex]::Matches($html, [regex]::Escape($reason))).Count | Should -Be 1
         $html.IndexOf($reason) | Should -BeLessThan $html.IndexOf('<h2>Trygga möten</h2>')
         $html | Should -Not -Match 'Filtrera listan'
