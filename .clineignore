@@ -1,0 +1,26 @@
+#### Saved Scoutnet API dumps (large payloads & potential PII)
+
+ScoutnetJson/
+**/ScoutnetJson/** 
+
+#### Log files and run summaries
+
+*.log
+scoutnetSync.log 
+
+#### Large test fixtures and build/package artifacts
+
+tests/fixtures/**/*.json
+*.zip
+*.nupkg 
+
+#### Local secrets, credentials, and environment overrides
+
+.env
+*.local.ps1
+*secret*
+*credential* 
+
+#### Git and editor cache
+
+.git/

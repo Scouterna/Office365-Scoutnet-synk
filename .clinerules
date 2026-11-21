@@ -1,0 +1,84 @@
+#### Project Overview
+
+Office365-Scoutnet-synk (v3.2.0) is a PowerShell 7.6+ module that synchronizes Scoutnet members, leader roles, and mailing lists with Microsoft 365 user accounts, distribution lists, Microsoft 365 groups, Teams, and shared mailboxes, and sends compliance reports/reminders for mandatory requirements (*Trygga möten* and *registerutdrag*). Scripts run both locally and as Azure Automation Runbooks (using Managed Identity). 
+
+#### Agent Workflow & Token Efficiency
+
+* **Never read raw data exports or logs:** Do not read or search files inside ScoutnetJson/, tests/fixtures/, or *.log files unless explicitly asked.
+* **Run targeted checks after edits:** Before finishing a task, run Invoke-ScriptAnalyzer with -Settings .\PSScriptAnalyzerSettings.psd1 on modified .ps1/.psm1/.psd1 files and run the relevant Pester test file (Invoke-Pester -Path .\tests\<File>.Tests.ps1).
+* **Keep edits focused:** Only modify files directly relevant to the task and preserve existing formatting and Swedish documentation conventions.
+* **Minimize context tokens:** Never read an entire `.psm1` or `.Tests.ps1` file if it exceeds 200 lines. Use `search_files` or `Select-String` first, then read only the specific line range needed.
+* **Batch commands:** Combine `Invoke-ScriptAnalyzer` and `Invoke-Pester` into a single terminal command instead of separate turns.
+* **Keep responses concise:** Output brief summaries rather than repeating full file contents.
+
+#### Runtime & Exact Module Dependencies
+
+* **PowerShell:** Minimum 7.6 (PowerShellVersion = '7.6'). Never introduce Windows PowerShell 5.1 syntax or legacy MSOnline / AzureAD cmdlets.
+* **Required Modules (Exact Versions):** 
+
+  * Microsoft.Graph.Authentication 2.41.2
+  * Microsoft.Graph.Users 2.41.2
+  * Microsoft.Graph.Users.Actions 2.41.2
+  * Microsoft.Graph.Groups 2.41.2
+  * Microsoft.Graph.Teams 2.41.2
+  * Microsoft.Graph.Identity.DirectoryManagement 2.41.2
+  * ExchangeOnlineManagement 3.10.1
+* **Exchange Command Allowlist:** Connect-SnSOffice365 connects to Exchange Online with an explicit list of permitted commands ($conf.commandNames). Whenever a new Exchange Online cmdlet is used in module code, add it to commandNames so Azure Automation Managed Identity sessions can invoke it.
+
+#### Module Architecture & Public Surface
+
+* **Exported Functions (13 total — never export internal helpers or $SNSConf):** 
+
+  * Configuration & Auth: New-SNSConfiguration, Set-SNSConfiguration, Connect-SnSOffice365, Disconnect-SnSOffice365
+  * Sync Operations: Invoke-SNSUppdateOffice365User, SNSUpdateExchangeDistributionGroups, Update-SNMicrosoft365Group, Update-SNSharedMailbox
+  * Mandatory Moments: Send-SNSMandatoryMomentReport, Send-SNSMandatoryMomentReminder, Invoke-SNSMandatoryMomentReportAndReminder
+  * Logging & Summary: Write-SNSLog, Get-SNSRunSummary
+* **Fail-Fast Config Validation:** Validate all rule hashtables (MailListSettings, Microsoft365GroupSettings, SharedMailboxSettings) up front before fetching external data or mutating Microsoft 365 state.
+* **Member Linking:** Scoutnet members are linked to Microsoft 365 accounts via their Scoutnet member ID stored in CustomAttribute1.
+
+#### Mandatory PSScriptAnalyzer Rules (PSScriptAnalyzerSettings.psd1)
+
+CI fails on any warning or error across these 10 rules: 
+
+1. **PSAvoidDefaultValueSwitchParameter**: Never assign a default value (= $true or = $false) to [switch] parameters.
+2. **PSMisleadingBacktick**: Never leave trailing spaces after a line-continuation backtick (`).
+3. **PSMissingModuleManifestField**: Keep all required fields intact when editing Office365-Scoutnet-synk.psd1.
+4. **PSReservedCmdletChar**: Do not use reserved characters in function names.
+5. **PSReservedParams**: Never define custom parameters colliding with PowerShell common parameters (Verbose, Debug, ErrorAction, WhatIf, Confirm, etc.).
+6. **PSShouldProcess**: Functions declaring SupportsShouldProcess must call $PSCmdlet.ShouldProcess(...) before making changes, and functions calling ShouldProcess must declare SupportsShouldProcess.
+7. **PSUseApprovedVerbs**: Use standard PowerShell approved verbs (Get-Verb) for all new functions.
+8. **PSAvoidUsingCmdletAliases**: Always write full cmdlet and parameter names (ForEach-Object, Where-Object, Select-Object, Get-ChildItem)—never use aliases (%, ?, select, gci, cd, rm).
+9. **PSUseDeclaredVarsMoreThanAssignments**: Never leave unused local variables.
+10. **PSAvoidTrailingWhitespace**: Strip all trailing spaces and tabs from every line.
+
+#### Additional PowerShell Standards
+
+* **Dual-Environment Execution:** Core module code must run unattended in Azure Automation Runbooks (-ManagedIdentity) and locally. Never use Read-Host inside the module.
+* **Array Preservation:** Prevent single-item array unwrapping when returning collections (Write-Output -NoEnumerate or unary comma , $array).
+* **Logging & Error Handling:** Use Write-SNSLog for operational logging and wrap external API calls (Scoutnet REST API, Microsoft Graph, Exchange Online) in try/catch blocks with -ErrorAction Stop. Never log secrets, tokens, or sensitive personal data.
+
+#### Pester v5 Testing Conventions (tests/**/*.Tests.ps1)
+
+* **Module Lifecycle:** Import ..\Office365-Scoutnet-synk\Office365-Scoutnet-synk.psm1 in BeforeAll via $PSScriptRoot and call Remove-Module Office365-Scoutnet-synk -ErrorAction SilentlyContinue in AfterAll.
+* **Scope & Stubs:** Wrap unit tests inside InModuleScope Office365-Scoutnet-synk { ... }. Always define lightweight function <CmdletName> { param(...) } stubs (matching parameter names and [switch] types) before calling Mock <CmdletName> so tests pass on CI runners without external modules loaded.
+* **State & Assertions:** Reset $script:SNSConf = [SNSConfiguration]::new() inside each It block when testing config-dependent code. Mock Write-SNSLog {} to prevent file I/O. Use Pester v5 syntax (Should -Invoke ... -Times N -Exactly, { ... } | Should -Throw '*...*', @(...).Count | Should -Be N).
+* **Privacy & Language:** Use example.org or example.se in tests, sanitize real payloads with anonymize_json.py, and write user-facing docs, wiki pages, ReleaseNotes, and default email templates in **Swedish**.
+
+#### Documentation & Wiki (Office365-Scoutnet-synk.wiki)
+
+* **Location:** The Swedish user documentation lives in the sibling workspace folder Office365-Scoutnet-synk.wiki (cloned from https://github.com/Scouterna/Office365-Scoutnet-synk.wiki.git).
+* **Sync Docs with Code Changes:** Whenever you add, rename, or change a configuration setting, exported function, parameter, or behavior in Office365-Scoutnet-synk, update the corresponding Swedish Markdown file(s) in Office365-Scoutnet-synk.wiki (and follow .markdownlint.json): 
+    * Home.md, _Sidebar.md & Manual.md: Wiki entrypoints, navigation sidebar, and manual overview
+    * Manual-Konfiguration.md: New-SNSConfiguration, Set-SNSConfiguration, Connect-SnSOffice365, Disconnect-SnSOffice365, and global $conf settings
+    * Manual-Användarkonton.md: User account sync (Invoke-SNSUppdateOffice365User)
+    * Manual-Distributionsgrupper.md: Distribution lists (SNSUpdateExchangeDistributionGroups, $conf.MailListSettings)
+    * Manual-Microsoft-365-grupper.md: M365 groups, security groups, and Teams (Update-SNMicrosoft365Group, $conf.Microsoft365GroupSettings)
+    * Manual-Delade-mailboxar.md: Shared mailboxes (Update-SNSharedMailbox, $conf.SharedMailboxSettings)
+    * Manual-Obligatoriska-moment.md: Reports & reminders (Send-SNSMandatoryMomentReport, Send-SNSMandatoryMomentReminder, Invoke-SNSMandatoryMomentReportAndReminder)
+    * Manual-Körningssammanfattning.md: Run summary output (Get-SNSRunSummary)
+    * Microsoft-Azure-Runbook.md & Körning-på-dator.md: Azure Automation Runbook and local execution guides
+    * Ny-version.md: Upgrade instructions and version requirements
+    * Test.md, Automatiserade-tester.md & Anonymisera-nedladdade-JSON-filer.md: -WhatIf testing, Pester tests, and JSON anonymization
+    * Teknik.md & Support.md: Technical clarifications and support info
+* **GitHub Issues:** When creating or updating GitHub issues using `gh issue create` or `gh issue edit`, model issue descriptions on existing well-structured issues (such as #78 for feature requests) using Swedish headings like "Är din idé relaterad till ett problem?", "Beskriv hur idén kan implementeras", code examples, expected capabilities, and technical references.
+* **Token Efficiency:** Only read the specific wiki .md file(s) relevant to the feature being modified—never read all 18 wiki files at once. (Note that Funktionsreferens is auto-generated and published to GitHub Pages, not stored as a file in the wiki repo.)
