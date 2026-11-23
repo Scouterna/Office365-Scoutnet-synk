@@ -250,6 +250,12 @@ function Test-SNMicrosoft365RoleGroupMatch
         $groupRoles = Get-SNMicrosoft365Value -Object $roleData -Name 'group'
         $actualRoles = @(Get-SNMicrosoft365RoleName -RoleData $groupRoles)
         $configuredRoles = @((Get-SNMicrosoft365Value -Object $Setting -Name 'roles') | ForEach-Object { [string]$_ })
+
+        if (@($actualRoles | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count -eq 0 -and $configuredRoles.Count -gt 0 -and $configuredRoles -ne '*')
+        {
+            Write-SNSLog -Level 'Warn' "None of the configured roles ($($configuredRoles -join ', ')) were found among any members for group rule '$Setting'."
+        }
+
         return Test-SNMicrosoft365ConfiguredRole -ActualRoles $actualRoles -ConfiguredRoles $configuredRoles
     }
 
@@ -264,11 +270,23 @@ function Test-SNMicrosoft365RoleGroupMatch
         return $false
     }
 
+    $allActualTroopRoles = @()
+    foreach ($troopEntry in $troopRoles.Values)
+    {
+        $allActualTroopRoles += @(Get-SNMicrosoft365RoleName -RoleData $troopEntry)
+    }
+
     foreach ($troopSetting in @(Get-SNMicrosoft365Value -Object $Setting -Name 'troops'))
     {
         $configuredId = [string](Get-SNMicrosoft365Value -Object $troopSetting -Name 'id')
         $configuredName = [string](Get-SNMicrosoft365Value -Object $troopSetting -Name 'name')
         $configuredRoles = @((Get-SNMicrosoft365Value -Object $troopSetting -Name 'roles') | Where-Object { $null -ne $_ } | ForEach-Object { [string]$_ })
+
+        if ($configuredRoles.Count -gt 0 -and $configuredRoles -ne '*' -and @($allActualTroopRoles | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count -eq 0)
+        {
+            Write-SNSLog -Level 'Warn' "None of the configured roles ($($configuredRoles -join ', ')) were found among any members for troop rule '$($troopSetting | ConvertTo-Json -Compress)'."
+        }
+
         if ($configuredRoles.Count -eq 0)
         {
             continue
