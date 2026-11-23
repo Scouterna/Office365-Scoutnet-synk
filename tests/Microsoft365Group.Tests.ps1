@@ -623,4 +623,74 @@ Describe 'Update-SNMicrosoft365Group' {
                 Should -Throw '*team_owners*'
         }
     }
+    It 'adds additional owners from team_owners_role when create_team is set' {
+        InModuleScope Office365-Scoutnet-synk {
+            function Get-EXOMailbox {}
+            function Get-MgGroup { param($Filter, $Property, $All, $ErrorAction) }
+            function Get-MgGroupMember { param($GroupId, $All, $ErrorAction) }
+            function Get-MgGroupOwner { param($GroupId, $All, $ErrorAction) }
+            function Get-MgUser { param($UserId, $Property, $ErrorAction) }
+            function New-MgGroupOwnerByRef { param($GroupId, $OdataId, $ErrorAction) }
+            function New-MgTeam { param($BodyParameter, $ErrorAction) }
+
+            $configuration = [SNSConfiguration]::new()
+            $configuration.CredentialMemberlist = [pscredential]::new(
+                'test',
+                (ConvertTo-SecureString 'test' -AsPlainText -Force)
+            )
+            $configuration.Microsoft365GroupSettings = @{
+                'Styrelsen' = @{
+                    source = 'group_roles'
+                    mail_nickname = 'styrelsen'
+                    roles = @('Ordförande')
+                    create_team = $true
+                    team_owners = @('admin@example.org')
+                    team_owners_role = @('Kassör')
+                }
+            }
+            $memberlist = @{
+                data = @{
+                    member2 = @{
+                        member_no = @{ value = 'member-2' }
+                        roles = @{ value = @{ group = @{ g1 = @{ r2 = @{ role_name = 'Kassör' } } }; troop = @{} } }
+                    }
+                }
+            }
+            $existingGroup = [pscustomobject]@{
+                Id = 'group-1'
+                DisplayName = 'Styrelsen'
+                GroupTypes = @('Unified')
+                MailEnabled = $true
+                ResourceProvisioningOptions = @()
+            }
+
+            Mock Get-SNSApiGroupMemberlist { return $memberlist }
+            Mock Get-EXOMailbox {
+                return @(
+                    [pscustomobject]@{ CustomAttribute1 = 'member-2'; ExternalDirectoryObjectId = 'user-2' }
+                )
+            }
+            Mock Get-MgGroup { return $existingGroup }
+            Mock Get-MgGroupMember { return @() }
+            Mock Get-MgGroupOwner { return @() }
+            Mock Get-MgUser {
+                param($UserId)
+                if ($UserId -eq 'admin@example.org') { return [pscustomobject]@{ Id = 'owner-1' } }
+                return [pscustomobject]@{ Id = 'user-2' }
+            }
+            Mock New-MgGroupOwnerByRef {}
+            Mock New-MgTeam {}
+            Mock Write-SNSLog {}
+
+            Update-SNMicrosoft365Group -Configuration $configuration
+
+            Should -Invoke New-MgGroupOwnerByRef -Times 2 -Exactly
+            Should -Invoke New-MgGroupOwnerByRef -Times 1 -Exactly -ParameterFilter {
+                $GroupId -eq 'group-1' -and $OdataId -like '*/users/owner-1'
+            }
+            Should -Invoke New-MgGroupOwnerByRef -Times 1 -Exactly -ParameterFilter {
+                $GroupId -eq 'group-1' -and $OdataId -like '*/users/user-2'
+            }
+        }
+    }
 }

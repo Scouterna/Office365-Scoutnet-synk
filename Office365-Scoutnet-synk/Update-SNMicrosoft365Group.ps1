@@ -615,7 +615,13 @@ function Update-SNMicrosoft365Group
           keep_members   Accounts (user principal names or object ids) to add to the group and
                          never remove. Required when source is omitted.
           team_owners    Owners (user principal names or object ids) added to the group when
-                         the team is created. Teams requires the group to have an owner.
+                         the team is created. Teams requires the group to have an owner. This is
+                         required when create_team is $true.
+
+          team_owners_role Role name(s) to select additional team owners from members matching
+                         these roles when source is troop_roles or group_roles. If set, members with
+                         these roles are also added as owners. If no members match these roles, the
+                         explicitly configured team_owners is used as-is. Use '*' to match any role.
 
         source = 'mail_list' (membership from a Scoutnet maillist)
           scoutnet_list_id  Required. Id of the list in Scoutnet.
@@ -679,6 +685,23 @@ function Update-SNMicrosoft365Group
             }
         }
         Update-SNMicrosoft365Group -Configuration $conf
+
+    .EXAMPLE
+        $conf.Microsoft365GroupSettings = @{
+            'Avdelningsledare Äventyrarna' = @{
+                source           = 'troop_roles'
+                mail_nickname    = 'avdelningsledare-aventyrarna'
+                troops           = @(@{ name = 'Äventyrarna'; id = '2'; roles = @('Ledare') })
+                create_team      = $true
+                team_owners      = @('admin@example.org')
+                team_owners_role = @('Avdelningsledare')
+            }
+        }
+        Update-SNMicrosoft365Group -Configuration $conf
+
+        admin@example.org is always an owner. Members of the configured troops that have the
+        Avdelningsledare role are added as additional owners. If no member has that role, only
+        admin@example.org is used.
 
     .EXAMPLE
         $conf.Microsoft365GroupSettings = @{
@@ -1001,16 +1024,79 @@ function Update-SNMicrosoft365Group
             $PSCmdlet.ShouldProcess([string]$groupName, 'Create Microsoft Teams team'))
         {
             $existingOwnerIds = @(Invoke-SNMicrosoft365GraphRetry -Action { Get-MgGroupOwner -GroupId $group.Id -All -ErrorAction Stop }).Id
+            $ownersToAssign = @()
+
+            # Explicit team_owners are always added.
             foreach ($teamOwner in @(Get-SNMicrosoft365Value -Object $setting -Name 'team_owners'))
             {
                 if ([string]::IsNullOrWhiteSpace([string]$teamOwner)) { continue }
                 $ownerId = [string](Get-MgUser -UserId ([string]$teamOwner) -Property Id -ErrorAction Stop).Id
-                if ($existingOwnerIds -notcontains $ownerId)
+                if ($existingOwnerIds -notcontains $ownerId -and $ownersToAssign -notcontains $ownerId)
                 {
-                    Invoke-SNMicrosoft365GraphRetry -Action {
-                        New-MgGroupOwnerByRef -GroupId $group.Id `
-                            -OdataId "https://graph.microsoft.com/v1.0/users/$ownerId" -ErrorAction Stop
+                    $ownersToAssign += $ownerId
+                }
+            }
+
+            # Optionally add members that match team_owners_role as additional owners, using the
+            # same troop_roles/group_roles matching as the group members. If no member matches,
+            # the explicit team_owners above are used as-is.
+            $teamOwnerRoles = @(
+                (Get-SNMicrosoft365Value -Object $setting -Name 'team_owners_role') |
+                    Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } |
+                    ForEach-Object { [string]$_ }
+            )
+            $ownerSource = ([string](Get-SNMicrosoft365Value -Object $setting -Name 'source')).Trim().ToLowerInvariant()
+            if ($teamOwnerRoles.Count -gt 0 -and $null -ne $scoutnetData -and $ownerSource -in @('troop_roles', 'group_roles'))
+            {
+                $ownerSetting = @{}
+                if ($ownerSource -eq 'troop_roles')
+                {
+                    $ownerTroops = @()
+                    foreach ($troopSetting in @(Get-SNMicrosoft365Value -Object $setting -Name 'troops'))
+                    {
+                        $ownerTroop = @{ roles = $teamOwnerRoles }
+                        $troopId = Get-SNMicrosoft365Value -Object $troopSetting -Name 'id'
+                        $troopName = Get-SNMicrosoft365Value -Object $troopSetting -Name 'name'
+                        if (-not [string]::IsNullOrWhiteSpace([string]$troopId)) { $ownerTroop.id = [string]$troopId }
+                        if (-not [string]::IsNullOrWhiteSpace([string]$troopName)) { $ownerTroop.name = [string]$troopName }
+                        $ownerTroops += $ownerTroop
                     }
+                    $ownerSetting.troops = $ownerTroops
+                }
+                else
+                {
+                    $ownerSetting.roles = $teamOwnerRoles
+                }
+
+                foreach ($memberEntry in $scoutnetData.Memberlist.data.GetEnumerator())
+                {
+                    $member = $memberEntry.Value
+                    if (-not (Test-SNMicrosoft365RoleGroupMatch -Member $member -Source $ownerSource `
+                        -Setting $ownerSetting -UnitNamesById $scoutnetData.UnitNamesById))
+                    {
+                        continue
+                    }
+                    $ownerMemberId = [string](Get-SNMicrosoft365Value -Object $member.member_no -Name 'value')
+                    if ([string]::IsNullOrWhiteSpace($ownerMemberId)) { $ownerMemberId = [string]$memberEntry.Key }
+                    if ([string]::IsNullOrWhiteSpace($ownerMemberId) -or
+                        -not $office365UsersByScoutnetId.ContainsKey($ownerMemberId))
+                    {
+                        continue
+                    }
+                    $ownerId = [string]$office365UsersByScoutnetId[$ownerMemberId].ExternalDirectoryObjectId
+                    if (-not [string]::IsNullOrWhiteSpace($ownerId) -and
+                        $existingOwnerIds -notcontains $ownerId -and $ownersToAssign -notcontains $ownerId)
+                    {
+                        $ownersToAssign += $ownerId
+                    }
+                }
+            }
+
+            foreach ($ownerId in $ownersToAssign)
+            {
+                Invoke-SNMicrosoft365GraphRetry -Action {
+                    New-MgGroupOwnerByRef -GroupId $group.Id `
+                        -OdataId "https://graph.microsoft.com/v1.0/users/$ownerId" -ErrorAction Stop
                 }
             }
 
